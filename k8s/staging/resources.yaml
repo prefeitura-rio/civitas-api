@@ -86,10 +86,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - staging.civitas.dados.rio
+        - staging.api.civitas.dados.rio
       secretName: civitas-api-staging-tls
   rules:
-    - host: staging.civitas.dados.rio
+    - host: staging.api.civitas.dados.rio
       http:
         paths:
           - path: /
