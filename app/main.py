@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Data Relay API",
+    title="CIVITAS API",
     lifespan=lifespan,
 )
 app.state.limiter = limiter
