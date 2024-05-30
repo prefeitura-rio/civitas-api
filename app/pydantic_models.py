@@ -35,6 +35,7 @@ class Token(BaseModel):
 
 
 class Properties(BaseModel):
+    index_chunk: int
     index: int
     datahora: datetime
     camera_numero: str

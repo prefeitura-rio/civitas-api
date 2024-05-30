@@ -80,7 +80,7 @@ def convert_to_geojson_linestring(coordinates, duration, static_duration, index_
     }
 
 
-def convert_to_geojson_point(locations):
+def convert_to_geojson_point(locations, index_chunk):
     features = []
     for i, location in enumerate(locations):
         features.append(
@@ -91,6 +91,7 @@ def convert_to_geojson_point(locations):
                     "coordinates": [location["longitude"], location["latitude"]],
                 },
                 "properties": {
+                    "index_chunk": index_chunk,
                     "index": i,
                     "datahora": location["datahora"],
                     "camera_numero": location["camera_numero"],
@@ -150,14 +151,14 @@ async def get_path(placa: str, min_datetime: pendulum.DateTime, max_datetime: pe
         final_paths_chunks.append(route)
 
     path = {
-        "locationsGeojson": convert_to_geojson_point(locations=locations),
+        "locationsGeojson": convert_to_geojson_point(locations=locations, index_chunk=i),
         "polylineGeojson": convert_to_geojson_linestring(
             coordinates=coordinates,
             duration=total_duration,
             static_duration=total_duration_static,
             index_chunk=0,
         ),
-        "locationsChunksGeojson": [locations_geojson_chunks],
+        "locationsChunksGeojson": locations_geojson_chunks,
         "polylineChunksGeojson": polyline_geojson_chunks,
     }
 
@@ -291,7 +292,9 @@ async def get_route_path(
         index_chunk=index_chunk,
     )
 
-    route["locationsGeojson"] = convert_to_geojson_point(locations=locations)
+    route["locationsGeojson"] = convert_to_geojson_point(
+        locations=locations, index_chunk=index_chunk
+    )
 
     return route
 
