@@ -66,44 +66,6 @@ def build_positions_query(
     return query
 
 
-def convert_to_geojson_linestring(coordinates, duration, static_duration, index_chunk, index_trip):
-    return {
-        "type": "Feature",
-        "geometry": {
-            "type": "LineString",
-            "coordinates": [(point["lng"], point["lat"]) for point in coordinates],
-        },
-        "properties": {
-            "index_trip": index_trip,
-            "index_chunk": index_chunk,
-            "duration": duration,
-            "staticDuration": static_duration,
-        },
-    }
-
-
-def convert_to_geojson_point(locations, index_chunk, index_trip):
-    features = []
-    for i, location in enumerate(locations):
-        features.append(
-            {
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [location["longitude"], location["latitude"]],
-                },
-                "properties": {
-                    "index_trip": index_trip,
-                    "index_chunk": index_chunk,
-                    "index": i,
-                    "datahora": location["datahora"],
-                    "camera_numero": location["camera_numero"],
-                },
-            }
-        )
-    return {"type": "FeatureCollection", "features": features}
-
-
 def get_bigquery_client() -> bigquery.Client:
     """Get the BigQuery client.
 
@@ -182,6 +144,44 @@ def get_trips_chunks(locations, max_time_interval):
     return chunks
 
 
+def convert_to_geojson_linestring(coordinates, duration, static_duration, index_chunk, index_trip):
+    return {
+        "type": "Feature",
+        "geometry": {
+            "type": "LineString",
+            "coordinates": [(point["lng"], point["lat"]) for point in coordinates],
+        },
+        "properties": {
+            "index_trip": index_trip,
+            "index_chunk": index_chunk,
+            "duration": duration,
+            "staticDuration": static_duration,
+        },
+    }
+
+
+def convert_to_geojson_point(locations, index_chunk, index_trip):
+    features = []
+    for i, location in enumerate(locations):
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [location["longitude"], location["latitude"]],
+                },
+                "properties": {
+                    "index_trip": index_trip,
+                    "index_chunk": index_chunk,
+                    "index": i,
+                    "datahora": location["datahora"],
+                    "camera_numero": location["camera_numero"],
+                },
+            }
+        )
+    return {"type": "FeatureCollection", "features": features}
+
+
 async def get_path(placa: str, min_datetime: pendulum.DateTime, max_datetime: pendulum.DateTime):
     # TODO: cache path
     locations_interval = (await get_positions(placa, min_datetime, max_datetime))["locations"]
@@ -214,13 +214,6 @@ async def get_path(placa: str, min_datetime: pendulum.DateTime, max_datetime: pe
         locations_geojson_trips.append(locations_geojson_chunks)
 
     path = {
-        # "locationsGeojson": convert_to_geojson_point(locations=locations, index_chunk=i),
-        # "polylineGeojson": convert_to_geojson_linestring(
-        #     coordinates=coordinates,
-        #     duration=total_duration,
-        #     static_duration=total_duration_static,
-        #     index_chunk=0,
-        # ),
         "polylineChunksGeojson": polyline_geojson_trips,
         "locationsChunksGeojson": locations_geojson_trips,
     }

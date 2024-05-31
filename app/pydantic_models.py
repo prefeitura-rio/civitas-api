@@ -77,7 +77,5 @@ class PolylineGeojson(BaseModel):
 
 
 class Path(BaseModel):
-    # locationsGeojson: LocationsGeojson
-    # polylineGeojson: PolylineGeojson
     locationsChunksGeojson: List[List[LocationsGeojson]]
     polylineChunksGeojson: List[List[PolylineGeojson]]
