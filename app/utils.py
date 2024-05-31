@@ -2,7 +2,6 @@
 import asyncio
 import base64
 from contextlib import AbstractAsyncContextManager
-from datetime import datetime
 from types import ModuleType
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -11,6 +10,7 @@ import orjson as json
 import pendulum
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi_cache.decorator import cache as cache_decorator
 from google.cloud import bigquery
 from google.cloud.bigquery.table import Row
 from google.oauth2 import service_account
@@ -152,11 +152,8 @@ def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials
 
 
 def get_trips_chunks(locations, max_time_interval):
-    def converter_datahora(datahora_str):
-        return datetime.strptime(datahora_str, "%Y-%m-%dT%H:%M:%S")
-
     for point in locations:
-        point["datetime"] = converter_datahora(point["datahora"])
+        point["datetime"] = point["datahora"]
 
     chunks = []
     current_chunk = [locations[0]]
@@ -182,8 +179,8 @@ def get_trips_chunks(locations, max_time_interval):
     return chunks
 
 
+@cache_decorator(expire=config.CACHE_CAR_PATH_TTL)
 async def get_path(placa: str, min_datetime: pendulum.DateTime, max_datetime: pendulum.DateTime):
-    # TODO: cache path
     locations_interval = (await get_positions(placa, min_datetime, max_datetime))["locations"]
     locations_trips = get_trips_chunks(locations=locations_interval, max_time_interval=60 * 60)
 

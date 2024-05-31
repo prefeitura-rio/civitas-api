@@ -39,4 +39,5 @@ GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST = getenv_or_action(
 )
 
 # Cache configuration
+CACHE_CAR_PATH_TTL = int(getenv_or_action("CACHE_CAR_PATH_TTL", default=60 * 10))
 CACHE_CAR_POSITIONS_TTL = int(getenv_or_action("CACHE_CAR_POSITIONS_TTL", default=60 * 10))
