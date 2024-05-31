@@ -66,32 +66,6 @@ def build_positions_query(
     return query
 
 
-def get_bigquery_client() -> bigquery.Client:
-    """Get the BigQuery client.
-
-    Returns:
-        bigquery.Client: The BigQuery client.
-    """
-    credentials = get_gcp_credentials()
-    return bigquery.Client(credentials=credentials, project=credentials.project_id)
-
-
-def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials:
-    """Get the GCP credentials.
-
-    Args:
-        scopes (List[str], optional): The scopes to use. Defaults to None.
-
-    Returns:
-        service_account.Credentials: The GCP credentials.
-    """
-    info: dict = json.loads(base64.b64decode(config.GCP_SERVICE_ACCOUNT_CREDENTIALS))
-    creds = service_account.Credentials.from_service_account_info(info)
-    if scopes:
-        creds = creds.with_scopes(scopes)
-    return creds
-
-
 def chunk_locations(locations, N):
     if not locations or N <= 0:
         return []
@@ -109,37 +83,6 @@ def chunk_locations(locations, N):
             previous_chunk = chunks[-1]
             current_chunk = [previous_chunk[-1]] + locations[i : i + N - 1]
             chunks.append(current_chunk)
-
-    return chunks
-
-
-def get_trips_chunks(locations, max_time_interval):
-    def converter_datahora(datahora_str):
-        return datetime.strptime(datahora_str, "%Y-%m-%dT%H:%M:%S")
-
-    for point in locations:
-        point["datetime"] = converter_datahora(point["datahora"])
-
-    chunks = []
-    current_chunk = [locations[0]]
-
-    for i in range(1, len(locations)):
-        point_anterior = locations[i - 1]
-        point_atual = locations[i]
-
-        diferenca_tempo = (point_atual["datetime"] - point_anterior["datetime"]).total_seconds()
-
-        if diferenca_tempo > max_time_interval:
-            chunks.append(current_chunk)
-            current_chunk = [point_atual]
-        else:
-            current_chunk.append(point_atual)
-
-    chunks.append(current_chunk)
-
-    for chunk in chunks:
-        for point in chunk:
-            point.pop("datetime")
 
     return chunks
 
@@ -180,6 +123,63 @@ def convert_to_geojson_point(locations, index_chunk, index_trip):
             }
         )
     return {"type": "FeatureCollection", "features": features}
+
+
+def get_bigquery_client() -> bigquery.Client:
+    """Get the BigQuery client.
+
+    Returns:
+        bigquery.Client: The BigQuery client.
+    """
+    credentials = get_gcp_credentials()
+    return bigquery.Client(credentials=credentials, project=credentials.project_id)
+
+
+def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials:
+    """Get the GCP credentials.
+
+    Args:
+        scopes (List[str], optional): The scopes to use. Defaults to None.
+
+    Returns:
+        service_account.Credentials: The GCP credentials.
+    """
+    info: dict = json.loads(base64.b64decode(config.GCP_SERVICE_ACCOUNT_CREDENTIALS))
+    creds = service_account.Credentials.from_service_account_info(info)
+    if scopes:
+        creds = creds.with_scopes(scopes)
+    return creds
+
+
+def get_trips_chunks(locations, max_time_interval):
+    def converter_datahora(datahora_str):
+        return datetime.strptime(datahora_str, "%Y-%m-%dT%H:%M:%S")
+
+    for point in locations:
+        point["datetime"] = converter_datahora(point["datahora"])
+
+    chunks = []
+    current_chunk = [locations[0]]
+
+    for i in range(1, len(locations)):
+        point_anterior = locations[i - 1]
+        point_atual = locations[i]
+
+        diferenca_tempo = (point_atual["datetime"] - point_anterior["datetime"]).total_seconds()
+
+        if diferenca_tempo > max_time_interval:
+            chunks.append(current_chunk)
+            current_chunk = [point_atual]
+        else:
+            current_chunk.append(point_atual)
+
+    chunks.append(current_chunk)
+
+    for chunk in chunks:
+        for point in chunk:
+            point.pop("datetime")
+
+    return chunks
 
 
 async def get_path(placa: str, min_datetime: pendulum.DateTime, max_datetime: pendulum.DateTime):
