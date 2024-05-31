@@ -2,6 +2,7 @@
 import asyncio
 import base64
 from contextlib import AbstractAsyncContextManager
+from datetime import datetime
 from types import ModuleType
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -65,7 +66,7 @@ def build_positions_query(
     return query
 
 
-def convert_to_geojson_linestring(coordinates, duration, static_duration, index_chunk):
+def convert_to_geojson_linestring(coordinates, duration, static_duration, index_chunk, index_trip):
     return {
         "type": "Feature",
         "geometry": {
@@ -73,6 +74,7 @@ def convert_to_geojson_linestring(coordinates, duration, static_duration, index_
             "coordinates": [(point["lng"], point["lat"]) for point in coordinates],
         },
         "properties": {
+            "index_trip": index_trip,
             "index_chunk": index_chunk,
             "duration": duration,
             "staticDuration": static_duration,
@@ -80,7 +82,7 @@ def convert_to_geojson_linestring(coordinates, duration, static_duration, index_
     }
 
 
-def convert_to_geojson_point(locations, index_chunk):
+def convert_to_geojson_point(locations, index_chunk, index_trip):
     features = []
     for i, location in enumerate(locations):
         features.append(
@@ -91,6 +93,7 @@ def convert_to_geojson_point(locations, index_chunk):
                     "coordinates": [location["longitude"], location["latitude"]],
                 },
                 "properties": {
+                    "index_trip": index_trip,
                     "index_chunk": index_chunk,
                     "index": i,
                     "datahora": location["datahora"],
@@ -148,40 +151,78 @@ def chunk_locations(locations, N):
     return chunks
 
 
+def get_trips_chunks(locations, max_time_interval):
+    def converter_datahora(datahora_str):
+        return datetime.strptime(datahora_str, "%Y-%m-%dT%H:%M:%S")
+
+    for point in locations:
+        point["datetime"] = converter_datahora(point["datahora"])
+
+    chunks = []
+    current_chunk = [locations[0]]
+
+    for i in range(1, len(locations)):
+        point_anterior = locations[i - 1]
+        point_atual = locations[i]
+
+        diferenca_tempo = (point_atual["datetime"] - point_anterior["datetime"]).total_seconds()
+
+        if diferenca_tempo > max_time_interval:
+            chunks.append(current_chunk)
+            current_chunk = [point_atual]
+        else:
+            current_chunk.append(point_atual)
+
+    chunks.append(current_chunk)
+
+    for chunk in chunks:
+        for point in chunk:
+            point.pop("datetime")
+
+    return chunks
+
+
 async def get_path(placa: str, min_datetime: pendulum.DateTime, max_datetime: pendulum.DateTime):
     # TODO: cache path
-    locations = (await get_positions(placa, min_datetime, max_datetime))["locations"]
+    locations_interval = (await get_positions(placa, min_datetime, max_datetime))["locations"]
+    locations_trips = get_trips_chunks(locations=locations_interval, max_time_interval=60 * 60)
 
-    locations_chunks = chunk_locations(
-        locations=locations, N=config.GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST
-    )
+    locations_geojson_trips = []
+    polyline_geojson_trips = []
+    for j, locations in enumerate(locations_trips):
+        locations_chunks = chunk_locations(
+            locations=locations, N=config.GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST
+        )
 
-    coordinates = []
-    total_duration = 0
-    total_duration_static = 0
-    final_paths_chunks = []
-    polyline_geojson_chunks = []
-    locations_geojson_chunks = []
+        coordinates = []
+        total_duration = 0
+        total_duration_static = 0
+        final_paths_chunks = []
+        polyline_geojson_chunks = []
+        locations_geojson_chunks = []
 
-    for i, location_chunk in enumerate(locations_chunks):
-        route = await get_route_path(locations=location_chunk, index_chunk=i)
-        coordinates += route["coordinates"]
-        total_duration += route["duration"]
-        total_duration_static += route["staticDuration"]
-        polyline_geojson_chunks.append(route["polylineGeojson"])
-        locations_geojson_chunks.append(route["locationsGeojson"])
-        final_paths_chunks.append(route)
+        for i, location_chunk in enumerate(locations_chunks):
+            route = await get_route_path(locations=location_chunk, index_chunk=i, index_trip=j)
+            coordinates += route["coordinates"]
+            total_duration += route["duration"]
+            total_duration_static += route["staticDuration"]
+            polyline_geojson_chunks.append(route["polylineGeojson"])
+            locations_geojson_chunks.append(route["locationsGeojson"])
+            final_paths_chunks.append(route)
+
+        polyline_geojson_trips.append(polyline_geojson_chunks)
+        locations_geojson_trips.append(locations_geojson_chunks)
 
     path = {
-        "locationsGeojson": convert_to_geojson_point(locations=locations, index_chunk=i),
-        "polylineGeojson": convert_to_geojson_linestring(
-            coordinates=coordinates,
-            duration=total_duration,
-            static_duration=total_duration_static,
-            index_chunk=0,
-        ),
-        "locationsChunksGeojson": locations_geojson_chunks,
-        "polylineChunksGeojson": polyline_geojson_chunks,
+        # "locationsGeojson": convert_to_geojson_point(locations=locations, index_chunk=i),
+        # "polylineGeojson": convert_to_geojson_linestring(
+        #     coordinates=coordinates,
+        #     duration=total_duration,
+        #     static_duration=total_duration_static,
+        #     index_chunk=0,
+        # ),
+        "polylineChunksGeojson": polyline_geojson_trips,
+        "locationsChunksGeojson": locations_geojson_trips,
     }
 
     return path
@@ -237,7 +278,7 @@ async def get_positions(
 
 
 async def get_route_path(
-    locations: List[Dict[str, float | pendulum.DateTime]], index_chunk: int
+    locations: List[Dict[str, float | pendulum.DateTime]], index_chunk: int, index_trip: int
 ) -> Dict[str, Union[int, List]]:
     """
     Get the route path between locations.
@@ -312,10 +353,11 @@ async def get_route_path(
         duration=route["duration"],
         static_duration=route["staticDuration"],
         index_chunk=index_chunk,
+        index_trip=index_trip,
     )
 
     route["locationsGeojson"] = convert_to_geojson_point(
-        locations=locations, index_chunk=index_chunk
+        locations=locations, index_chunk=index_chunk, index_trip=index_trip
     )
 
     return route

@@ -35,6 +35,7 @@ class Token(BaseModel):
 
 
 class Properties(BaseModel):
+    index_trip: int
     index_chunk: int
     index: int
     datahora: datetime
@@ -63,6 +64,7 @@ class LineStringGeometry(BaseModel):
 
 
 class LineStringProperties(BaseModel):
+    index_trip: int
     index_chunk: int
     duration: int
     staticDuration: int
@@ -75,7 +77,7 @@ class PolylineGeojson(BaseModel):
 
 
 class Path(BaseModel):
-    locationsGeojson: LocationsGeojson
-    polylineGeojson: PolylineGeojson
-    locationsChunksGeojson: List[LocationsGeojson]
-    polylineChunksGeojson: List[PolylineGeojson]
+    # locationsGeojson: LocationsGeojson
+    # polylineGeojson: PolylineGeojson
+    locationsChunksGeojson: List[List[LocationsGeojson]]
+    polylineChunksGeojson: List[List[PolylineGeojson]]
