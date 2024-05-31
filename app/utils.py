@@ -127,13 +127,35 @@ def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials
     return creds
 
 
+def chunk_locations(locations, N):
+    if not locations or N <= 0:
+        return []
+
+    # Initialize the list to hold chunks
+    chunks = []
+
+    # Start with the first chunk
+    for i in range(0, len(locations), N):
+        # If it's the first chunk, just add it
+        if i == 0:
+            chunks.append(locations[i : i + N])
+        else:
+            # For subsequent chunks, ensure the first element is the last of the previous chunk
+            previous_chunk = chunks[-1]
+            current_chunk = [previous_chunk[-1]] + locations[i : i + N - 1]
+            chunks.append(current_chunk)
+
+    return chunks
+
+
 async def get_path(placa: str, min_datetime: pendulum.DateTime, max_datetime: pendulum.DateTime):
     # TODO: cache path
     locations = (await get_positions(placa, min_datetime, max_datetime))["locations"]
-    locations_chunks = [
-        locations[i : i + config.GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST]
-        for i in range(0, len(locations), config.GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST)
-    ]
+
+    locations_chunks = chunk_locations(
+        locations=locations, N=config.GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST
+    )
+
     coordinates = []
     total_duration = 0
     total_duration_static = 0
