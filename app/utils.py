@@ -50,7 +50,7 @@ def build_positions_query(
         camera_numero,
         camera_longitude AS longitude,
         camera_latitude AS latitude
-    FROM `rj-cetrio.ocr_radar.readings_2024_05`
+    FROM `rj-cetrio.ocr_radar.readings_*`
     WHERE
         placa = "{{placa}}"
         AND TIMESTAMP_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= TIMESTAMP_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
