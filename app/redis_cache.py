@@ -141,6 +141,7 @@ class Cache:
         positions = [
             {key.decode(): value.decode() for key, value in position.items()}
             for position in positions_raw
+            if len(position.keys()) > 0
         ]
         for position in positions:
             position["datahora"] = DateTime.fromisoformat(position["datahora"])
