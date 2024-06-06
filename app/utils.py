@@ -354,7 +354,8 @@ async def get_route_path(
                 "X-Goog-FieldMask": "routes.duration,routes.staticDuration,routes.distanceMeters,routes.polyline.encodedPolyline",
             },
         )
-        route = r.json()["routes"][0]
+        response_json = r.json()
+        route = response_json["routes"][0]
 
     route["duration"] = int(route["duration"].replace("s", ""))
     route["staticDuration"] = int(route["staticDuration"].replace("s", ""))
