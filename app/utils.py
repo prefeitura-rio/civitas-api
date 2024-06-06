@@ -279,6 +279,25 @@ async def get_route_path(
     Returns:
         Dict[str, Union[int, List]]: The route path.
     """
+    # Assert that all locations latitudes and longitudes are floats
+    for location in locations:
+        if not isinstance(location["latitude"], float):
+            latitude = location["latitude"]
+            if isinstance(latitude, bytes):
+                latitude = latitude.decode("utf-8")
+            if isinstance(latitude, str):
+                latitude = latitude.replace("'", "")
+                latitude = latitude.replace('"', "")
+            location["latitude"] = float(latitude)
+        if not isinstance(location["longitude"], float):
+            longitude = location["longitude"]
+            if isinstance(longitude, bytes):
+                longitude = longitude.decode("utf-8")
+            if isinstance(longitude, str):
+                longitude = longitude.replace("'", "")
+                longitude = longitude.replace('"', "")
+            location["longitude"] = float(longitude)
+
     # https://developers.google.com/maps/documentation/routes/reference/rest/v2/TopLevel/computeRoutes
     payload = {
         "origin": {
@@ -314,7 +333,10 @@ async def get_route_path(
         payload["intermediates"] = [
             {
                 "location": {
-                    "latLng": {"latitude": location["latitude"], "longitude": location["longitude"]}
+                    "latLng": {
+                        "latitude": location["latitude"],
+                        "longitude": location["longitude"],
+                    }
                 }
             }
             for location in locations[1:-1]
