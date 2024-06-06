@@ -156,6 +156,8 @@ def get_trips_chunks(locations, max_time_interval):
         point["datetime"] = point["datahora"]
 
     chunks = []
+    if len(locations) == 0:
+        return chunks
     current_chunk = [locations[0]]
 
     for i in range(1, len(locations)):
