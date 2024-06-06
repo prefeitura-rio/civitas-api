@@ -3,13 +3,13 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: civitas-api-staging
+  name: civitas-api-prod
   namespace: civitas
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: civitas-api-staging
+      app: civitas-api-prod
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -18,14 +18,14 @@ spec:
   template:
     metadata:
       labels:
-        app: civitas-api-staging
+        app: civitas-api-prod
     spec:
       containers:
         - name: civitas
           image: gcr.io/project-id/civitas
           envFrom:
             - secretRef:
-                name: civitas-staging-secrets
+                name: civitas-prod-secrets
           resources:
             requests:
               cpu: 500m
@@ -60,8 +60,8 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: civitas-api-staging
-  name: civitas-api-staging
+    app: civitas-api-prod
+  name: civitas-api-prod
   namespace: civitas
 spec:
   ports:
@@ -69,14 +69,14 @@ spec:
       port: 80
       targetPort: 80
   selector:
-    app: civitas-api-staging
+    app: civitas-api-prod
 
 ---
 # Ingress
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: civitas-api-staging
+  name: civitas-api-prod
   namespace: civitas
   annotations:
     kubernetes.io/ingress.class: nginx
@@ -86,35 +86,16 @@ metadata:
 spec:
   tls:
     - hosts:
-        - staging.api.civitas.rio
-      secretName: civitas-api-staging-tls
+        - api.civitas.rio
+      secretName: civitas-api-prod-tls
   rules:
-    - host: staging.api.civitas.rio
+    - host: api.civitas.rio
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: civitas-api-staging
+                name: civitas-api-prod
                 port:
                   number: 80
-
----
-# Ingress redirect
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: civitas-api-redirect-staging
-  namespace: civitas
-  annotations:
-    kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: "letsencrypt"
-    nginx.ingress.kubernetes.io/permanent-redirect: "https://staging.api.civitas.rio"
-spec:
-  tls:
-    - hosts:
-        - staging.api.civitas.dados.rio
-      secretName: civitas-api-redirect-staging-tls
-  rules:
-    - host: staging.api.civitas.dados.rio
