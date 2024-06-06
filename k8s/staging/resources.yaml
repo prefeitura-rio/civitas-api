@@ -99,22 +99,3 @@ spec:
                 name: civitas-api-staging
                 port:
                   number: 80
-
----
-# Ingress redirect
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: civitas-api-redirect-staging
-  namespace: civitas
-  annotations:
-    kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: "letsencrypt"
-    nginx.ingress.kubernetes.io/permanent-redirect: "https://staging.api.civitas.rio"
-spec:
-  tls:
-    - hosts:
-        - staging.api.civitas.dados.rio
-      secretName: civitas-api-redirect-staging-tls
-  rules:
-    - host: staging.api.civitas.dados.rio
