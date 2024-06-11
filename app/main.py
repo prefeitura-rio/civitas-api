@@ -21,7 +21,7 @@ from app.db import TORTOISE_ORM
 from app.oidc import AuthError
 from app.pydantic_models import HealthCheck
 from app.rate_limiter import limiter
-from app.routers import auth, cars
+from app.routers import auth, cars, users
 from app.utils import register_tortoise
 
 logger.remove()
@@ -75,6 +75,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(cars.router)
+app.include_router(users.router)
 
 
 add_pagination(app)
@@ -94,7 +95,7 @@ FastAPICache.init(
 
 @app.get(
     "/health",
-    tags=["healthcheck"],
+    tags=["Healthcheck"],
     summary="Performs a health check",
     responses={
         200: {"status": "OK"},

@@ -6,15 +6,15 @@ from fastapi import APIRouter, Depends, Request
 from pendulum import DateTime
 
 from app import config
+from app.decorators import router_get
 from app.dependencies import get_user
 from app.models import User
 from app.pydantic_models import Path
-from app.rate_limiter import limiter
 from app.utils import get_path
 
 router = APIRouter(
     prefix="/cars",
-    tags=["Carros"],
+    tags=["Cars"],
     responses={
         401: {"description": "You don't have permission to do this."},
         429: {"error": "Rate limit exceeded"},
@@ -22,13 +22,12 @@ router = APIRouter(
 )
 
 
-@router.get("/path", response_model=Path)
-@limiter.limit(config.RATE_LIMIT_DEFAULT)
+@router_get(router=router, path="/path", response_model=Path)
 async def get_car_path(
     placa: str,
     start_time: datetime,
     end_time: datetime,
-    _: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(get_user)],
     request: Request,
 ):
     # Parse start_time and end_time to pendulum.DateTime
