@@ -1,17 +1,16 @@
 # -*- coding: utf-8 -*-
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi_pagination import Page, Params
 from fastapi_pagination.api import create_page
 
-from app import config
 from app.decorators import router_get
 from app.dependencies import get_user, is_admin
 from app.models import User, UserHistory
 from app.pydantic_models import UserHistoryOut, UserOut
-from app.rate_limiter import limiter
 
 router = APIRouter(
     prefix="/users",
@@ -78,12 +77,16 @@ async def get_user_by_id(
         404: {"description": "User not found"},
     },
 )
-@limiter.limit(config.RATE_LIMIT_DEFAULT)
 async def get_user_history(
     request: Request,
     user_id: UUID,
     user: Annotated[User, Depends(is_admin)],
     params: Params = Depends(),
+    method: Optional[str] = None,
+    path: Optional[str] = None,
+    status_code: Optional[int] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
 ) -> Page[UserHistoryOut]:
     """
     Get user history by ID
@@ -92,7 +95,20 @@ async def get_user_history(
     if not user_obj:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     offset = params.size * (params.page - 1)
-    history_obj = await UserHistory.filter(user=user_obj).limit(params.size).offset(offset)
+    history_query = UserHistory.filter(user=user_obj)
+    if method:
+        method = method.upper()
+        history_query = history_query.filter(method=method)
+    if path:
+        path = path.lower()
+        history_query = history_query.filter(path=path)
+    if status_code:
+        history_query = history_query.filter(status_code=status_code)
+    if start_time:
+        history_query = history_query.filter(timestamp__gte=start_time)
+    if end_time:
+        history_query = history_query.filter(timestamp__lte=end_time)
+    history_obj = await history_query.limit(params.size).offset(offset)
     history = [
         UserHistoryOut(
             id=history.id,
