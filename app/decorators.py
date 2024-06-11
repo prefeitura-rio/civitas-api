@@ -36,6 +36,9 @@ def router_get(
                 )
             request = kwargs["request"]
             full_path = router.prefix + path
+            # Format the path with jinja parameters
+            for key, value in kwargs.items():
+                full_path = full_path.replace(f"{{{key}}}", str(value))
             query_params = dict(request.query_params)
             body = None
             try:

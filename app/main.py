@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from fastapi_pagination import add_pagination
+from httpx import AsyncClient
 from loguru import logger
 from redis.asyncio import Redis
 from slowapi import _rate_limit_exceeded_handler
@@ -117,6 +118,21 @@ async def healthcheck(request: Request):
         await r.ping()
     except Exception as exc:
         logger.error(f"Failed to ping Redis: {exc}")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content=json.dumps({"status": "Service Unavailable"}),
+        )
+    # Check if authentik is available
+    try:
+        async with AsyncClient(timeout=None) as client:
+            response = await client.get(f"{config.OIDC_BASE_URL}/-/health/live/")
+            response.raise_for_status()
+            assert response.status_code == 204
+            response = await client.get(f"{config.OIDC_BASE_URL}/-/health/ready/")
+            response.raise_for_status()
+            assert response.status_code == 204
+    except Exception as exc:
+        logger.error(f"Failed to ping authentik: {exc}")
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content=json.dumps({"status": "Service Unavailable"}),
