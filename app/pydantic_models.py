@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
-from typing import List
+from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -79,3 +80,22 @@ class PolylineGeojson(BaseModel):
 class Path(BaseModel):
     locationsChunksGeojson: List[List[LocationsGeojson]]
     polylineChunksGeojson: List[List[PolylineGeojson]]
+
+
+class UserHistoryOut(BaseModel):
+    id: UUID
+    method: str
+    path: str
+    query_params: Optional[dict] = None
+    body: Optional[dict] = None
+    status_code: int
+    timestamp: datetime
+
+
+class UserOut(BaseModel):
+    id: UUID
+    username: str
+    is_admin: bool
+
+    class Config:
+        orm_mode = True
