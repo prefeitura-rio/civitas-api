@@ -106,44 +106,6 @@ def chunk_locations(locations, N):
     return chunks
 
 
-def convert_to_geojson_linestring(coordinates, duration, static_duration, index_chunk, index_trip):
-    return {
-        "type": "Feature",
-        "geometry": {
-            "type": "LineString",
-            "coordinates": [(point["lng"], point["lat"]) for point in coordinates],
-        },
-        "properties": {
-            "index_trip": index_trip,
-            "index_chunk": index_chunk,
-            "duration": duration,
-            "staticDuration": static_duration,
-        },
-    }
-
-
-def convert_to_geojson_point(locations, index_chunk, index_trip):
-    features = []
-    for i, location in enumerate(locations):
-        features.append(
-            {
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [location["longitude"], location["latitude"]],
-                },
-                "properties": {
-                    "index_trip": index_trip,
-                    "index_chunk": index_chunk,
-                    "index": i,
-                    "datahora": location["datahora"],
-                    "camera_numero": location["camera_numero"],
-                },
-            }
-        )
-    return {"type": "FeatureCollection", "features": features}
-
-
 def get_bigquery_client() -> bigquery.Client:
     """Get the BigQuery client.
 
