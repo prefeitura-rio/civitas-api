@@ -22,7 +22,7 @@ router = APIRouter(
 )
 
 
-@router_get(router=router, path="/path", response_model=Path)
+@router_get(router=router, path="/path", response_model=list[Path])
 async def get_car_path(
     placa: str,
     start_time: datetime,
@@ -38,4 +38,4 @@ async def get_car_path(
     path = await get_path(placa, start_time, end_time)
 
     # Build response
-    return Path(**path)
+    return [Path(**path_item) for path_item in path]

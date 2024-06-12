@@ -35,51 +35,56 @@ class Token(BaseModel):
     expires_in: int
 
 
-class Properties(BaseModel):
-    index_trip: int
-    index_chunk: int
-    index: int
+class Location(BaseModel):
     datahora: datetime
     camera_numero: str
+    latitude: float
+    longitude: float
+    bairro: str
+    localidade: str
 
 
-class Geometry(BaseModel):
-    type: str
-    coordinates: List[float]
+class Step(BaseModel):
+    distanceMeters: Optional[int] = None
+    staticDuration: str
+    polyline: dict
+    startLocation: dict
+    endLocation: dict
+    navigationInstruction: dict
+    localizedValues: dict
+    travelMode: str
 
 
-class Feature(BaseModel):
-    type: str
-    geometry: Geometry
-    properties: Properties
+class Leg(BaseModel):
+    distanceMeters: Optional[int] = None
+    duration: str
+    staticDuration: str
+    polyline: dict
+    startLocation: dict
+    endLocation: dict
+    steps: List[Step]
+    localizedValues: dict
 
 
-class LocationsGeojson(BaseModel):
-    type: str
-    features: List[Feature]
+class Route(BaseModel):
+    legs: List[Leg]
 
 
-class LineStringGeometry(BaseModel):
-    type: str
-    coordinates: List[List[float]]
+class Polyline(BaseModel):
+    routes: List[Route]
 
 
-class LineStringProperties(BaseModel):
-    index_trip: int
-    index_chunk: int
-    duration: int
-    staticDuration: int
+class LocationsItem(BaseModel):
+    locations: List[List[Location]]
 
 
-class PolylineGeojson(BaseModel):
-    type: str
-    geometry: LineStringGeometry
-    properties: LineStringProperties
+class PolylineItem(BaseModel):
+    polyline: List[Polyline]
 
 
 class Path(BaseModel):
-    locationsChunksGeojson: List[List[LocationsGeojson]]
-    polylineChunksGeojson: List[List[PolylineGeojson]]
+    locations: List[List[Location]]
+    polyline: List[Polyline]
 
 
 class UserHistoryOut(BaseModel):
