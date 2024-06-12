@@ -51,10 +51,10 @@ def build_positions_query(
                 camera_numero
             FROM `rj-cetrio.ocr_radar.readings_*`
             WHERE
-                placa IN ("LUC9G69")
+                placa IN ("{{placa}}")
                 AND (camera_latitude != 0 AND camera_longitude != 0)
-                AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("2024-05-01 00:00:00"), HOUR)
-                AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("2024-06-01 00:00:00"), HOUR)
+                AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
+                AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
             ORDER BY datahora ASC, placa ASC
         ),
 
