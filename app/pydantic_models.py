@@ -20,13 +20,17 @@ class OIDCUser(BaseModel):
     acr: str
     azp: str
     uid: str
-    email: str | None
+    email: Optional[str] = None
     email_verified: bool | None
-    name: str | None
-    given_name: str | None
-    preferred_username: str | None
+    name: Optional[str] = None
+    given_name: Optional[str] = None
+    preferred_username: Optional[str] = None
     nickname: str
     groups: list[str]
+    matricula: Optional[str] = None
+    orgao: Optional[str] = None
+    setor: Optional[str] = None
+    cpf: Optional[str] = None
 
 
 class Token(BaseModel):
@@ -101,6 +105,12 @@ class UserHistoryOut(BaseModel):
 class UserOut(BaseModel):
     id: UUID
     username: str
+    full_name: Optional[str] = None
+    cpf: Optional[str] = None
+    registration: Optional[str] = None
+    agency: Optional[str] = None
+    sector: Optional[str] = None
+    email: Optional[str] = None
     is_admin: bool
 
     class Config:
