@@ -50,7 +50,7 @@ class Step(BaseModel):
     polyline: dict
     startLocation: dict
     endLocation: dict
-    navigationInstruction: dict
+    navigationInstruction: Optional[dict] = None
     localizedValues: dict
     travelMode: str
 
@@ -84,7 +84,7 @@ class PolylineItem(BaseModel):
 
 class Path(BaseModel):
     locations: List[List[Location]]
-    polyline: List[Polyline]
+    polyline: Optional[List[Polyline]] = None
 
 
 class UserHistoryOut(BaseModel):

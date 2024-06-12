@@ -29,13 +29,21 @@ async def get_car_path(
     end_time: datetime,
     user: Annotated[User, Depends(get_user)],
     request: Request,
+    max_time_interval: int = 60 * 60,
+    polyline: bool = False,
 ):
     # Parse start_time and end_time to pendulum.DateTime
     start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
     end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
 
     # Get path
-    path = await get_path(placa, start_time, end_time)
+    path = await get_path(
+        placa=placa,
+        min_datetime=start_time,
+        max_datetime=end_time,
+        max_time_interval=max_time_interval,
+        polyline=polyline,
+    )
 
     # Build response
     return [Path(**path_item) for path_item in path]

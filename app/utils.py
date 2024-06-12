@@ -201,9 +201,17 @@ def get_trips_chunks(locations, max_time_interval):
 
 
 @cache_decorator(expire=config.CACHE_CAR_PATH_TTL)
-async def get_path(placa: str, min_datetime: pendulum.DateTime, max_datetime: pendulum.DateTime):
+async def get_path(
+    placa: str,
+    min_datetime: pendulum.DateTime,
+    max_datetime: pendulum.DateTime,
+    max_time_interval: int = 60 * 60,
+    polyline: bool = False,
+) -> List[Dict[str, Union[str, List]]]:
     locations_interval = (await get_positions(placa, min_datetime, max_datetime))["locations"]
-    locations_trips = get_trips_chunks(locations=locations_interval, max_time_interval=60 * 60)
+    locations_trips = get_trips_chunks(
+        locations=locations_interval, max_time_interval=max_time_interval
+    )
 
     final_paths = []
     for j, locations in enumerate(locations_trips):
@@ -213,13 +221,14 @@ async def get_path(placa: str, min_datetime: pendulum.DateTime, max_datetime: pe
             locations=locations, N=config.GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST
         )
         for i, location_chunk in enumerate(locations_chunks):
-            route = await get_route_path(locations=location_chunk, index_chunk=i, index_trip=j)
             locations_trips.append(location_chunk)
-            polyline_trips.append(route)
+            if polyline:
+                route = await get_route_path(locations=location_chunk, index_chunk=i, index_trip=j)
+                polyline_trips.append(route)
         final_paths.append(
             {
                 "locations": locations_trips,
-                "polyline": polyline_trips,
+                "polyline": polyline_trips if polyline else None,
             }
         )
 
