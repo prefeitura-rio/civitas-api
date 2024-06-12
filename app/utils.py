@@ -183,6 +183,8 @@ async def get_path(
             locations=locations, N=config.GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST
         )
         for i, location_chunk in enumerate(locations_chunks):
+            for k, location in enumerate(location_chunk):
+                location["index"] = k
             locations_trips.append(location_chunk)
             if polyline:
                 route = await get_route_path(locations=location_chunk, index_chunk=i, index_trip=j)

@@ -42,6 +42,7 @@ class Location(BaseModel):
     longitude: float
     bairro: str
     localidade: str
+    index: int
 
 
 class Step(BaseModel):
