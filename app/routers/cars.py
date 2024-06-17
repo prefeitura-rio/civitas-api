@@ -93,6 +93,28 @@ async def create_monitored_plate(
 
 
 @router_request(
+    method="GET",
+    router=router,
+    path="/monitored/{plate}",
+    response_model=MonitoredPlateOut,
+    responses={404: {"description": "Plate not found"}},
+)
+async def get_monitored_plate(
+    plate: str,
+    user: Annotated[User, Depends(is_admin)],
+    request: Request,
+):
+    """
+    Gets a monitored plate by its plate number.
+    """
+    # Check if plate is monitored
+    monitored_plate = await MonitoredPlate.filter(plate=plate).first()
+    if not monitored_plate:
+        raise HTTPException(status_code=404, detail="Plate not found")
+    return MonitoredPlateOut.from_orm(monitored_plate)
+
+
+@router_request(
     method="DELETE",
     router=router,
     path="/monitored/{plate}",
