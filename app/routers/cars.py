@@ -101,7 +101,7 @@ async def create_monitored_plate(
 )
 async def get_monitored_plate(
     plate: str,
-    user: Annotated[User, Depends(is_admin)],
+    user: Annotated[User, Depends(get_user)],
     request: Request,
 ):
     """
