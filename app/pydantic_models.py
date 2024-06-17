@@ -92,6 +92,14 @@ class Path(BaseModel):
     polyline: Optional[List[Polyline]] = None
 
 
+class MonitoredPlateOut(BaseModel):
+    id: UUID
+    plate: str
+
+    class Config:
+        orm_mode = True
+
+
 class UserHistoryOut(BaseModel):
     id: UUID
     method: str
