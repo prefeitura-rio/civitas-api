@@ -48,7 +48,9 @@ def build_positions_query(
             SELECT
                 DATETIME(datahora, "America/Sao_Paulo") AS datahora,
                 placa,
-                camera_numero
+                camera_numero,
+                camera_latitude,
+                camera_longitude
             FROM `rj-cetrio.ocr_radar.readings_*`
             WHERE
                 placa IN ("{{placa}}")
@@ -71,7 +73,12 @@ def build_positions_query(
         )
 
         SELECT
-            p.datahora, p.camera_numero, l.latitude, l.longitude, l.bairro, l.localidade
+            p.datahora, 
+            p.camera_numero, 
+            COALESCE(l.latitude, p.camera_latitude) AS latitude, 
+            COALESCE(l.longitude, p.camera_longitude) AS longitude, 
+            l.bairro, 
+            l.localidade
         FROM ordered_positions p
         JOIN loc l ON p.camera_numero = l.camera_numero
         ORDER BY p.datahora ASC
