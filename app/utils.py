@@ -184,18 +184,16 @@ async def get_path(
     )
 
     final_paths = []
-    for j, locations in enumerate(locations_trips):
+    for locations in locations_trips:
         locations_trips = []
         polyline_trips = []
         locations_chunks = chunk_locations(
             locations=locations, N=config.GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST
         )
-        for i, location_chunk in enumerate(locations_chunks):
-            for k, location in enumerate(location_chunk):
-                location["index"] = k
+        for location_chunk in locations_chunks:
             locations_trips.append(location_chunk)
             if polyline:
-                route = await get_route_path(locations=location_chunk, index_chunk=i, index_trip=j)
+                route = await get_route_path(locations=location_chunk)
                 polyline_trips.append(route)
         final_paths.append(
             {
@@ -257,7 +255,7 @@ async def get_positions(
 
 
 async def get_route_path(
-    locations: List[Dict[str, float | pendulum.DateTime]], index_chunk: int, index_trip: int
+    locations: List[Dict[str, float | pendulum.DateTime]],
 ) -> Dict[str, Union[int, List]]:
     """
     Get the route path between locations.
