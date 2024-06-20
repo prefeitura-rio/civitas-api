@@ -20,13 +20,17 @@ class OIDCUser(BaseModel):
     acr: str
     azp: str
     uid: str
-    email: str | None
+    email: Optional[str] = None
     email_verified: bool | None
-    name: str | None
-    given_name: str | None
-    preferred_username: str | None
+    name: Optional[str] = None
+    given_name: Optional[str] = None
+    preferred_username: Optional[str] = None
     nickname: str
     groups: list[str]
+    matricula: Optional[str] = None
+    orgao: Optional[str] = None
+    setor: Optional[str] = None
+    cpf: Optional[str] = None
 
 
 class Token(BaseModel):
@@ -35,51 +39,75 @@ class Token(BaseModel):
     expires_in: int
 
 
-class Properties(BaseModel):
-    index_trip: int
-    index_chunk: int
-    index: int
+class Location(BaseModel):
     datahora: datetime
     camera_numero: str
+    latitude: float
+    longitude: float
+    bairro: str
+    localidade: str
+    seconds_to_next_point: Optional[float] = None
 
 
-class Geometry(BaseModel):
-    type: str
-    coordinates: List[float]
+class Step(BaseModel):
+    distanceMeters: Optional[int] = None
+    staticDuration: str
+    polyline: dict
+    startLocation: dict
+    endLocation: dict
+    navigationInstruction: Optional[dict] = None
+    localizedValues: dict
+    travelMode: str
 
 
-class Feature(BaseModel):
-    type: str
-    geometry: Geometry
-    properties: Properties
+class Leg(BaseModel):
+    distanceMeters: Optional[int] = None
+    duration: str
+    staticDuration: str
+    polyline: dict
+    startLocation: dict
+    endLocation: dict
+    steps: List[Step]
+    localizedValues: dict
 
 
-class LocationsGeojson(BaseModel):
-    type: str
-    features: List[Feature]
+class Route(BaseModel):
+    legs: List[Leg]
 
 
-class LineStringGeometry(BaseModel):
-    type: str
-    coordinates: List[List[float]]
+class Polyline(BaseModel):
+    routes: List[Route]
 
 
-class LineStringProperties(BaseModel):
-    index_trip: int
-    index_chunk: int
-    duration: int
-    staticDuration: int
+class LocationsItem(BaseModel):
+    locations: List[List[Location]]
 
 
-class PolylineGeojson(BaseModel):
-    type: str
-    geometry: LineStringGeometry
-    properties: LineStringProperties
+class PolylineItem(BaseModel):
+    polyline: List[Polyline]
 
 
 class Path(BaseModel):
-    locationsChunksGeojson: List[List[LocationsGeojson]]
-    polylineChunksGeojson: List[List[PolylineGeojson]]
+    locations: List[List[Location]]
+    polyline: Optional[List[Polyline]] = None
+
+
+class MonitoredPlateIn(BaseModel):
+    plate: str
+    additional_info: Optional[dict] = None
+
+
+class MonitoredPlateOut(BaseModel):
+    id: UUID
+    plate: str
+    additional_info: Optional[dict] = None
+
+    class Config:
+        orm_mode = True
+
+
+class MonitoredPlateUpdate(BaseModel):
+    additional_info: Optional[dict] = None
 
 
 class UserHistoryOut(BaseModel):
@@ -95,6 +123,12 @@ class UserHistoryOut(BaseModel):
 class UserOut(BaseModel):
     id: UUID
     username: str
+    full_name: Optional[str] = None
+    cpf: Optional[str] = None
+    registration: Optional[str] = None
+    agency: Optional[str] = None
+    sector: Optional[str] = None
+    email: Optional[str] = None
     is_admin: bool
 
     class Config:

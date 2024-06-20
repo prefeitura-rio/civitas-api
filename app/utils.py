@@ -5,7 +5,6 @@ from contextlib import AbstractAsyncContextManager
 from types import ModuleType
 from typing import Dict, Iterable, List, Optional, Union
 
-import googlemaps
 import orjson as json
 import pendulum
 from fastapi import FastAPI, Request
@@ -45,18 +44,46 @@ def build_positions_query(
 
     query = (
         """
-    SELECT
-        DATETIME(datahora, "America/Sao_Paulo") AS datahora,
-        camera_numero,
-        camera_longitude AS longitude,
-        camera_latitude AS latitude
-    FROM `rj-cetrio.ocr_radar.readings_*`
-    WHERE
-        placa = "{{placa}}"
-        AND TIMESTAMP_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= TIMESTAMP_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
-        AND TIMESTAMP_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= TIMESTAMP_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
-    ORDER BY datahora ASC, placa ASC
-    """.replace(
+        WITH ordered_positions AS (
+            SELECT
+                DISTINCT
+                    DATETIME(datahora, "America/Sao_Paulo") AS datahora,
+                    placa,
+                    camera_numero,
+                    camera_latitude,
+                    camera_longitude
+            FROM `rj-cetrio.ocr_radar.readings_*`
+            WHERE
+                placa IN ("{{placa}}")
+                AND (camera_latitude != 0 AND camera_longitude != 0)
+                AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
+                AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
+            ORDER BY datahora ASC, placa ASC
+        ),
+
+        loc AS (
+            SELECT
+                t2.camera_numero,
+                t1.bairro,
+                t1.locequip AS localidade,
+                CAST(t1.latitude AS FLOAT64) AS latitude,
+                CAST(t1.longitude AS FLOAT64) AS longitude,
+            FROM `rj-cetrio.ocr_radar_staging.equipamento` t1
+            JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
+                ON t1.codcet = t2.codcet
+        )
+
+        SELECT
+            p.datahora,
+            p.camera_numero,
+            COALESCE(l.latitude, p.camera_latitude) AS latitude,
+            COALESCE(l.longitude, p.camera_longitude) AS longitude,
+            l.bairro,
+            l.localidade
+        FROM ordered_positions p
+        JOIN loc l ON p.camera_numero = l.camera_numero
+        ORDER BY p.datahora ASC
+        """.replace(
             "{{placa}}", placa
         )
         .replace("{{min_datetime}}", min_datetime.to_datetime_string())
@@ -64,65 +91,6 @@ def build_positions_query(
     )
 
     return query
-
-
-def chunk_locations(locations, N):
-    if not locations or N <= 0:
-        return []
-
-    # Initialize the list to hold chunks
-    chunks = []
-
-    # Start with the first chunk
-    for i in range(0, len(locations), N):
-        # If it's the first chunk, just add it
-        if i == 0:
-            chunks.append(locations[i : i + N])
-        else:
-            # For subsequent chunks, ensure the first element is the last of the previous chunk
-            previous_chunk = chunks[-1]
-            current_chunk = [previous_chunk[-1]] + locations[i : i + N - 1]
-            chunks.append(current_chunk)
-
-    return chunks
-
-
-def convert_to_geojson_linestring(coordinates, duration, static_duration, index_chunk, index_trip):
-    return {
-        "type": "Feature",
-        "geometry": {
-            "type": "LineString",
-            "coordinates": [(point["lng"], point["lat"]) for point in coordinates],
-        },
-        "properties": {
-            "index_trip": index_trip,
-            "index_chunk": index_chunk,
-            "duration": duration,
-            "staticDuration": static_duration,
-        },
-    }
-
-
-def convert_to_geojson_point(locations, index_chunk, index_trip):
-    features = []
-    for i, location in enumerate(locations):
-        features.append(
-            {
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [location["longitude"], location["latitude"]],
-                },
-                "properties": {
-                    "index_trip": index_trip,
-                    "index_chunk": index_chunk,
-                    "index": i,
-                    "datahora": location["datahora"],
-                    "camera_numero": location["camera_numero"],
-                },
-            }
-        )
-    return {"type": "FeatureCollection", "features": features}
 
 
 def get_bigquery_client() -> bigquery.Client:
@@ -151,6 +119,24 @@ def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials
     return creds
 
 
+def chunk_locations(locations, N):
+    if N >= len(locations) or N == 1:
+        return [locations]
+
+    chunks = []
+    i = 0
+    while i < len(locations):
+        if i + N <= len(locations):
+            chunk = locations[i : i + N]
+            chunks.append(chunk)
+            i += N - 1
+        else:
+            chunk = locations[i:]
+            chunks.append(chunk)
+            break
+    return chunks
+
+
 def get_trips_chunks(locations, max_time_interval):
     for point in locations:
         point["datetime"] = point["datahora"]
@@ -165,13 +151,17 @@ def get_trips_chunks(locations, max_time_interval):
         point_atual = locations[i]
 
         diferenca_tempo = (point_atual["datetime"] - point_anterior["datetime"]).total_seconds()
-
+        point_anterior["seconds_to_next_point"] = diferenca_tempo
         if diferenca_tempo > max_time_interval:
+            point_anterior["seconds_to_next_point"] = None
             chunks.append(current_chunk)
             current_chunk = [point_atual]
         else:
             current_chunk.append(point_atual)
 
+    current_chunk[-1][
+        "seconds_to_next_point"
+    ] = None  # Ensure the last point in the final chunk has None
     chunks.append(current_chunk)
 
     for chunk in chunks:
@@ -182,42 +172,38 @@ def get_trips_chunks(locations, max_time_interval):
 
 
 @cache_decorator(expire=config.CACHE_CAR_PATH_TTL)
-async def get_path(placa: str, min_datetime: pendulum.DateTime, max_datetime: pendulum.DateTime):
+async def get_path(
+    placa: str,
+    min_datetime: pendulum.DateTime,
+    max_datetime: pendulum.DateTime,
+    max_time_interval: int = 60 * 60,
+    polyline: bool = False,
+) -> List[Dict[str, Union[str, List]]]:
     locations_interval = (await get_positions(placa, min_datetime, max_datetime))["locations"]
-    locations_trips = get_trips_chunks(locations=locations_interval, max_time_interval=60 * 60)
+    locations_trips_original = get_trips_chunks(
+        locations=locations_interval, max_time_interval=max_time_interval
+    )
 
-    locations_geojson_trips = []
-    polyline_geojson_trips = []
-    for j, locations in enumerate(locations_trips):
+    final_paths = []
+    for locations in locations_trips_original:
+        locations_trips = []
+        polyline_trips = []
         locations_chunks = chunk_locations(
             locations=locations, N=config.GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST
         )
+        for location_chunk in locations_chunks:
+            locations_trips.append(location_chunk)
+            if polyline:
+                route = await get_route_path(locations=location_chunk)
+                polyline_trips.append(route)
+        final_paths.append(
+            {
+                "locations": locations_trips,
+                "polyline": polyline_trips if polyline else None,
+            }
+        )
 
-        coordinates = []
-        total_duration = 0
-        total_duration_static = 0
-        final_paths_chunks = []
-        polyline_geojson_chunks = []
-        locations_geojson_chunks = []
-
-        for i, location_chunk in enumerate(locations_chunks):
-            route = await get_route_path(locations=location_chunk, index_chunk=i, index_trip=j)
-            coordinates += route["coordinates"]
-            total_duration += route["duration"]
-            total_duration_static += route["staticDuration"]
-            polyline_geojson_chunks.append(route["polylineGeojson"])
-            locations_geojson_chunks.append(route["locationsGeojson"])
-            final_paths_chunks.append(route)
-
-        polyline_geojson_trips.append(polyline_geojson_chunks)
-        locations_geojson_trips.append(locations_geojson_chunks)
-
-    path = {
-        "polylineChunksGeojson": polyline_geojson_trips,
-        "locationsChunksGeojson": locations_geojson_trips,
-    }
-
-    return path
+    return final_paths
 
 
 async def get_positions(
@@ -270,7 +256,7 @@ async def get_positions(
 
 
 async def get_route_path(
-    locations: List[Dict[str, float | pendulum.DateTime]], index_chunk: int, index_trip: int
+    locations: List[Dict[str, float | pendulum.DateTime]],
 ) -> Dict[str, Union[int, List]]:
     """
     Get the route path between locations.
@@ -327,8 +313,8 @@ async def get_route_path(
         #   "avoidHighways": false,
         #   "avoidFerries": false
         # },
-        # "polylineEncoding":"GEO_JSON_LINESTRING",
-        "languageCode": "en-US",
+        "polylineEncoding": "GEO_JSON_LINESTRING",
+        "languageCode": "pt-BR",
         "units": "METRIC",
     }
     if len(locations) > 2:
@@ -351,31 +337,10 @@ async def get_route_path(
             headers={
                 "Content-Type": "application/json",
                 "X-Goog-Api-Key": config.GOOGLE_MAPS_API_KEY,
-                "X-Goog-FieldMask": "routes.duration,routes.staticDuration,routes.distanceMeters,routes.polyline.encodedPolyline",
+                "X-Goog-FieldMask": "routes.legs",
             },
         )
-        response_json = r.json()
-        route = response_json["routes"][0]
-
-    route["duration"] = int(route["duration"].replace("s", ""))
-    route["staticDuration"] = int(route["staticDuration"].replace("s", ""))
-
-    decoded_path = googlemaps.convert.decode_polyline(route["polyline"]["encodedPolyline"])
-    route["coordinates"] = decoded_path
-
-    route["polylineGeojson"] = convert_to_geojson_linestring(
-        coordinates=decoded_path,
-        duration=route["duration"],
-        static_duration=route["staticDuration"],
-        index_chunk=index_chunk,
-        index_trip=index_trip,
-    )
-
-    route["locationsGeojson"] = convert_to_geojson_point(
-        locations=locations, index_chunk=index_chunk, index_trip=index_trip
-    )
-
-    return route
+        return r.json()
 
 
 def register_tortoise(

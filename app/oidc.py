@@ -31,7 +31,7 @@ async def get_user_token(username: str, password: str) -> tuple[str, str, float]
                 "password": password,
                 "client_id": config.OIDC_CLIENT_ID,
                 "client_secret": config.OIDC_CLIENT_SECRET,
-                "scope": "profile",
+                "scope": "profile cpf civitas email",
             },
         )
         if response.status_code != 200:

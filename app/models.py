@@ -3,9 +3,21 @@ from tortoise import fields
 from tortoise.models import Model
 
 
+class MonitoredPlate(Model):
+    id = fields.UUIDField(pk=True)
+    plate = fields.CharField(max_length=7)
+    additional_info = fields.JSONField(null=True)
+
+
 class User(Model):
     id = fields.UUIDField(pk=True)
     username = fields.CharField(max_length=100)
+    full_name = fields.CharField(max_length=255, null=True)
+    cpf = fields.CharField(max_length=11, null=True)
+    registration = fields.CharField(max_length=10, null=True)  # Matrícula
+    agency = fields.CharField(max_length=100, null=True)  # Órgão
+    sector = fields.CharField(max_length=255, null=True)  # Setor
+    email = fields.CharField(max_length=255, null=True)
     is_admin = fields.BooleanField(default=False)
 
 

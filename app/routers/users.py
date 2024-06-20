@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi_pagination import Page, Params
 from fastapi_pagination.api import create_page
 
-from app.decorators import router_get
+from app.decorators import router_request
 from app.dependencies import get_user, is_admin
 from app.models import User, UserHistory
 from app.pydantic_models import UserHistoryOut, UserOut
@@ -22,7 +22,7 @@ router = APIRouter(
 )
 
 
-@router_get(router=router, path="", response_model=Page[UserOut])
+@router_request(method="GET", router=router, path="", response_model=Page[UserOut])
 async def list_users(
     user: Annotated[User, Depends(is_admin)],
     request: Request,
@@ -37,7 +37,8 @@ async def list_users(
     return create_page(users, params=params, total=await User.all().count())
 
 
-@router_get(
+@router_request(
+    method="GET",
     router=router,
     path="/me",
     response_model=UserOut,
@@ -49,7 +50,8 @@ async def get_me(request: Request, user: User = Depends(get_user)) -> UserOut:
     return UserOut.from_orm(user)
 
 
-@router_get(
+@router_request(
+    method="GET",
     router=router,
     path="/{user_id}",
     response_model=UserOut,
@@ -69,7 +71,8 @@ async def get_user_by_id(
     return UserOut.from_orm(user_obj)
 
 
-@router_get(
+@router_request(
+    method="GET",
     router=router,
     path="/{user_id}/history",
     response_model=Page[UserHistoryOut],

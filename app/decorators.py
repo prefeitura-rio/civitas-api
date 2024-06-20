@@ -2,6 +2,7 @@
 from functools import wraps
 from typing import Any, Dict, Optional, Union
 
+import orjson as json
 from fastapi import APIRouter, HTTPException, Request, status
 
 from app import config
@@ -9,15 +10,20 @@ from app.models import User, UserHistory
 from app.rate_limiter import limiter
 
 
-def router_get(
+def router_request(
     *,
+    method: str,
     router: APIRouter,
     path: str,
     response_model: Any,
     responses: Optional[Dict[Union[int, str], Dict[str, Any]]] = None,
 ):
     def decorator(f):
-        @router.get(path, response_model=response_model, responses=responses)
+        router_method = getattr(router, method.lower())
+        if not router_method:
+            raise AttributeError(f"Method {method} is not valid.")
+
+        @router_method(path=path, response_model=response_model, responses=responses)
         @limiter.limit(config.RATE_LIMIT_DEFAULT)
         @wraps(f)
         async def wrapper(*args, **kwargs):
@@ -40,7 +46,15 @@ def router_get(
             for key, value in kwargs.items():
                 full_path = full_path.replace(f"{{{key}}}", str(value))
             query_params = dict(request.query_params)
-            body = None
+            if method == "GET":
+                body = None
+            else:
+                body_bytes = await request.body()
+                body_str = body_bytes.decode()
+                if body_str:
+                    body = json.loads(body_str)
+                else:
+                    body = None
             try:
                 response = await f(*args, **kwargs)
                 await UserHistory.create(

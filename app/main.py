@@ -132,7 +132,7 @@ async def healthcheck(request: Request):
             response.raise_for_status()
             assert response.status_code == 204
     except Exception as exc:
-        logger.error(f"Failed to ping authentik: {exc}")
+        logger.warning(f"Failed to ping authentik: {exc}")
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content=json.dumps({"status": "Service Unavailable"}),
