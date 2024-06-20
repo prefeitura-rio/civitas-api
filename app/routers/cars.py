@@ -11,7 +11,7 @@ from app import config
 from app.decorators import router_request
 from app.dependencies import get_user, is_admin
 from app.models import MonitoredPlate, User
-from app.pydantic_models import MonitoredPlateOut, Path
+from app.pydantic_models import MonitoredPlateIn, MonitoredPlateOut, Path
 from app.utils import get_path
 
 router = APIRouter(
@@ -78,7 +78,7 @@ async def get_monitored_plates(
     responses={409: {"description": "Plate already monitored"}},
 )
 async def create_monitored_plate(
-    plate: str,
+    plate_data: MonitoredPlateIn,
     user: Annotated[User, Depends(is_admin)],
     request: Request,
 ):
@@ -86,9 +86,9 @@ async def create_monitored_plate(
     Adds a plate to the monitored plates list.
     """
     # Check if plate is already monitored
-    if await MonitoredPlate.filter(plate=plate).exists():
+    if await MonitoredPlate.filter(plate=plate_data.plate).exists():
         raise HTTPException(status_code=409, detail="Plate already monitored")
-    monitored_plate = await MonitoredPlate.create(plate=plate)
+    monitored_plate = await MonitoredPlate.create(**plate_data.dict())
     return MonitoredPlateOut.from_orm(monitored_plate)
 
 
@@ -111,6 +111,33 @@ async def get_monitored_plate(
     monitored_plate = await MonitoredPlate.filter(plate=plate).first()
     if not monitored_plate:
         raise HTTPException(status_code=404, detail="Plate not found")
+    return MonitoredPlateOut.from_orm(monitored_plate)
+
+
+@router_request(
+    method="PUT",
+    router=router,
+    path="/monitored/{plate}",
+    response_model=MonitoredPlateOut,
+    responses={404: {"description": "Plate not found"}},
+)
+async def update_monitored_plate(
+    plate: str,
+    plate_data: MonitoredPlateIn,
+    user: Annotated[User, Depends(is_admin)],
+    request: Request,
+):
+    """
+    Updates a monitored plate by its plate number.
+    """
+    # Check if plate is monitored
+    monitored_plate = await MonitoredPlate.filter(plate=plate).first()
+    if not monitored_plate:
+        raise HTTPException(status_code=404, detail="Plate not found")
+    for key, value in plate_data.dict().items():
+        if key != "plate":
+            setattr(monitored_plate, key, value)
+    await monitored_plate.save()
     return MonitoredPlateOut.from_orm(monitored_plate)
 
 

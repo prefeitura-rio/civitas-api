@@ -92,9 +92,15 @@ class Path(BaseModel):
     polyline: Optional[List[Polyline]] = None
 
 
+class MonitoredPlateIn(BaseModel):
+    plate: str
+    additional_info: Optional[dict] = None
+
+
 class MonitoredPlateOut(BaseModel):
     id: UUID
     plate: str
+    additional_info: Optional[dict] = None
 
     class Config:
         orm_mode = True

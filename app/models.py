@@ -6,6 +6,7 @@ from tortoise.models import Model
 class MonitoredPlate(Model):
     id = fields.UUIDField(pk=True)
     plate = fields.CharField(max_length=7)
+    additional_info = fields.JSONField(null=True)
 
 
 class User(Model):
