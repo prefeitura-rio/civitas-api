@@ -46,7 +46,7 @@ class Location(BaseModel):
     longitude: float
     bairro: str
     localidade: str
-    seconds_to_next_point: float
+    seconds_to_next_point: Optional[float] = None
 
 
 class Step(BaseModel):
