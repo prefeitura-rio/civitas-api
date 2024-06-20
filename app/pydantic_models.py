@@ -105,6 +105,10 @@ class MonitoredPlateOut(BaseModel):
         orm_mode = True
 
 
+class MonitoredPlateUpdate(BaseModel):
+    additional_info: Optional[dict] = None
+
+
 class UserHistoryOut(BaseModel):
     id: UUID
     method: str

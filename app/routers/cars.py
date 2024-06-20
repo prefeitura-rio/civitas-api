@@ -11,7 +11,12 @@ from app import config
 from app.decorators import router_request
 from app.dependencies import get_user, is_admin
 from app.models import MonitoredPlate, User
-from app.pydantic_models import MonitoredPlateIn, MonitoredPlateOut, Path
+from app.pydantic_models import (
+    MonitoredPlateIn,
+    MonitoredPlateOut,
+    MonitoredPlateUpdate,
+    Path,
+)
 from app.utils import get_path
 
 router = APIRouter(
@@ -123,7 +128,7 @@ async def get_monitored_plate(
 )
 async def update_monitored_plate(
     plate: str,
-    plate_data: MonitoredPlateIn,
+    plate_data: MonitoredPlateUpdate,
     user: Annotated[User, Depends(is_admin)],
     request: Request,
 ):
@@ -135,12 +140,18 @@ async def update_monitored_plate(
     if not monitored_plate:
         raise HTTPException(status_code=404, detail="Plate not found")
     for key, value in plate_data.dict().items():
-        if key != "plate":
-            if not isinstance(value, str):
-                raise HTTPException(
-                    status_code=400, detail=f"Invalid value for {key}. Must be a string."
-                )
-            setattr(monitored_plate, key, value)
+        if value is None:
+            continue
+        if key == "additional_info":
+            # Additional info must be a Dict[str, str]
+            if not isinstance(value, dict):
+                raise HTTPException(status_code=400, detail="additional_info must be a dict")
+            for k, v in value.items():
+                if not isinstance(k, str) or not isinstance(v, str):
+                    raise HTTPException(
+                        status_code=400, detail="additional_info keys and values must be strings"
+                    )
+        setattr(monitored_plate, key, value)
     await monitored_plate.save()
     return MonitoredPlateOut.from_orm(monitored_plate)
 
