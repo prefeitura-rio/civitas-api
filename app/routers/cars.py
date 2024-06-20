@@ -136,6 +136,10 @@ async def update_monitored_plate(
         raise HTTPException(status_code=404, detail="Plate not found")
     for key, value in plate_data.dict().items():
         if key != "plate":
+            if not isinstance(value, str):
+                raise HTTPException(
+                    status_code=400, detail=f"Invalid value for {key}. Must be a string."
+                )
             setattr(monitored_plate, key, value)
     await monitored_plate.save()
     return MonitoredPlateOut.from_orm(monitored_plate)
