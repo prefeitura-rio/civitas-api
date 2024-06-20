@@ -120,6 +120,9 @@ def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials
 
 
 def chunk_locations(locations, N):
+    if N >= len(locations) or N == 1:
+        return [locations]
+
     chunks = []
     i = 0
     while i < len(locations):
@@ -128,9 +131,8 @@ def chunk_locations(locations, N):
             chunks.append(chunk)
             i += N - 1
         else:
-            if len(locations[i:]) > 1:
-                chunk = locations[i:]
-                chunks.append(chunk)
+            chunk = locations[i:]
+            chunks.append(chunk)
             break
     return chunks
 
