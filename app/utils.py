@@ -111,6 +111,11 @@ def chunk_locations(locations, N):
             current_chunk = [previous_chunk[-1]] + locations[i : i + N - 1]
             chunks.append(current_chunk)
 
+    # Check if the last element of the last chunk is the last element of the locations list
+    if chunks and chunks[-1][-1] != locations[-1]:
+        last_chunk = [chunks[-1][-1]] + locations[len(chunks) * N - N :]
+        chunks.append(last_chunk)
+
     return chunks
 
 
@@ -154,7 +159,7 @@ def get_trips_chunks(locations, max_time_interval):
         point_atual = locations[i]
 
         diferenca_tempo = (point_atual["datetime"] - point_anterior["datetime"]).total_seconds()
-
+        point_anterior["seconds_to_next_point"] = diferenca_tempo
         if diferenca_tempo > max_time_interval:
             chunks.append(current_chunk)
             current_chunk = [point_atual]
