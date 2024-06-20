@@ -178,12 +178,12 @@ async def get_path(
     polyline: bool = False,
 ) -> List[Dict[str, Union[str, List]]]:
     locations_interval = (await get_positions(placa, min_datetime, max_datetime))["locations"]
-    locations_trips = get_trips_chunks(
+    locations_trips_original = get_trips_chunks(
         locations=locations_interval, max_time_interval=max_time_interval
     )
 
     final_paths = []
-    for locations in locations_trips:
+    for locations in locations_trips_original:
         locations_trips = []
         polyline_trips = []
         locations_chunks = chunk_locations(
