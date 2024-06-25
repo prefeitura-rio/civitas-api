@@ -95,12 +95,14 @@ class Path(BaseModel):
 class MonitoredPlateIn(BaseModel):
     plate: str
     additional_info: Optional[dict] = None
+    notification_channels: Optional[List[UUID]] = None
 
 
 class MonitoredPlateOut(BaseModel):
     id: UUID
     plate: str
     additional_info: Optional[dict] = None
+    notification_channels: Optional[List[UUID]] = []
 
     class Config:
         orm_mode = True
@@ -108,6 +110,7 @@ class MonitoredPlateOut(BaseModel):
 
 class MonitoredPlateUpdate(BaseModel):
     additional_info: Optional[dict] = None
+    notification_channels: Optional[List[UUID]] = None
 
 
 class NotificationChannelIn(BaseModel):

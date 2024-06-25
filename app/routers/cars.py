@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_pagination import Page, Params
@@ -10,7 +11,7 @@ from pendulum import DateTime
 from app import config
 from app.decorators import router_request
 from app.dependencies import get_user, is_admin
-from app.models import MonitoredPlate, User
+from app.models import MonitoredPlate, NotificationChannel, User
 from app.pydantic_models import (
     MonitoredPlateIn,
     MonitoredPlateOut,
@@ -70,7 +71,8 @@ async def get_monitored_plates(
     offset = params.size * (params.page - 1)
     monitored_plates_obj = await MonitoredPlate.all().limit(params.size).offset(offset)
     monitored_plates = [
-        MonitoredPlateOut.from_orm(monitored_plate) for monitored_plate in monitored_plates_obj
+        MonitoredPlateOut(**await monitored_plate.to_dict())
+        for monitored_plate in monitored_plates_obj
     ]
     return create_page(monitored_plates, params=params, total=await MonitoredPlate.all().count())
 
@@ -93,8 +95,15 @@ async def create_monitored_plate(
     # Check if plate is already monitored
     if await MonitoredPlate.filter(plate=plate_data.plate).exists():
         raise HTTPException(status_code=409, detail="Plate already monitored")
-    monitored_plate = await MonitoredPlate.create(**plate_data.dict())
-    return MonitoredPlateOut.from_orm(monitored_plate)
+    monitored_plate = await MonitoredPlate.create(
+        **plate_data.dict(exclude={"notification_channels"})
+    )
+    for channel_id in plate_data.notification_channels:
+        channel = await NotificationChannel.get_or_none(id=channel_id)
+        if not channel:
+            raise HTTPException(status_code=404, detail="Notification channel not found")
+        await monitored_plate.notification_channels.add(channel)
+    return MonitoredPlateOut(**await monitored_plate.to_dict())
 
 
 @router_request(
@@ -116,7 +125,7 @@ async def get_monitored_plate(
     monitored_plate = await MonitoredPlate.filter(plate=plate).first()
     if not monitored_plate:
         raise HTTPException(status_code=404, detail="Plate not found")
-    return MonitoredPlateOut.from_orm(monitored_plate)
+    return MonitoredPlateOut(**await monitored_plate.to_dict())
 
 
 @router_request(
@@ -151,9 +160,25 @@ async def update_monitored_plate(
                     raise HTTPException(
                         status_code=400, detail="additional_info keys and values must be strings"
                     )
+        elif key == "notification_channels":
+            # Notification channels must be a list of UUIDs
+            if not isinstance(value, list):
+                raise HTTPException(status_code=400, detail="notification_channels must be a list")
+            for channel_id in value:
+                if not isinstance(channel_id, UUID):
+                    raise HTTPException(
+                        status_code=400, detail="notification_channels must be a list of UUIDs"
+                    )
+                channel = await NotificationChannel.get_or_none(id=channel_id)
+                if not channel:
+                    raise HTTPException(
+                        status_code=404, detail=f"Notification channel '{channel_id}' not found"
+                    )
+                await monitored_plate.notification_channels.add(channel)
+            continue
         setattr(monitored_plate, key, value)
     await monitored_plate.save()
-    return MonitoredPlateOut.from_orm(monitored_plate)
+    return MonitoredPlateOut(**await monitored_plate.to_dict())
 
 
 @router_request(
@@ -176,4 +201,4 @@ async def delete_monitored_plate(
     if not monitored_plate:
         raise HTTPException(status_code=404, detail="Plate not found")
     await monitored_plate.delete()
-    return MonitoredPlateOut.from_orm(monitored_plate)
+    return MonitoredPlateOut(**await monitored_plate.to_dict())

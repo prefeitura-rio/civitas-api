@@ -21,6 +21,13 @@ class MonitoredPlate(Model):
         through="monitoredplate_notificationchannel",
     )
 
+    async def to_dict(self):
+        base_dict = dict(self)
+        base_dict["notification_channels"] = [
+            channel.id for channel in await self.notification_channels.all()
+        ]
+        return base_dict
+
 
 class NotificationChannel(Model):
     id = fields.UUIDField(pk=True)
