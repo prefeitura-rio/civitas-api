@@ -109,6 +109,29 @@ class MonitoredPlateUpdate(BaseModel):
     additional_info: Optional[dict] = None
 
 
+class NotificationChannelIn(BaseModel):
+    channel_type: str
+    parameters: dict
+
+
+class NotificationChannelOut(BaseModel):
+    id: UUID
+    channel_type: str
+    parameters: dict
+    active: bool
+
+    class Config:
+        orm_mode = True
+
+
+class NotificationChannelUpdate(BaseModel):
+    active: Optional[bool] = None
+
+
+class DiscordChannelParams(BaseModel):
+    webhook_url: str
+
+
 class UserHistoryOut(BaseModel):
     id: UUID
     method: str

@@ -1,12 +1,52 @@
 # -*- coding: utf-8 -*-
+from typing import Type
+
+from pydantic import BaseModel
 from tortoise import fields
+from tortoise.exceptions import ValidationError
 from tortoise.models import Model
+from tortoise.signals import pre_save
+
+from app.enums import NotificationChannelTypeEnum
+from app.pydantic_models import DiscordChannelParams
 
 
 class MonitoredPlate(Model):
     id = fields.UUIDField(pk=True)
     plate = fields.CharField(max_length=7)
     additional_info = fields.JSONField(null=True)
+    notification_channels = fields.ManyToManyField(
+        "app.NotificationChannel",
+        related_name="monitored_plates",
+        through="monitoredplate_notificationchannel",
+    )
+
+
+class NotificationChannel(Model):
+    id = fields.UUIDField(pk=True)
+    channel_type = fields.CharEnumField(enum_type=NotificationChannelTypeEnum)
+    parameters = fields.JSONField()
+    active = fields.BooleanField(default=True)
+
+    @classmethod
+    def get_params_model(cls, channel_type: str) -> Type[BaseModel]:
+        if channel_type == NotificationChannelTypeEnum.DISCORD:
+            return DiscordChannelParams
+        raise ValidationError(f"Unsupported channel_type: {channel_type}")
+
+    async def validate_parameters(self):
+        params_model = self.get_params_model(self.channel_type)
+        try:
+            params_model(**self.parameters)
+        except Exception as exc:
+            raise ValidationError(str(exc))
+
+
+@pre_save(NotificationChannel)
+async def validate_notification_channel(
+    sender, instance: NotificationChannel, using_db, update_fields
+):
+    await instance.validate_parameters()
 
 
 class User(Model):
