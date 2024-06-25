@@ -111,12 +111,14 @@ class MonitoredPlateUpdate(BaseModel):
 
 
 class NotificationChannelIn(BaseModel):
+    title: str
     channel_type: str
     parameters: dict
 
 
 class NotificationChannelOut(BaseModel):
     id: UUID
+    title: Optional[str] = None
     channel_type: str
     parameters: dict
     active: bool
@@ -126,6 +128,7 @@ class NotificationChannelOut(BaseModel):
 
 
 class NotificationChannelUpdate(BaseModel):
+    title: Optional[str] = None
     active: Optional[bool] = None
 
 

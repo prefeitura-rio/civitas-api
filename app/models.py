@@ -24,6 +24,7 @@ class MonitoredPlate(Model):
 
 class NotificationChannel(Model):
     id = fields.UUIDField(pk=True)
+    title = fields.CharField(max_length=100, null=True)
     channel_type = fields.CharEnumField(enum_type=NotificationChannelTypeEnum)
     parameters = fields.JSONField()
     active = fields.BooleanField(default=True)
