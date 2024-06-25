@@ -93,27 +93,6 @@ def build_positions_query(
     return query
 
 
-def chunk_locations(locations, N):
-    if not locations or N <= 0:
-        return []
-
-    # Initialize the list to hold chunks
-    chunks = []
-
-    # Start with the first chunk
-    for i in range(0, len(locations), N):
-        # If it's the first chunk, just add it
-        if i == 0:
-            chunks.append(locations[i : i + N])
-        else:
-            # For subsequent chunks, ensure the first element is the last of the previous chunk
-            previous_chunk = chunks[-1]
-            current_chunk = [previous_chunk[-1]] + locations[i : i + N - 1]
-            chunks.append(current_chunk)
-
-    return chunks
-
-
 def get_bigquery_client() -> bigquery.Client:
     """Get the BigQuery client.
 
@@ -140,6 +119,24 @@ def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials
     return creds
 
 
+def chunk_locations(locations, N):
+    if N >= len(locations) or N == 1:
+        return [locations]
+
+    chunks = []
+    i = 0
+    while i < len(locations):
+        if i + N <= len(locations):
+            chunk = locations[i : i + N]
+            chunks.append(chunk)
+            i += N - 1
+        else:
+            chunk = locations[i:]
+            chunks.append(chunk)
+            break
+    return chunks
+
+
 def get_trips_chunks(locations, max_time_interval):
     for point in locations:
         point["datetime"] = point["datahora"]
@@ -154,13 +151,17 @@ def get_trips_chunks(locations, max_time_interval):
         point_atual = locations[i]
 
         diferenca_tempo = (point_atual["datetime"] - point_anterior["datetime"]).total_seconds()
-
+        point_anterior["seconds_to_next_point"] = diferenca_tempo
         if diferenca_tempo > max_time_interval:
+            point_anterior["seconds_to_next_point"] = None
             chunks.append(current_chunk)
             current_chunk = [point_atual]
         else:
             current_chunk.append(point_atual)
 
+    current_chunk[-1][
+        "seconds_to_next_point"
+    ] = None  # Ensure the last point in the final chunk has None
     chunks.append(current_chunk)
 
     for chunk in chunks:
@@ -179,12 +180,12 @@ async def get_path(
     polyline: bool = False,
 ) -> List[Dict[str, Union[str, List]]]:
     locations_interval = (await get_positions(placa, min_datetime, max_datetime))["locations"]
-    locations_trips = get_trips_chunks(
+    locations_trips_original = get_trips_chunks(
         locations=locations_interval, max_time_interval=max_time_interval
     )
 
     final_paths = []
-    for locations in locations_trips:
+    for locations in locations_trips_original:
         locations_trips = []
         polyline_trips = []
         locations_chunks = chunk_locations(
