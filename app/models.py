@@ -7,8 +7,20 @@ from tortoise.exceptions import ValidationError
 from tortoise.models import Model
 from tortoise.signals import pre_save
 
-from app.enums import NotificationChannelTypeEnum
-from app.pydantic_models import DiscordChannelParams
+from app.enums import ActionTypeEnum, NotificationChannelTypeEnum
+
+
+class Group(Model):
+    id = fields.UUIDField(pk=True)
+    name = fields.CharField(max_length=100)
+    description = fields.TextField(null=True)
+
+
+class GroupUser(Model):
+    id = fields.UUIDField(pk=True)
+    group = fields.ForeignKeyField("app.Group", related_name="group_users")
+    user = fields.ForeignKeyField("app.User", related_name="groups")
+    is_group_admin = fields.BooleanField(default=False)
 
 
 class MonitoredPlate(Model):
@@ -38,6 +50,9 @@ class NotificationChannel(Model):
 
     @classmethod
     def get_params_model(cls, channel_type: str) -> Type[BaseModel]:
+        class DiscordChannelParams(BaseModel):
+            webhook_url: str
+
         if channel_type == NotificationChannelTypeEnum.DISCORD:
             return DiscordChannelParams
         raise ValidationError(f"Unsupported channel_type: {channel_type}")
@@ -55,6 +70,62 @@ async def validate_notification_channel(
     sender, instance: NotificationChannel, using_db, update_fields
 ):
     await instance.validate_parameters()
+
+
+class Permission(Model):
+    id = fields.UUIDField(pk=True)
+    group = fields.ForeignKeyField("app.Group", related_name="permissions")
+    action = fields.CharEnumField(enum_type=ActionTypeEnum)
+    resource = fields.ForeignKeyField("app.Resource", related_name="permissions")
+
+
+class Resource(Model):
+    id = fields.UUIDField(pk=True)
+    name = fields.CharField(max_length=255)
+
+
+class Role(Model):
+    id = fields.UUIDField(pk=True)
+    name = fields.CharField(max_length=255)
+    description = fields.TextField(null=True)
+    group = fields.ForeignKeyField("app.Group", related_name="roles")
+    users = fields.ManyToManyField("app.User", related_name="roles")
+    permissions = fields.ManyToManyField("app.Permission", related_name="roles")
+
+
+@pre_save(Role)
+async def validate_role(sender, instance: Role, using_db, update_fields):
+    """
+    This validator checks the following constraints:
+    - The role must have at least one permission
+    - All permissions in the role must be from the same group as the role
+    - All users in the role must be in the same group as the role
+    """
+    # The role must have at least one permission
+    n_permissions = await instance.permissions.all().count()
+    if n_permissions == 0:
+        raise ValidationError("The role must have at least one permission")
+
+    # All permissions in the role must be from the same group as the role
+    group: Group = await instance.group
+    permission: Permission
+    for permission in await instance.permissions.all():
+        if permission.group != group:
+            raise ValidationError(
+                "All permissions in the role must be from the same group as the role"
+            )
+
+    # All users in the role must be in the same group as the role
+    user: User
+    for user in await instance.users.all():
+        user_ok = False
+        user_group: Group
+        for user_group in await user.groups.all():
+            if user_group == group:
+                user_ok = True
+                break
+        if not user_ok:
+            raise ValidationError("All users in the role must be in the same group as the role")
 
 
 class User(Model):

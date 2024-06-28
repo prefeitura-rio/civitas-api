@@ -4,6 +4,7 @@ import base64
 from contextlib import AbstractAsyncContextManager
 from types import ModuleType
 from typing import Dict, Iterable, List, Optional, Union
+from uuid import UUID
 
 import orjson as json
 import pendulum
@@ -19,6 +20,7 @@ from tortoise import Tortoise, connections
 from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from app import cache, config
+from app.models import GroupUser, User
 
 
 def build_positions_query(
@@ -387,3 +389,47 @@ def register_tortoise(
             )
 
     return Manager()
+
+
+def translate_method_to_action(method: str) -> str:
+    mapping = {
+        "GET": "read",
+        "POST": "create",
+        "PUT": "update",
+        "DELETE": "delete",
+    }
+    return mapping.get(method.upper(), "read")
+
+
+@cache_decorator(expire=config.RBAC_PERMISSIONS_CACHE_TTL)
+async def user_is_group_admin(group_id: UUID, user: User) -> bool:
+    if user.is_admin:
+        return True
+    elif GroupUser.filter(group__id=group_id, user=user, is_group_admin=True).exists():
+        return True
+    return False
+
+
+@cache_decorator(expire=config.RBAC_PERMISSIONS_CACHE_TTL)
+async def user_is_group_member(group_id: UUID, user: User) -> bool:
+    if user.is_admin:
+        return True
+    elif GroupUser.filter(group__id=group_id, user=user).exists():
+        return True
+    return False
+
+
+@cache_decorator(expire=config.RBAC_PERMISSIONS_CACHE_TTL)
+async def user_has_permission(user: User, action: str, resource: str) -> bool:
+    return True  # TODO: implement
+    # user_permissions = await Permission.filter(
+    #     role__group=user.group, action=action, resource=resource
+    # ).all()
+
+    # parent_group = await user.group.parent_group
+    # if parent_group:
+    #     parent_permissions = await Permission.filter(
+    #         role__group=parent_group, action=action, resource=resource
+    #     ).all()
+    #     return bool(user_permissions) and bool(parent_permissions)
+    # return bool(user_permissions)
