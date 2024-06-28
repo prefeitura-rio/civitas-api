@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
+import re
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, validator
 
 
 class HealthCheck(BaseModel):
@@ -93,9 +94,24 @@ class Path(BaseModel):
 
 
 class MonitoredPlateIn(BaseModel):
-    plate: str
+    plate: str = Field(...)
     additional_info: Optional[dict] = None
     notification_channels: Optional[List[UUID]] = None
+
+    @validator("plate")
+    def validate_plate(cls, value: str):
+        # Ensure the plate is upper case
+        value = value.upper()
+
+        # Ensure the plate has the correct format
+        pattern = re.compile(r"^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$")
+        if not pattern.match(value):
+            raise ValueError(
+                "plate must have exactly 7 characters: "
+                "first 3 letters, 4th digit, 5th letter or digit, last 2 digits"
+            )
+
+        return value
 
 
 class MonitoredPlateOut(BaseModel):
