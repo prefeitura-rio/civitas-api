@@ -24,7 +24,7 @@ from app.pydantic_models import HealthCheck
 from app.rate_limiter import limiter
 from app.rbac import RBACMiddleware
 from app.routers import auth, cars, notification_channels, operations, rbac, users
-from app.utils import register_tortoise
+from app.utils import register_tortoise, update_resources_list
 
 logger.remove()
 logger.add(sys.stdout, level=config.LOG_LEVEL)
@@ -43,6 +43,7 @@ async def lifespan(app: FastAPI):
     async with register_tortoise(
         app, config=TORTOISE_ORM, generate_schemas=False, add_exception_handlers=True
     ):
+        await update_resources_list(app)
         yield
 
     # Run things on shutdown
