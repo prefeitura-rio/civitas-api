@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_pagination import Page, Params
 from fastapi_pagination.api import create_page
 from pendulum import DateTime
+from tortoise.transactions import in_transaction
 
 from app import config
 from app.decorators import router_request
@@ -95,15 +96,16 @@ async def create_monitored_plate(
     # Check if plate is already monitored
     if await MonitoredPlate.filter(plate=plate_data.plate).exists():
         raise HTTPException(status_code=409, detail="Plate already monitored")
-    monitored_plate = await MonitoredPlate.create(
-        **plate_data.dict(exclude={"notification_channels"})
-    )
-    if plate_data.notification_channels:
-        for channel_id in plate_data.notification_channels:
-            channel = await NotificationChannel.get_or_none(id=channel_id)
-            if not channel:
-                raise HTTPException(status_code=404, detail="Notification channel not found")
-            await monitored_plate.notification_channels.add(channel)
+    async with in_transaction():
+        monitored_plate = await MonitoredPlate.create(
+            **plate_data.dict(exclude={"notification_channels"})
+        )
+        if plate_data.notification_channels:
+            for channel_id in plate_data.notification_channels:
+                channel = await NotificationChannel.get_or_none(id=channel_id)
+                if not channel:
+                    raise HTTPException(status_code=404, detail="Notification channel not found")
+                await monitored_plate.notification_channels.add(channel)
     return MonitoredPlateOut(**await monitored_plate.to_dict())
 
 
