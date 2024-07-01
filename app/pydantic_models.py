@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, validator
 
 from app.enums import ActionTypeEnum, NotificationChannelTypeEnum
-from app.models import Group, GroupUser
+from app.models import Group, GroupUser, MonitoredPlate
 
 
 class HealthCheck(BaseModel):
@@ -143,6 +143,8 @@ class GroupUserUpdate(BaseModel):
 
 class MonitoredPlateIn(BaseModel):
     plate: str = Field(...)
+    operation_id: UUID
+    active: Optional[bool] = True
     additional_info: Optional[dict] = None
     notification_channels: Optional[List[UUID]] = None
 
@@ -165,16 +167,54 @@ class MonitoredPlateIn(BaseModel):
 class MonitoredPlateOut(BaseModel):
     id: UUID
     plate: str
+    operation: Optional["OperationOut"] = None
+    active: bool
     additional_info: Optional[dict] = None
     notification_channels: Optional[List[UUID]] = []
 
     class Config:
         orm_mode = True
 
+    @classmethod
+    async def from_monitored_plate(cls, monitored_plate: MonitoredPlate):
+        return MonitoredPlateOut(
+            id=monitored_plate.id,
+            plate=monitored_plate.plate,
+            operation=(
+                OperationOut.from_orm(await monitored_plate.operation)
+                if await monitored_plate.operation
+                else None
+            ),
+            active=monitored_plate.active,
+            additional_info=monitored_plate.additional_info,
+            notification_channels=[
+                channel.id for channel in await monitored_plate.notification_channels.all()
+            ],
+        )
+
 
 class MonitoredPlateUpdate(BaseModel):
+    plate: Optional[str] = Field(default=None)
+    operation_id: Optional[UUID] = None
+    active: Optional[bool] = None
     additional_info: Optional[dict] = None
     notification_channels: Optional[List[UUID]] = None
+
+    @validator("plate")
+    def validate_plate(cls, value: str):
+        if value is not None:
+            # Ensure the plate is upper case
+            value = value.upper()
+
+            # Ensure the plate has the correct format
+            pattern = re.compile(r"^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$")
+            if not pattern.match(value):
+                raise ValueError(
+                    "plate must have exactly 7 characters: "
+                    "first 3 letters, 4th digit, 5th letter or digit, last 2 digits"
+                )
+
+        return value
 
 
 class NotificationChannelIn(BaseModel):
@@ -197,6 +237,25 @@ class NotificationChannelOut(BaseModel):
 class NotificationChannelUpdate(BaseModel):
     title: Optional[str] = None
     active: Optional[bool] = None
+
+
+class OperationIn(BaseModel):
+    title: str
+    description: Optional[str] = None
+
+
+class OperationOut(BaseModel):
+    id: UUID
+    title: str
+    description: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+class OperationUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
 
 
 class PermissionIn(BaseModel):
@@ -279,3 +338,4 @@ class UserOut(BaseModel):
 
 GroupOut.update_forward_refs()
 GroupUserOut.update_forward_refs()
+MonitoredPlateOut.update_forward_refs()

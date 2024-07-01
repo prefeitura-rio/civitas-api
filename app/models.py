@@ -25,7 +25,9 @@ class GroupUser(Model):
 
 class MonitoredPlate(Model):
     id = fields.UUIDField(pk=True)
+    operation = fields.ForeignKeyField("app.Operation", related_name="monitored_plates", null=True)
     plate = fields.CharField(max_length=7)
+    active = fields.BooleanField(default=True)
     additional_info = fields.JSONField(null=True)
     notification_channels = fields.ManyToManyField(
         "app.NotificationChannel",
@@ -70,6 +72,12 @@ async def validate_notification_channel(
     sender, instance: NotificationChannel, using_db, update_fields
 ):
     await instance.validate_parameters()
+
+
+class Operation(Model):
+    id = fields.UUIDField(pk=True)
+    title = fields.CharField(max_length=100)
+    description = fields.TextField(null=True)
 
 
 class Permission(Model):
