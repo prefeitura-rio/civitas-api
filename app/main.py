@@ -22,7 +22,8 @@ from app.db import TORTOISE_ORM
 from app.oidc import AuthError
 from app.pydantic_models import HealthCheck
 from app.rate_limiter import limiter
-from app.routers import auth, cars, notification_channels, users
+from app.rbac import RBACMiddleware
+from app.routers import auth, cars, notification_channels, operations, rbac, users
 from app.utils import register_tortoise
 
 logger.remove()
@@ -73,10 +74,13 @@ app.add_middleware(
     allow_headers=config.ALLOWED_HEADERS,
     allow_credentials=config.ALLOW_CREDENTIALS,
 )
+app.add_middleware(RBACMiddleware)
 
 app.include_router(auth.router)
 app.include_router(cars.router)
 app.include_router(notification_channels.router)
+app.include_router(operations.router)
+app.include_router(rbac.router)
 app.include_router(users.router)
 
 

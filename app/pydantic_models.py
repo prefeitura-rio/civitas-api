@@ -6,6 +6,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, validator
 
+from app.enums import ActionTypeEnum, NotificationChannelTypeEnum
+from app.models import Group, GroupUser, MonitoredPlate
+
 
 class HealthCheck(BaseModel):
     status: str
@@ -93,8 +96,55 @@ class Path(BaseModel):
     polyline: Optional[List[Polyline]] = None
 
 
+class GroupIn(BaseModel):
+    name: str
+    description: Optional[str] = None
+    users: Optional[List[UUID]] = None
+
+
+class GroupOut(BaseModel):
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    users: List["GroupUserOut"] = []
+
+    @classmethod
+    async def from_group(cls, group: Group):
+        group_users = await GroupUser.filter(group=group).prefetch_related("user").all()
+        users = []
+        for group_user in group_users:
+            users.append(
+                GroupUserOut(
+                    user=UserOut.from_orm(group_user.user),
+                    is_group_admin=group_user.is_group_admin,
+                )
+            )
+        return GroupOut(id=group.id, name=group.name, description=group.description, users=users)
+
+
+class GroupUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+class GroupUserIn(BaseModel):
+    user: UUID
+    is_group_admin: bool
+
+
+class GroupUserOut(BaseModel):
+    user: "UserOut"
+    is_group_admin: bool
+
+
+class GroupUserUpdate(BaseModel):
+    is_group_admin: Optional[bool] = None
+
+
 class MonitoredPlateIn(BaseModel):
     plate: str = Field(...)
+    operation_id: UUID
+    active: Optional[bool] = True
     additional_info: Optional[dict] = None
     notification_channels: Optional[List[UUID]] = None
 
@@ -117,28 +167,66 @@ class MonitoredPlateIn(BaseModel):
 class MonitoredPlateOut(BaseModel):
     id: UUID
     plate: str
+    operation: Optional["OperationOut"] = None
+    active: bool
     additional_info: Optional[dict] = None
     notification_channels: Optional[List[UUID]] = []
 
     class Config:
         orm_mode = True
 
+    @classmethod
+    async def from_monitored_plate(cls, monitored_plate: MonitoredPlate):
+        return MonitoredPlateOut(
+            id=monitored_plate.id,
+            plate=monitored_plate.plate,
+            operation=(
+                OperationOut.from_orm(await monitored_plate.operation)
+                if await monitored_plate.operation
+                else None
+            ),
+            active=monitored_plate.active,
+            additional_info=monitored_plate.additional_info,
+            notification_channels=[
+                channel.id for channel in await monitored_plate.notification_channels.all()
+            ],
+        )
+
 
 class MonitoredPlateUpdate(BaseModel):
+    plate: Optional[str] = Field(default=None)
+    operation_id: Optional[UUID] = None
+    active: Optional[bool] = None
     additional_info: Optional[dict] = None
     notification_channels: Optional[List[UUID]] = None
+
+    @validator("plate")
+    def validate_plate(cls, value: str):
+        if value is not None:
+            # Ensure the plate is upper case
+            value = value.upper()
+
+            # Ensure the plate has the correct format
+            pattern = re.compile(r"^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$")
+            if not pattern.match(value):
+                raise ValueError(
+                    "plate must have exactly 7 characters: "
+                    "first 3 letters, 4th digit, 5th letter or digit, last 2 digits"
+                )
+
+        return value
 
 
 class NotificationChannelIn(BaseModel):
     title: str
-    channel_type: str
+    channel_type: NotificationChannelTypeEnum
     parameters: dict
 
 
 class NotificationChannelOut(BaseModel):
     id: UUID
     title: Optional[str] = None
-    channel_type: str
+    channel_type: NotificationChannelTypeEnum
     parameters: dict
     active: bool
 
@@ -151,8 +239,76 @@ class NotificationChannelUpdate(BaseModel):
     active: Optional[bool] = None
 
 
-class DiscordChannelParams(BaseModel):
-    webhook_url: str
+class OperationIn(BaseModel):
+    title: str
+    description: Optional[str] = None
+
+
+class OperationOut(BaseModel):
+    id: UUID
+    title: str
+    description: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+class OperationUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+
+
+class PermissionIn(BaseModel):
+    action: ActionTypeEnum
+    resource: UUID
+
+
+class PermissionOut(BaseModel):
+    id: UUID
+    action: ActionTypeEnum
+    resource: UUID
+
+    class Config:
+        orm_mode = True
+
+
+class ResourceOut(BaseModel):
+    id: UUID
+    name: str
+
+    class Config:
+        orm_mode = True
+
+
+class RoleIn(BaseModel):
+    name: str
+    description: Optional[str] = None
+    users: Optional[List[UUID]] = None
+    permissions: Optional[List[UUID]] = None
+
+
+class RoleOut(BaseModel):
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    users: List[UUID] = []
+    permissions: List[UUID] = []
+
+    class Config:
+        orm_mode = True
+
+
+class RoleUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+class RoleUserIn(BaseModel):
+    user: UUID
+
+
+class RolePermissionIn(BaseModel):
+    permission: UUID
 
 
 class UserHistoryOut(BaseModel):
@@ -178,3 +334,8 @@ class UserOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+GroupOut.update_forward_refs()
+GroupUserOut.update_forward_refs()
+MonitoredPlateOut.update_forward_refs()
