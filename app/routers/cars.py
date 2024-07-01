@@ -98,11 +98,12 @@ async def create_monitored_plate(
     monitored_plate = await MonitoredPlate.create(
         **plate_data.dict(exclude={"notification_channels"})
     )
-    for channel_id in plate_data.notification_channels:
-        channel = await NotificationChannel.get_or_none(id=channel_id)
-        if not channel:
-            raise HTTPException(status_code=404, detail="Notification channel not found")
-        await monitored_plate.notification_channels.add(channel)
+    if plate_data.notification_channels:
+        for channel_id in plate_data.notification_channels:
+            channel = await NotificationChannel.get_or_none(id=channel_id)
+            if not channel:
+                raise HTTPException(status_code=404, detail="Notification channel not found")
+            await monitored_plate.notification_channels.add(channel)
     return MonitoredPlateOut(**await monitored_plate.to_dict())
 
 
