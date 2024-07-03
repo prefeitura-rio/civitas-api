@@ -107,6 +107,7 @@ async def create_monitored_plate(
             operation=operation,
             plate=plate_data.plate,
             active=plate_data.active,
+            notes=plate_data.notes,
             additional_info=plate_data.additional_info,
         )
         if plate_data.notification_channels:

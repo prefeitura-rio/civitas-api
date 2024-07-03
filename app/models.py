@@ -28,6 +28,7 @@ class MonitoredPlate(Model):
     operation = fields.ForeignKeyField("app.Operation", related_name="monitored_plates", null=True)
     plate = fields.CharField(max_length=7)
     active = fields.BooleanField(default=True)
+    notes = fields.TextField(null=True)
     additional_info = fields.JSONField(null=True)
     notification_channels = fields.ManyToManyField(
         "app.NotificationChannel",
