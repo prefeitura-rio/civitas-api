@@ -172,7 +172,7 @@ class MonitoredPlateOut(BaseModel):
     active: bool
     notes: Optional[str] = None
     additional_info: Optional[dict] = None
-    notification_channels: Optional[List[UUID]] = []
+    notification_channels: Optional[List["NotificationChannelOut"]] = []
 
     class Config:
         orm_mode = True
@@ -191,7 +191,8 @@ class MonitoredPlateOut(BaseModel):
             notes=monitored_plate.notes,
             additional_info=monitored_plate.additional_info,
             notification_channels=[
-                channel.id for channel in await monitored_plate.notification_channels.all()
+                NotificationChannelOut.from_orm(channel)
+                for channel in await monitored_plate.notification_channels.all()
             ],
         )
 
