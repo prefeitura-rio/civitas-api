@@ -3,7 +3,7 @@ from urllib.request import urlopen
 
 import orjson as json
 
-from . import getenv_or_action
+from . import getenv_list_or_action, getenv_or_action
 
 # Logging
 LOG_LEVEL = getenv_or_action("LOG_LEVEL", default="INFO")
@@ -42,3 +42,7 @@ GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST = getenv_or_action(
 # Cache configuration
 CACHE_CAR_PATH_TTL = int(getenv_or_action("CACHE_CAR_PATH_TTL", default=60 * 10))
 CACHE_CAR_POSITIONS_TTL = int(getenv_or_action("CACHE_CAR_POSITIONS_TTL", default=60 * 10))
+
+# RBAC configuration
+RBAC_EXCLUDED_PATHS = getenv_list_or_action("RBAC_EXCLUDED_PATHS")
+RBAC_PERMISSIONS_CACHE_TTL = int(getenv_or_action("RBAC_PERMISSIONS_CACHE_TTL", default=60 * 5))

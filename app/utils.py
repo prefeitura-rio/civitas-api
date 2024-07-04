@@ -4,6 +4,7 @@ import base64
 from contextlib import AbstractAsyncContextManager
 from types import ModuleType
 from typing import Dict, Iterable, List, Optional, Union
+from uuid import UUID
 
 import orjson as json
 import pendulum
@@ -19,6 +20,7 @@ from tortoise import Tortoise, connections
 from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from app import cache, config
+from app.models import GroupUser, Resource, User
 
 
 def build_positions_query(
@@ -387,3 +389,78 @@ def register_tortoise(
             )
 
     return Manager()
+
+
+def translate_method_to_action(method: str) -> str:
+    mapping = {
+        "GET": "read",
+        "POST": "create",
+        "PUT": "update",
+        "DELETE": "delete",
+    }
+    return mapping.get(method.upper(), "read")
+
+
+async def update_resources_list(app: FastAPI):
+    """
+    Update the resources list with the current routes.
+
+    Args:
+        app (FastAPI): The FastAPI app
+    """
+    # Get list of current resources
+    current_resources = sorted(list(set([route.path[1:] for route in app.routes])))
+    current_resources = [
+        resource for resource in current_resources if resource not in config.RBAC_EXCLUDED_PATHS
+    ]
+
+    # Create list of awaitables for database resources
+    awaitables = []
+
+    # Eliminate resources from database that are not in the current resources list
+    for resource in await Resource.all():
+        if resource.name not in current_resources:
+            awaitables.append(resource.delete())
+
+    # Add resources to database that are not in the database
+    for resource in current_resources:
+        if await Resource.filter(name=resource).exists():
+            continue
+        awaitables.append(Resource.create(name=resource))
+
+    # Execute all awaitables
+    await asyncio.gather(*awaitables)
+
+
+@cache_decorator(expire=config.RBAC_PERMISSIONS_CACHE_TTL)
+async def user_is_group_admin(group_id: UUID, user: User) -> bool:
+    if user.is_admin:
+        return True
+    elif GroupUser.filter(group__id=group_id, user=user, is_group_admin=True).exists():
+        return True
+    return False
+
+
+@cache_decorator(expire=config.RBAC_PERMISSIONS_CACHE_TTL)
+async def user_is_group_member(group_id: UUID, user: User) -> bool:
+    if user.is_admin:
+        return True
+    elif GroupUser.filter(group__id=group_id, user=user).exists():
+        return True
+    return False
+
+
+@cache_decorator(expire=config.RBAC_PERMISSIONS_CACHE_TTL)
+async def user_has_permission(user: User, action: str, resource: str) -> bool:
+    return True  # TODO: implement
+    # user_permissions = await Permission.filter(
+    #     role__group=user.group, action=action, resource=resource
+    # ).all()
+
+    # parent_group = await user.group.parent_group
+    # if parent_group:
+    #     parent_permissions = await Permission.filter(
+    #         role__group=parent_group, action=action, resource=resource
+    #     ).all()
+    #     return bool(user_permissions) and bool(parent_permissions)
+    # return bool(user_permissions)
