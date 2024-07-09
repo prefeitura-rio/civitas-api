@@ -46,3 +46,9 @@ CACHE_CAR_POSITIONS_TTL = int(getenv_or_action("CACHE_CAR_POSITIONS_TTL", defaul
 # RBAC configuration
 RBAC_EXCLUDED_PATHS = getenv_list_or_action("RBAC_EXCLUDED_PATHS")
 RBAC_PERMISSIONS_CACHE_TTL = int(getenv_or_action("RBAC_PERMISSIONS_CACHE_TTL", default=60 * 5))
+
+# Data Relay configuration
+DATA_RELAY_BASE_URL = getenv_or_action("DATA_RELAY_BASE_URL").rstrip("/")
+DATA_RELAY_USERNAME = getenv_or_action("DATA_RELAY_USERNAME")
+DATA_RELAY_PASSWORD = getenv_or_action("DATA_RELAY_PASSWORD")
+DATA_RELAY_PUBLISH_TOKEN = getenv_or_action("DATA_RELAY_PUBLISH_TOKEN")

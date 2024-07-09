@@ -8,6 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 aerich = "^0.7.2"
+aiohttp = "^3.9.5"
 fastapi = "^0.111.0"
 fastapi-cache2 = "^0.2.1"
 fastapi-pagination = "^0.12.24"

@@ -96,6 +96,28 @@ class Path(BaseModel):
     polyline: Optional[List[Polyline]] = None
 
 
+class AgentLocationIn(BaseModel):
+    name: str
+    contact_info: str
+    operation: str
+    latitude: float
+    longitude: float
+
+
+class AgentLocationOut(BaseModel):
+    name: str
+    contact_info: str
+    operation: str
+    latitude: float
+    longitude: float
+    last_update: datetime
+
+
+class DataRelayResponse(BaseModel):
+    success: bool
+    message: str
+
+
 class GroupIn(BaseModel):
     name: str
     description: Optional[str] = None
