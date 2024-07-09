@@ -24,7 +24,15 @@ from app.pydantic_models import HealthCheck
 from app.rate_limiter import limiter
 
 # from app.rbac import RBACMiddleware
-from app.routers import auth, cars, notification_channels, operations, rbac, users
+from app.routers import (
+    agents,
+    auth,
+    cars,
+    notification_channels,
+    operations,
+    rbac,
+    users,
+)
 from app.utils import register_tortoise, update_resources_list
 
 logger.remove()
@@ -79,6 +87,7 @@ app.add_middleware(
 # app.add_middleware(RBACMiddleware)
 
 app.include_router(auth.router)
+app.include_router(agents.router)
 app.include_router(cars.router)
 app.include_router(notification_channels.router)
 app.include_router(operations.router)

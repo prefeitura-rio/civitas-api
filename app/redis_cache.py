@@ -2,6 +2,7 @@
 import asyncio
 from typing import Dict, List, Tuple
 
+import aiohttp
 from pendulum import DateTime
 from redis.asyncio import Redis
 
@@ -18,6 +19,7 @@ class Cache:
         )
         self._car_position_hash_key_template = "car:{placa}:position:{timestamp}"
         self._car_positions_sorted_set_key_template = "car:{placa}:positions"
+        self._data_relay_token_key = "data_relay_token"
 
     async def add_position(
         self, placa: str, data: Dict[str, float | str], expire: int = config.CACHE_CAR_POSITIONS_TTL
@@ -147,6 +149,37 @@ class Cache:
             position["datahora"] = DateTime.fromisoformat(position["datahora"])
             position["datahora"] = position["datahora"].in_tz(config.TIMEZONE)
         return positions
+
+    async def get_data_relay_token(self) -> str:
+        """
+        Fetch the Data Relay token from cache (or reauthenticate if it's not present or expired).
+
+        Returns:
+            str: The Data Relay token.
+        """
+        # Get token from cache
+        token: bytes = await self._cache.get(self._data_relay_token_key)
+        if token:
+            return token.decode()
+
+        # Authenticate and store the token in cache
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{config.DATA_RELAY_BASE_URL}/auth/token",
+                headers={
+                    "accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                data={
+                    "username": config.DATA_RELAY_USERNAME,
+                    "password": config.DATA_RELAY_PASSWORD,
+                },
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
+                token = data["access_token"]
+                await self._cache.set(self._data_relay_token_key, token, ex=data["expires_in"])
+                return token
 
 
 cache = Cache()
