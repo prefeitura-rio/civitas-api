@@ -40,6 +40,66 @@ async def list_users(
 @router_request(
     method="GET",
     router=router,
+    path="/history",
+    response_model=Page[UserHistoryOut],
+    responses={
+        404: {"description": "User not found"},
+    },
+)
+async def get_full_history(
+    request: Request,
+    user: Annotated[User, Depends(is_admin)],
+    params: Params = Depends(),
+    method: Optional[str] = None,
+    path: Optional[str] = None,
+    status_code: Optional[int] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+) -> Page[UserHistoryOut]:
+    """
+    Get user history by ID
+    """
+    offset = params.size * (params.page - 1)
+    history_query = UserHistory
+    filtered = False
+    if method:
+        method = method.upper()
+        history_query = history_query.filter(method=method)
+        filtered = True
+    if path:
+        path = path.lower()
+        history_query = history_query.filter(path=path)
+        filtered = True
+    if status_code:
+        history_query = history_query.filter(status_code=status_code)
+        filtered = True
+    if start_time:
+        history_query = history_query.filter(timestamp__gte=start_time)
+        filtered = True
+    if end_time:
+        history_query = history_query.filter(timestamp__lte=end_time)
+        filtered = True
+    if not filtered:
+        history_query = history_query.all()
+    history_obj = await history_query.order_by("timestamp").limit(params.size).offset(offset)
+    history = [
+        UserHistoryOut(
+            id=history.id,
+            method=history.method,
+            path=history.path,
+            query_params=history.query_params,
+            body=history.body,
+            status_code=history.status_code,
+            timestamp=history.timestamp,
+        )
+        for history in history_obj
+    ]
+    return create_page(history, params=params, total=await history_query.count())
+
+
+@router_request(
+    method="GET",
+    router=router,
     path="/me",
     response_model=UserOut,
 )
@@ -124,6 +184,4 @@ async def get_user_history(
         )
         for history in history_obj
     ]
-    return create_page(
-        history, params=params, total=await UserHistory.filter(user=user_obj).count()
-    )
+    return create_page(history, params=params, total=await history_query.count())
