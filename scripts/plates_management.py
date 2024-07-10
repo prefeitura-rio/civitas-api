@@ -129,3 +129,45 @@ def remove_plates(file_path: Path | str):
         for plate in plates:
             executor.submit(remove_single_plate, plate.plate, token)
     logger.info(f"{len(plates)} placas removidas.")
+
+
+def get_all_monitored_plates(token: str = None, page_size: int = 50):
+    token = token or authenticate_with_civitas_api()
+    current_page = 1
+    last_page = float("inf")
+    monitored_plates = []
+    while current_page <= last_page:
+        response = requests.get(
+            f"{CIVITAS_API_BASE_URL}/cars/monitored?page={current_page}&size={page_size}",
+            headers={
+                "accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+        last_page = data["pages"]
+        monitored_plates.extend(data["items"])
+        current_page += 1
+    return monitored_plates
+
+
+def update_single_plate(placa: str, token: str, body: dict):
+    try:
+        response = requests.put(
+            f"{CIVITAS_API_BASE_URL}/cars/monitored/{placa}",
+            headers={
+                "accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+            json=body,
+        )
+        if response.status_code == 404:
+            logger.info(f"Placa {placa} não está sendo monitorada.")
+        else:
+            response.raise_for_status()
+            logger.info(f"Placa {placa} atualizada com sucesso.")
+    except Exception as e:
+        logger.error(f"Erro ao atualizar a placa {placa}: {e}")
