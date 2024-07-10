@@ -27,6 +27,7 @@ from app.rate_limiter import limiter
 from app.routers import (
     agents,
     auth,
+    cameras_cor,
     cars,
     notification_channels,
     operations,
@@ -88,6 +89,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(agents.router)
+app.include_router(cameras_cor.router)
 app.include_router(cars.router)
 app.include_router(notification_channels.router)
 app.include_router(operations.router)
