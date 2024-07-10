@@ -35,12 +35,15 @@ async def get_notification_channels(
     Lists all notification channels in the system.
     """
     offset = params.size * (params.page - 1)
-    monitored_plates_obj = await NotificationChannel.all().limit(params.size).offset(offset)
-    monitored_plates = [
-        NotificationChannelOut.from_orm(monitored_plate) for monitored_plate in monitored_plates_obj
+    notification_channels_obj = (
+        await NotificationChannel.all().order_by("title").limit(params.size).offset(offset)
+    )
+    notification_channels = [
+        NotificationChannelOut.from_orm(monitored_plate)
+        for monitored_plate in notification_channels_obj
     ]
     return create_page(
-        monitored_plates, params=params, total=await NotificationChannel.all().count()
+        notification_channels, params=params, total=await NotificationChannel.all().count()
     )
 
 

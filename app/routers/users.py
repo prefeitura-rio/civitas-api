@@ -32,7 +32,7 @@ async def list_users(
     Lists all users in the system.
     """
     offset = params.size * (params.page - 1)
-    users_obj = await User.all().limit(params.size).offset(offset)
+    users_obj = await User.all().order_by("username").limit(params.size).offset(offset)
     users = [UserOut.from_orm(user) for user in users_obj]
     return create_page(users, params=params, total=await User.all().count())
 
@@ -111,7 +111,7 @@ async def get_user_history(
         history_query = history_query.filter(timestamp__gte=start_time)
     if end_time:
         history_query = history_query.filter(timestamp__lte=end_time)
-    history_obj = await history_query.limit(params.size).offset(offset)
+    history_obj = await history_query.order_by("timestamp").limit(params.size).offset(offset)
     history = [
         UserHistoryOut(
             id=history.id,

@@ -32,11 +32,9 @@ async def get_operations(
     Lists all operations in the system.
     """
     offset = params.size * (params.page - 1)
-    operations_queryset = await Operation.all().limit(params.size).offset(offset)
-    monitored_plates = [
-        OperationOut.from_orm(monitored_plate) for monitored_plate in operations_queryset
-    ]
-    return create_page(monitored_plates, params=params, total=await Operation.all().count())
+    operations_queryset = await Operation.all().order_by("title").limit(params.size).offset(offset)
+    operations = [OperationOut.from_orm(monitored_plate) for monitored_plate in operations_queryset]
+    return create_page(operations, params=params, total=await Operation.all().count())
 
 
 @router_request(method="POST", router=router, path="", response_model=OperationOut)

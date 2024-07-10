@@ -66,18 +66,64 @@ async def get_monitored_plates(
     user: Annotated[User, Depends(get_user)],
     request: Request,
     params: Params = Depends(),
+    operation_id: UUID = None,
+    operation_title: str = None,
+    active: bool = None,
+    notification_channel_id: UUID = None,
+    notification_channel_title: str = None,
+    plate_contains: str = None,
 ):
     """
     Lists all monitored plates in the system.
     """
     offset = params.size * (params.page - 1)
-    monitored_plates_obj = await MonitoredPlate.all().limit(params.size).offset(offset)
+    monitored_plates_queryset = MonitoredPlate
+    filtered = False
+    if operation_id:
+        filtered = True
+        operation = await Operation.get_or_none(id=operation_id)
+        if not operation:
+            raise HTTPException(status_code=404, detail="Operation not found")
+        monitored_plates_queryset = monitored_plates_queryset.filter(operation=operation)
+    if operation_title:
+        filtered = True
+        monitored_plates_queryset = monitored_plates_queryset.filter(
+            operation__title__icontains=operation_title
+        )
+    if active is not None:
+        filtered = True
+        monitored_plates_queryset = monitored_plates_queryset.filter(active=active)
+    if notification_channel_id:
+        filtered = True
+        notification_channel = await NotificationChannel.get_or_none(id=notification_channel_id)
+        if not notification_channel:
+            raise HTTPException(status_code=404, detail="Notification channel not found")
+        monitored_plates_queryset = monitored_plates_queryset.filter(
+            notification_channels=notification_channel
+        )
+    if notification_channel_title:
+        filtered = True
+        monitored_plates_queryset = monitored_plates_queryset.filter(
+            notification_channels__title__icontains=notification_channel_title
+        )
+    if plate_contains:
+        filtered = True
+        monitored_plates_queryset = monitored_plates_queryset.filter(
+            plate__icontains=plate_contains
+        )
+    if not filtered:
+        monitored_plates_queryset = monitored_plates_queryset.all()
+    monitored_plates_obj = (
+        await monitored_plates_queryset.order_by("plate").limit(params.size).offset(offset)
+    )
     monitored_plates_awaitables = [
         MonitoredPlateOut.from_monitored_plate(monitored_plate)
         for monitored_plate in monitored_plates_obj
     ]
     monitored_plates = await asyncio.gather(*monitored_plates_awaitables)
-    return create_page(monitored_plates, params=params, total=await MonitoredPlate.all().count())
+    return create_page(
+        monitored_plates, params=params, total=await monitored_plates_queryset.count()
+    )
 
 
 @router_request(
