@@ -8,7 +8,7 @@ from fastapi_pagination.api import create_page
 from tortoise.exceptions import ValidationError
 
 from app.decorators import router_request
-from app.dependencies import is_admin
+from app.dependencies import get_user
 from app.models import Operation, User
 from app.pydantic_models import OperationIn, OperationOut, OperationUpdate
 
@@ -24,7 +24,7 @@ router = APIRouter(
 
 @router_request(method="GET", router=router, path="", response_model=Page[OperationOut])
 async def get_operations(
-    user: Annotated[User, Depends(is_admin)],
+    user: Annotated[User, Depends(get_user)],
     request: Request,
     params: Params = Depends(),
 ):
@@ -42,7 +42,7 @@ async def get_operations(
 @router_request(method="POST", router=router, path="", response_model=OperationOut)
 async def create_operation(
     operation: OperationIn,
-    user: Annotated[User, Depends(is_admin)],
+    user: Annotated[User, Depends(get_user)],
     request: Request,
 ):
     """
@@ -65,7 +65,7 @@ async def create_operation(
 )
 async def get_operation(
     operation_id: UUID,
-    user: Annotated[User, Depends(is_admin)],
+    user: Annotated[User, Depends(get_user)],
     request: Request,
 ):
     """
@@ -86,7 +86,7 @@ async def get_operation(
 async def update_operation(
     operation_id: UUID,
     operation_data: OperationUpdate,
-    user: Annotated[User, Depends(is_admin)],
+    user: Annotated[User, Depends(get_user)],
     request: Request,
 ):
     """
@@ -111,7 +111,7 @@ async def update_operation(
 )
 async def delete_operation(
     operation_id: UUID,
-    user: Annotated[User, Depends(is_admin)],
+    user: Annotated[User, Depends(get_user)],
     request: Request,
 ):
     """

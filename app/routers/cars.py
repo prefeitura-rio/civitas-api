@@ -12,7 +12,7 @@ from tortoise.transactions import in_transaction
 
 from app import config
 from app.decorators import router_request
-from app.dependencies import get_user, is_admin
+from app.dependencies import get_user
 from app.models import MonitoredPlate, NotificationChannel, Operation, User
 from app.pydantic_models import (
     MonitoredPlateIn,
@@ -89,7 +89,7 @@ async def get_monitored_plates(
 )
 async def create_monitored_plate(
     plate_data: MonitoredPlateIn,
-    user: Annotated[User, Depends(is_admin)],
+    user: Annotated[User, Depends(get_user)],
     request: Request,
 ):
     """
@@ -151,7 +151,7 @@ async def get_monitored_plate(
 async def update_monitored_plate(
     plate: str,
     plate_data: MonitoredPlateUpdate,
-    user: Annotated[User, Depends(is_admin)],
+    user: Annotated[User, Depends(get_user)],
     request: Request,
 ):
     """
@@ -212,7 +212,7 @@ async def update_monitored_plate(
 )
 async def delete_monitored_plate(
     plate: str,
-    user: Annotated[User, Depends(is_admin)],
+    user: Annotated[User, Depends(get_user)],
     request: Request,
 ):
     """

@@ -64,8 +64,8 @@ async def get_user(
 async def is_admin(user: Annotated[User, Depends(get_user)]) -> User:
     if not user.is_admin:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="You don't have permission to do this.",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This operation requires admin privileges.",
         )
 
     return user
