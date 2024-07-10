@@ -71,7 +71,9 @@ async def get_monitored_plates(
     Lists all monitored plates in the system.
     """
     offset = params.size * (params.page - 1)
-    monitored_plates_obj = await MonitoredPlate.all().limit(params.size).offset(offset)
+    monitored_plates_obj = (
+        await MonitoredPlate.all().order_by("plate").limit(params.size).offset(offset)
+    )
     monitored_plates_awaitables = [
         MonitoredPlateOut.from_monitored_plate(monitored_plate)
         for monitored_plate in monitored_plates_obj
