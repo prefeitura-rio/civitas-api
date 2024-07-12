@@ -232,6 +232,8 @@ async def update_monitored_plate(
                     raise HTTPException(
                         status_code=400, detail="notification_channels must be a list"
                     )
+                # Reset notification channels
+                await monitored_plate.notification_channels.clear()
                 for channel_id in value:
                     if not isinstance(channel_id, UUID):
                         raise HTTPException(
