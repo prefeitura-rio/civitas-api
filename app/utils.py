@@ -19,12 +19,15 @@ from loguru import logger
 from tortoise import Tortoise, connections
 from tortoise.exceptions import DoesNotExist, IntegrityError
 
-from app import cache, config
+from app import config
 from app.models import GroupUser, Resource, User
 
 
 def build_positions_query(
-    placa: str, min_datetime: pendulum.DateTime, max_datetime: pendulum.DateTime
+    placa: str,
+    min_datetime: pendulum.DateTime,
+    max_datetime: pendulum.DateTime,
+    min_distance: float = 0,
 ) -> str:
     """
     Build a SQL query to fetch the positions of a vehicle within a time range.
@@ -33,6 +36,7 @@ def build_positions_query(
         placa (str): The vehicle license plate.
         min_datetime (pendulum.DateTime): The minimum datetime of the range.
         max_datetime (pendulum.DateTime): The maximum datetime of the range.
+        min_distance (float, optional): The minimum distance between plates. Defaults to 0.
 
     Returns:
         str: The SQL query.
@@ -56,7 +60,7 @@ def build_positions_query(
                     camera_longitude
             FROM `rj-cetrio.ocr_radar.readings_*`
             WHERE
-                placa IN ("{{placa}}")
+                `rj-cetrio`.ocr_radar.plateDistance(placa, "{{placa}}") <= {{min_distance}}
                 AND (camera_latitude != 0 AND camera_longitude != 0)
                 AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
                 AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
@@ -90,6 +94,60 @@ def build_positions_query(
         )
         .replace("{{min_datetime}}", min_datetime.to_datetime_string())
         .replace("{{max_datetime}}", max_datetime.to_datetime_string())
+        .replace("{{min_distance}}", str(min_distance))
+    )
+
+    return query
+
+
+def build_hint_query(
+    placa: str,
+    min_datetime: pendulum.DateTime,
+    max_datetime: pendulum.DateTime,
+    latitude_min: float,
+    latitude_max: float,
+    longitude_min: float,
+    longitude_max: float,
+) -> str:
+    """
+    Build a SQL query to fetch plate hints within a time range.
+
+    Args:
+        placa (str): The vehicle license plate.
+        min_datetime (pendulum.DateTime): The minimum datetime of the range.
+        max_datetime (pendulum.DateTime): The maximum datetime of the range.
+        latitude_min (float): The minimum latitude.
+        latitude_max (float): The maximum latitude.
+        longitude_min (float): The minimum longitude.
+        longitude_max (float): The maximum longitude.
+
+    Returns:
+        str: The SQL query.
+    """
+
+    placa = placa.upper().replace("*", "%")
+
+    query = (
+        """
+        SELECT
+            placa
+        FROM `rj-cetrio.ocr_radar.readings_*`
+        WHERE
+            placa LIKE '{{placa}}'
+            AND (camera_latitude BETWEEN {{latitude_min}} AND {{latitude_max}})
+            AND (camera_longitude BETWEEN {{longitude_min}} AND {{longitude_max}})
+            AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
+            AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
+        GROUP BY placa
+    """.replace(
+            "{{placa}}", placa
+        )
+        .replace("{{min_datetime}}", min_datetime.to_datetime_string())
+        .replace("{{max_datetime}}", max_datetime.to_datetime_string())
+        .replace("{{latitude_min}}", str(latitude_min))
+        .replace("{{latitude_max}}", str(latitude_max))
+        .replace("{{longitude_min}}", str(longitude_min))
+        .replace("{{longitude_max}}", str(longitude_max))
     )
 
     return query
@@ -180,8 +238,13 @@ async def get_path(
     max_datetime: pendulum.DateTime,
     max_time_interval: int = 60 * 60,
     polyline: bool = False,
+    min_plate_distance: float = 0,
 ) -> List[Dict[str, Union[str, List]]]:
-    locations_interval = (await get_positions(placa, min_datetime, max_datetime))["locations"]
+    locations_interval = (
+        await get_positions(
+            placa, min_datetime, max_datetime, min_plate_distance=min_plate_distance
+        )
+    )["locations"]
     locations_trips_original = get_trips_chunks(
         locations=locations_interval, max_time_interval=max_time_interval
     )
@@ -208,8 +271,46 @@ async def get_path(
     return final_paths
 
 
+@cache_decorator(expire=config.CACHE_CAR_HINTS_TTL)
+async def get_hints(
+    placa: str,
+    min_datetime: pendulum.DateTime,
+    max_datetime: pendulum.DateTime,
+    latitude_min: float,
+    latitude_max: float,
+    longitude_min: float,
+    longitude_max: float,
+) -> List[str]:
+    """
+    Fetch plate hints within a time range.
+
+    Args:
+        placa (str): The vehicle license plate.
+        min_datetime (pendulum.DateTime): The minimum datetime of the range.
+        max_datetime (pendulum.DateTime): The maximum datetime of the range.
+        latitude_min (float): The minimum latitude.
+        latitude_max (float): The maximum latitude.
+        longitude_min (float): The minimum longitude.
+        longitude_max (float): The maximum longitude.
+
+    Returns:
+        List[str]: The plate hints.
+    """
+    query = build_hint_query(
+        placa, min_datetime, max_datetime, latitude_min, latitude_max, longitude_min, longitude_max
+    )
+    bq_client = get_bigquery_client()
+    query_job = bq_client.query(query)
+    data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
+    hints = sorted(list(set([row["placa"] for row in data])))
+    return hints
+
+
 async def get_positions(
-    placa: str, min_datetime: pendulum.DateTime, max_datetime: pendulum.DateTime
+    placa: str,
+    min_datetime: pendulum.DateTime,
+    max_datetime: pendulum.DateTime,
+    min_plate_distance: float = 0,
 ) -> Dict[str, list]:
     """
     Fetch the positions of a vehicle within a time range.
@@ -218,43 +319,56 @@ async def get_positions(
         placa (str): The vehicle license plate.
         min_datetime (pendulum.DateTime): The minimum datetime of the range.
         max_datetime (pendulum.DateTime): The maximum datetime of the range.
+        min_plate_distance (float, optional): The minimum distance between plates. Defaults to 0.
 
     Returns:
         Dict[str, list]: The positions of the vehicle.
     """
-    # Get the cached locations
-    cached_locations = await cache.get_positions(placa, min_datetime, max_datetime)
-    logger.debug(f"Retrieved {len(cached_locations)} cached locations for {placa}")
+    # TODO: Refactor code for using cache again
+    # # Get the cached locations
+    # cached_locations = await cache.get_positions(placa, min_datetime, max_datetime)
+    # logger.debug(f"Retrieved {len(cached_locations)} cached locations for {placa}")
 
-    # Determine missing range
-    missing_range_start, missing_range_end = await cache.get_missing_range(
-        placa, min_datetime, max_datetime
+    # # Determine missing range
+    # missing_range_start, missing_range_end = await cache.get_missing_range(
+    #     placa, min_datetime, max_datetime
+    # )
+    # logger.debug(f"Missing range for {placa}: {missing_range_start, missing_range_end}")
+
+    # if missing_range_start:
+    #     # Query database for missing data and cache it
+    #     query = build_positions_query(placa, missing_range_start, missing_range_end)
+    #     bq_client = get_bigquery_client()
+    #     query_job = bq_client.query(query)
+    #     data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
+    #     for page in data.pages:
+    #         awaitables = []
+    #         for row in page:
+    #             row: Row
+    #             row_data = dict(row.items())
+    #             row_data["datahora"] = pendulum.instance(row_data["datahora"], tz=config.TIMEZONE)
+    #             logger.debug(f"Adding position to cache: {row_data}")
+    #             awaitables.append(cache.add_position(placa, row_data))
+    #         await asyncio.gather(*awaitables)
+
+    # return {"placa": placa, "locations": cached_locations}
+
+    # Query database for missing data and cache it
+    query = build_positions_query(
+        placa, min_datetime, max_datetime, min_distance=min_plate_distance
     )
-    logger.debug(f"Missing range for {placa}: {missing_range_start, missing_range_end}")
+    bq_client = get_bigquery_client()
+    query_job = bq_client.query(query)
+    data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
+    locations = []
+    for page in data.pages:
+        for row in page:
+            row: Row
+            row_data = dict(row.items())
+            row_data["datahora"] = pendulum.instance(row_data["datahora"], tz=config.TIMEZONE)
+            locations.append(row_data)
 
-    if missing_range_start:
-        # Query database for missing data and cache it
-        query = build_positions_query(placa, missing_range_start, missing_range_end)
-        bq_client = get_bigquery_client()
-        query_job = bq_client.query(query)
-        data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
-        for page in data.pages:
-            awaitables = []
-            for row in page:
-                row: Row
-                row_data = dict(row.items())
-                row_data["datahora"] = pendulum.instance(row_data["datahora"], tz=config.TIMEZONE)
-                logger.debug(f"Adding position to cache: {row_data}")
-                awaitables.append(cache.add_position(placa, row_data))
-            await asyncio.gather(*awaitables)
-
-        # Retrieve all locations again, now with the missing data filled in
-        cached_locations = await cache.get_positions(placa, min_datetime, max_datetime)
-        logger.debug(
-            f"Retrieved {len(cached_locations)} cached locations (after BQ fetch) for {placa}"
-        )
-
-    return {"placa": placa, "locations": cached_locations}
+    return {"placa": placa, "locations": locations}
 
 
 async def get_route_path(

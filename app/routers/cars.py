@@ -20,7 +20,7 @@ from app.pydantic_models import (
     MonitoredPlateUpdate,
     Path,
 )
-from app.utils import get_path
+from app.utils import get_hints, get_path
 
 router = APIRouter(
     prefix="/cars",
@@ -32,6 +32,47 @@ router = APIRouter(
 )
 
 
+@router_request(
+    method="GET",
+    router=router,
+    path="/hint",
+    response_model=list[str],
+    responses={
+        400: {"description": "At least one of (placa, (start_time, end_time)) must be provided"}
+    },
+)
+async def get_car_hint(
+    placa: str,
+    start_time: datetime,
+    end_time: datetime,
+    latitude_min: float,
+    latitude_max: float,
+    longitude_min: float,
+    longitude_max: float,
+    user: Annotated[User, Depends(get_user)],
+    request: Request,
+):
+    """
+    Get plates using the provided hints.
+    """
+    # Parse start_time and end_time to pendulum.DateTime
+    start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
+    end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
+
+    # Get hints
+    placa = placa.upper()
+    hints = await get_hints(
+        placa=placa,
+        min_datetime=start_time,
+        max_datetime=end_time,
+        latitude_min=latitude_min,
+        latitude_max=latitude_max,
+        longitude_min=longitude_min,
+        longitude_max=longitude_max,
+    )
+    return hints
+
+
 @router_request(method="GET", router=router, path="/path", response_model=list[Path])
 async def get_car_path(
     placa: str,
@@ -41,18 +82,21 @@ async def get_car_path(
     request: Request,
     max_time_interval: int = 60 * 60,
     polyline: bool = False,
+    min_plate_distance: float = 0,
 ):
     # Parse start_time and end_time to pendulum.DateTime
     start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
     end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
 
     # Get path
+    placa = placa.upper()
     path = await get_path(
         placa=placa,
         min_datetime=start_time,
         max_datetime=end_time,
         max_time_interval=max_time_interval,
         polyline=polyline,
+        min_plate_distance=min_plate_distance,
     )
 
     # Build response
@@ -181,6 +225,7 @@ async def get_monitored_plate(
     Gets a monitored plate by its plate number.
     """
     # Check if plate is monitored
+    plate = plate.upper()
     monitored_plate = await MonitoredPlate.filter(plate=plate).first()
     if not monitored_plate:
         raise HTTPException(status_code=404, detail="Plate not found")
@@ -204,6 +249,7 @@ async def update_monitored_plate(
     Updates a monitored plate by its plate number.
     """
     # Check if plate is monitored
+    plate = plate.upper()
     monitored_plate = await MonitoredPlate.filter(plate=plate).first()
     if not monitored_plate:
         raise HTTPException(status_code=404, detail="Plate not found")
@@ -267,6 +313,7 @@ async def delete_monitored_plate(
     Removes a plate from the monitored plates list.
     """
     # Check if plate is monitored
+    plate = plate.upper()
     monitored_plate = await MonitoredPlate.filter(plate=plate).first()
     if not monitored_plate:
         raise HTTPException(status_code=404, detail="Plate not found")
