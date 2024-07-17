@@ -45,12 +45,12 @@ async def get_car_hint(
     placa: str,
     start_time: datetime,
     end_time: datetime,
-    latitude_min: float,
-    latitude_max: float,
-    longitude_min: float,
-    longitude_max: float,
     user: Annotated[User, Depends(get_user)],
     request: Request,
+    latitude_min: float = None,
+    latitude_max: float = None,
+    longitude_min: float = None,
+    longitude_max: float = None,
 ):
     """
     Get plates using the provided hints.
@@ -61,6 +61,24 @@ async def get_car_hint(
 
     # Get hints
     placa = placa.upper()
+
+    # If one of the latitude or longitude is provided, all of them must be provided
+    if (
+        latitude_min is not None
+        or latitude_max is not None
+        or longitude_min is not None
+        or longitude_max is not None
+    ):
+        if (
+            latitude_min is None
+            or latitude_max is None
+            or longitude_min is None
+            or longitude_max is None
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="If one of the latitude or longitude is provided, all of them must be provided",  # noqa
+            )
     hints = await get_hints(
         placa=placa,
         min_datetime=start_time,

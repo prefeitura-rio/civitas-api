@@ -43,6 +43,7 @@ GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST = getenv_or_action(
 CACHE_CAR_PATH_TTL = int(getenv_or_action("CACHE_CAR_PATH_TTL", default=60 * 10))
 CACHE_CAR_POSITIONS_TTL = int(getenv_or_action("CACHE_CAR_POSITIONS_TTL", default=60 * 10))
 CACHE_CAR_HINTS_TTL = int(getenv_or_action("CACHE_CAR_HINTS_TTL", default=60 * 10))
+CACHE_RADAR_POSITIONS_TTL = int(getenv_or_action("CACHE_RADAR_POSITIONS_TTL", default=60 * 60 * 24))
 
 # RBAC configuration
 RBAC_EXCLUDED_PATHS = getenv_list_or_action("RBAC_EXCLUDED_PATHS")

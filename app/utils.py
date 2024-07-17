@@ -21,6 +21,7 @@ from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from app import config
 from app.models import GroupUser, Resource, User
+from app.pydantic_models import RadarOut
 
 
 def build_positions_query(
@@ -104,10 +105,10 @@ def build_hint_query(
     placa: str,
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-    latitude_min: float,
-    latitude_max: float,
-    longitude_min: float,
-    longitude_max: float,
+    latitude_min: float = None,
+    latitude_max: float = None,
+    longitude_min: float = None,
+    longitude_max: float = None,
 ) -> str:
     """
     Build a SQL query to fetch plate hints within a time range.
@@ -127,27 +128,42 @@ def build_hint_query(
 
     placa = placa.upper().replace("*", "%")
 
-    query = (
-        """
+    query = """
         SELECT
             placa
         FROM `rj-cetrio.ocr_radar.readings_*`
         WHERE
             placa LIKE '{{placa}}'
+    """.replace(
+        "{{placa}}", placa
+    )
+
+    if latitude_min and latitude_max:
+        query += """
             AND (camera_latitude BETWEEN {{latitude_min}} AND {{latitude_max}})
+        """.replace(
+            "{{latitude_min}}", str(latitude_min)
+        ).replace(
+            "{{latitude_max}}", str(latitude_max)
+        )
+
+    if longitude_min and longitude_max:
+        query += """
             AND (camera_longitude BETWEEN {{longitude_min}} AND {{longitude_max}})
+        """.replace(
+            "{{longitude_min}}", str(longitude_min)
+        ).replace(
+            "{{longitude_max}}", str(longitude_max)
+        )
+
+    query += """
             AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
             AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
         GROUP BY placa
     """.replace(
-            "{{placa}}", placa
-        )
-        .replace("{{min_datetime}}", min_datetime.to_datetime_string())
-        .replace("{{max_datetime}}", max_datetime.to_datetime_string())
-        .replace("{{latitude_min}}", str(latitude_min))
-        .replace("{{latitude_max}}", str(latitude_max))
-        .replace("{{longitude_min}}", str(longitude_min))
-        .replace("{{longitude_max}}", str(longitude_max))
+        "{{min_datetime}}", min_datetime.to_datetime_string()
+    ).replace(
+        "{{max_datetime}}", max_datetime.to_datetime_string()
     )
 
     return query
@@ -276,10 +292,10 @@ async def get_hints(
     placa: str,
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-    latitude_min: float,
-    latitude_max: float,
-    longitude_min: float,
-    longitude_max: float,
+    latitude_min: float = None,
+    latitude_max: float = None,
+    longitude_min: float = None,
+    longitude_max: float = None,
 ) -> List[str]:
     """
     Fetch plate hints within a time range.
@@ -369,6 +385,73 @@ async def get_positions(
             locations.append(row_data)
 
     return {"placa": placa, "locations": locations}
+
+
+@cache_decorator(expire=config.CACHE_RADAR_POSITIONS_TTL)
+def get_radar_positions() -> List[RadarOut]:
+    """
+    Fetch the radar positions.
+
+    Returns:
+        List[RadarOut]: The radar positions.
+    """
+    query = """
+        WITH radars AS (
+            SELECT
+                COALESCE(t1.codcet, t2.codcet) AS codcet,
+                t2.camera_numero,
+                t1.latitude,
+                t1.longitude,
+                t1.locequip,
+                t1.bairro,
+                t1.logradouro,
+                t1.sentido
+            FROM `rj-cetrio.ocr_radar.equipamento` t1
+            JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
+                ON t1.codcet = t2.codcet
+        ),
+
+        used_radars AS (
+            SELECT
+                DISTINCT
+                camera_numero,
+                camera_latitude,
+                camera_longitude
+            FROM `rj-cetrio.ocr_radar.readings_*`
+        ),
+
+        selected_radar AS (
+            SELECT
+                t1.codcet,
+                COALESCE(t1.camera_numero, t2.camera_numero) AS camera_numero,
+                COALESCE(t1.latitude, t2.camera_latitude) AS latitude,
+                COALESCE(t1.longitude, t2.camera_longitude) AS longitude,
+                t1.locequip,
+                t1.bairro,
+                t1.logradouro,
+                t1.sentido
+            FROM radars t1
+            FULL OUTER JOIN used_radars t2
+                ON t1.camera_numero = t2.camera_numero
+        )
+
+        SELECT
+            *
+        FROM selected_radar
+        WHERE
+            codcet IS NOT NULL
+        ORDER BY codcet
+    """
+    bq_client = get_bigquery_client()
+    query_job = bq_client.query(query)
+    data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
+    positions = []
+    for page in data.pages:
+        for row in page:
+            row: Row
+            row_data = dict(row.items())
+            positions.append(RadarOut(**row_data))
+    return positions
 
 
 async def get_route_path(

@@ -31,6 +31,7 @@ from app.routers import (
     cars,
     notification_channels,
     operations,
+    radars,
     rbac,
     users,
 )
@@ -93,6 +94,7 @@ app.include_router(cameras_cor.router)
 app.include_router(cars.router)
 app.include_router(notification_channels.router)
 app.include_router(operations.router)
+app.include_router(radars.router)
 app.include_router(rbac.router)
 app.include_router(users.router)
 

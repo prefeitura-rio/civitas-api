@@ -299,6 +299,17 @@ class PermissionOut(BaseModel):
         orm_mode = True
 
 
+class RadarOut(BaseModel):
+    codcet: str
+    camera_numero: str
+    latitude: float
+    longitude: float
+    locequip: str
+    bairro: str
+    logradouro: str
+    sentido: Optional[str] = None
+
+
 class ResourceOut(BaseModel):
     id: UUID
     name: str
