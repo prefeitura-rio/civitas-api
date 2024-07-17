@@ -20,7 +20,7 @@ from app.pydantic_models import (
     MonitoredPlateUpdate,
     Path,
 )
-from app.utils import get_hints, get_path
+from app.utils import get_car_by_radar, get_hints, get_path
 
 router = APIRouter(
     prefix="/cars",
@@ -337,3 +337,33 @@ async def delete_monitored_plate(
         raise HTTPException(status_code=404, detail="Plate not found")
     await monitored_plate.delete()
     return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
+
+
+@router_request(method="GET", router=router, path="/radar", response_model=list[str])
+async def get_cars_by_radar(
+    radar: str,
+    start_time: datetime,
+    end_time: datetime,
+    user: Annotated[User, Depends(get_user)],
+    request: Request,
+    plate_hint: str = None,
+):
+    # Parse start_time and end_time to pendulum.DateTime
+    start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
+    end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
+
+    # Use either camera_numero or codcet
+    if radar in config.CODCET_TO_CAMERA_NUMERO:
+        codcet = radar
+        camera_numero = config.CODCET_TO_CAMERA_NUMERO[codcet]
+    else:
+        codcet = None
+        camera_numero = radar
+
+    return await get_car_by_radar(
+        camera_numero=camera_numero,
+        codcet=codcet,
+        min_datetime=start_time,
+        max_datetime=end_time,
+        plate_hint=plate_hint,
+    )

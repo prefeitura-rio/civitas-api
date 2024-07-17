@@ -26,6 +26,123 @@ from app.models import GroupUser, Resource, User
 from app.pydantic_models import RadarOut, WazeAlertOut
 
 
+def build_get_car_by_radar_query(
+    *,
+    min_datetime: pendulum.DateTime,
+    max_datetime: pendulum.DateTime,
+    camera_numero: str,
+    codcet: str = None,
+    plate_hint: str = None,
+) -> str:
+    """
+    Build a SQL query to fetch cars by radar within a time range.
+
+    Args:
+        min_datetime (pendulum.DateTime): The minimum datetime of the range.
+        max_datetime (pendulum.DateTime): The maximum datetime of the range.
+        camera_numero (str): The camera number.
+        codcet (str, optional): The codcet. Defaults to None.
+        plate_hint (str, optional): The plate hint. Defaults to None.
+
+    Returns:
+        str: The SQL query.
+    """
+    plate_hint = plate_hint.upper().replace("*", "%") if plate_hint else None
+
+    query = """
+        SELECT
+            placa
+        FROM `rj-cetrio.ocr_radar.readings_*`
+        WHERE
+            DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
+            AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
+    """.replace(
+        "{{min_datetime}}", min_datetime.to_datetime_string()
+    ).replace(
+        "{{max_datetime}}", max_datetime.to_datetime_string()
+    )
+
+    if codcet:
+        query += f"AND (camera_numero = '{codcet}' OR camera_numero = '{camera_numero}')"
+    else:
+        query += f"AND camera_numero = '{camera_numero}'"
+
+    if plate_hint:
+        query += f"AND placa LIKE '{plate_hint}'"
+
+    query += "GROUP BY placa"
+
+    return query
+
+
+def build_hint_query(
+    placa: str,
+    min_datetime: pendulum.DateTime,
+    max_datetime: pendulum.DateTime,
+    latitude_min: float = None,
+    latitude_max: float = None,
+    longitude_min: float = None,
+    longitude_max: float = None,
+) -> str:
+    """
+    Build a SQL query to fetch plate hints within a time range.
+
+    Args:
+        placa (str): The vehicle license plate.
+        min_datetime (pendulum.DateTime): The minimum datetime of the range.
+        max_datetime (pendulum.DateTime): The maximum datetime of the range.
+        latitude_min (float): The minimum latitude.
+        latitude_max (float): The maximum latitude.
+        longitude_min (float): The minimum longitude.
+        longitude_max (float): The maximum longitude.
+
+    Returns:
+        str: The SQL query.
+    """
+
+    placa = placa.upper().replace("*", "%")
+
+    query = """
+        SELECT
+            placa
+        FROM `rj-cetrio.ocr_radar.readings_*`
+        WHERE
+            placa LIKE '{{placa}}'
+    """.replace(
+        "{{placa}}", placa
+    )
+
+    if latitude_min and latitude_max:
+        query += """
+            AND (camera_latitude BETWEEN {{latitude_min}} AND {{latitude_max}})
+        """.replace(
+            "{{latitude_min}}", str(latitude_min)
+        ).replace(
+            "{{latitude_max}}", str(latitude_max)
+        )
+
+    if longitude_min and longitude_max:
+        query += """
+            AND (camera_longitude BETWEEN {{longitude_min}} AND {{longitude_max}})
+        """.replace(
+            "{{longitude_min}}", str(longitude_min)
+        ).replace(
+            "{{longitude_max}}", str(longitude_max)
+        )
+
+    query += """
+            AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
+            AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
+        GROUP BY placa
+    """.replace(
+        "{{min_datetime}}", min_datetime.to_datetime_string()
+    ).replace(
+        "{{max_datetime}}", max_datetime.to_datetime_string()
+    )
+
+    return query
+
+
 def build_positions_query(
     placa: str,
     min_datetime: pendulum.DateTime,
@@ -103,74 +220,6 @@ def build_positions_query(
     return query
 
 
-def build_hint_query(
-    placa: str,
-    min_datetime: pendulum.DateTime,
-    max_datetime: pendulum.DateTime,
-    latitude_min: float = None,
-    latitude_max: float = None,
-    longitude_min: float = None,
-    longitude_max: float = None,
-) -> str:
-    """
-    Build a SQL query to fetch plate hints within a time range.
-
-    Args:
-        placa (str): The vehicle license plate.
-        min_datetime (pendulum.DateTime): The minimum datetime of the range.
-        max_datetime (pendulum.DateTime): The maximum datetime of the range.
-        latitude_min (float): The minimum latitude.
-        latitude_max (float): The maximum latitude.
-        longitude_min (float): The minimum longitude.
-        longitude_max (float): The maximum longitude.
-
-    Returns:
-        str: The SQL query.
-    """
-
-    placa = placa.upper().replace("*", "%")
-
-    query = """
-        SELECT
-            placa
-        FROM `rj-cetrio.ocr_radar.readings_*`
-        WHERE
-            placa LIKE '{{placa}}'
-    """.replace(
-        "{{placa}}", placa
-    )
-
-    if latitude_min and latitude_max:
-        query += """
-            AND (camera_latitude BETWEEN {{latitude_min}} AND {{latitude_max}})
-        """.replace(
-            "{{latitude_min}}", str(latitude_min)
-        ).replace(
-            "{{latitude_max}}", str(latitude_max)
-        )
-
-    if longitude_min and longitude_max:
-        query += """
-            AND (camera_longitude BETWEEN {{longitude_min}} AND {{longitude_max}})
-        """.replace(
-            "{{longitude_min}}", str(longitude_min)
-        ).replace(
-            "{{longitude_max}}", str(longitude_max)
-        )
-
-    query += """
-            AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
-            AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
-        GROUP BY placa
-    """.replace(
-        "{{min_datetime}}", min_datetime.to_datetime_string()
-    ).replace(
-        "{{max_datetime}}", max_datetime.to_datetime_string()
-    )
-
-    return query
-
-
 def get_bigquery_client() -> bigquery.Client:
     """Get the BigQuery client.
 
@@ -213,6 +262,41 @@ def chunk_locations(locations, N):
             chunks.append(chunk)
             break
     return chunks
+
+
+@cache_decorator(expire=config.CACHE_CAR_BY_RADAR_TTL)
+def get_car_by_radar(
+    min_datetime: pendulum.DateTime,
+    max_datetime: pendulum.DateTime,
+    camera_numero: str,
+    codcet: str = None,
+    plate_hint: str = None,
+) -> List[str]:
+    """
+    Fetch cars by radar within a time range.
+
+    Args:
+        min_datetime (pendulum.DateTime): The minimum datetime of the range.
+        max_datetime (pendulum.DateTime): The maximum datetime of the range.
+        camera_numero (str): The camera number.
+        codcet (str, optional): The codcet. Defaults to None.
+        plate_hint (str, optional): The plate hint. Defaults to None.
+
+    Returns:
+        List[str]: The cars.
+    """
+    query = build_get_car_by_radar_query(
+        min_datetime=min_datetime,
+        max_datetime=max_datetime,
+        camera_numero=camera_numero,
+        codcet=codcet,
+        plate_hint=plate_hint,
+    )
+    bq_client = get_bigquery_client()
+    query_job = bq_client.query(query)
+    data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
+    cars = sorted(list(set([row["placa"] for row in data])))
+    return cars
 
 
 def get_trips_chunks(locations, max_time_interval):

@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
+import traceback
+from typing import Dict
 from urllib.request import urlopen
 
+import numpy as np
 import orjson as json
+import pandas as pd
+from loguru import logger
 
 from . import getenv_list_or_action, getenv_or_action
 
@@ -45,6 +50,7 @@ CACHE_CAR_POSITIONS_TTL = int(getenv_or_action("CACHE_CAR_POSITIONS_TTL", defaul
 CACHE_CAR_HINTS_TTL = int(getenv_or_action("CACHE_CAR_HINTS_TTL", default=60 * 10))
 CACHE_RADAR_POSITIONS_TTL = int(getenv_or_action("CACHE_RADAR_POSITIONS_TTL", default=60 * 60 * 24))
 CACHE_WAZE_ALERTS_TTL = int(getenv_or_action("CACHE_WAZE_ALERTS_TTL", default=60 * 5))
+CACHE_CAR_BY_RADAR_TTL = int(getenv_or_action("CACHE_CAR_BY_RADAR_TTL", default=60 * 5))
 
 # RBAC configuration
 RBAC_EXCLUDED_PATHS = getenv_list_or_action("RBAC_EXCLUDED_PATHS")
@@ -58,3 +64,18 @@ DATA_RELAY_PUBLISH_TOKEN = getenv_or_action("DATA_RELAY_PUBLISH_TOKEN")
 
 # Tixxi
 TIXXI_CAMERAS_LIST_URL = getenv_or_action("TIXXI_CAMERAS_LIST_URL")
+
+# External data that is loaded persistently
+DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL = getenv_or_action("DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL")
+try:
+    _df_codcet_to_camera_numero: pd.DataFrame = pd.read_csv(DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL)
+    _df_codcet_to_camera_numero.dropna(inplace=True)
+    CODCET_TO_CAMERA_NUMERO: Dict[str, str] = (
+        _df_codcet_to_camera_numero.groupby("codcet")["camera_numero"]
+        .apply(lambda x: np.random.choice(x))
+        .to_dict()
+    )
+except Exception as exc:
+    logger.error(f"Failed to load CODCET to camera_numero mapping: {exc}")
+    logger.error(traceback.format_exc())
+    CODCET_TO_CAMERA_NUMERO = {}
