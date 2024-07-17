@@ -374,6 +374,18 @@ class UserOut(BaseModel):
         orm_mode = True
 
 
+class WazeAlertOut(BaseModel):
+    timestamp: datetime
+    street: Optional[str] = None
+    type: str
+    subtype: str
+    reliability: float
+    confidence: float
+    number_thumbs_up: Optional[int] = None
+    latitude: float
+    longitude: float
+
+
 GroupOut.update_forward_refs()
 GroupUserOut.update_forward_refs()
 MonitoredPlateOut.update_forward_refs()

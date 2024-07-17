@@ -3,11 +3,12 @@ import asyncio
 import base64
 from contextlib import AbstractAsyncContextManager
 from types import ModuleType
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 from uuid import UUID
 
 import orjson as json
 import pendulum
+import pytz
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi_cache.decorator import cache as cache_decorator
@@ -16,12 +17,13 @@ from google.cloud.bigquery.table import Row
 from google.oauth2 import service_account
 from httpx import AsyncClient
 from loguru import logger
+from pendulum import DateTime
 from tortoise import Tortoise, connections
 from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from app import config
 from app.models import GroupUser, Resource, User
-from app.pydantic_models import RadarOut
+from app.pydantic_models import RadarOut, WazeAlertOut
 
 
 def build_positions_query(
@@ -540,6 +542,163 @@ async def get_route_path(
             },
         )
         return r.json()
+
+
+async def get_waze_alerts_for_coords(coords: dict) -> list:
+    url = "https://www.waze.com/row-rtserver/web/TGeoRSS?bottom={bottom}&left={left}&ma=200&mj=200&mu=20&right={right}&top={top}&types=alerts"  # noqa
+    url = url.format(**coords)
+    async with AsyncClient() as client:
+        response = await client.get(url)
+        response.raise_for_status()
+        return response.json().get("alerts", [])
+
+
+@cache_decorator(expire=config.CACHE_WAZE_ALERTS_TTL)
+async def get_waze_alerts(filter_type: str = None) -> list:
+    coords = [
+        {
+            "left": -43.79653853090349,
+            "bottom": -23.08289269734031,
+            "right": -43.62216601277018,
+            "top": -22.91445704293636,
+        },
+        {
+            "left": -43.79653853090349,
+            "bottom": -22.91445704293636,
+            "right": -43.62216601277018,
+            "top": -22.74602138853241,
+        },
+        {
+            "left": -43.62216601277018,
+            "bottom": -23.08289269734031,
+            "right": -43.44779349463688,
+            "top": -22.91445704293636,
+        },
+        {
+            "left": -43.62216601277018,
+            "bottom": -22.91445704293636,
+            "right": -43.44779349463688,
+            "top": -22.74602138853241,
+        },
+        {
+            "left": -43.44779349463688,
+            "bottom": -23.08289269734031,
+            "right": -43.36060723557023,
+            "top": -22.91445704293636,
+        },
+        {
+            "left": -43.36060723557023,
+            "bottom": -23.08289269734031,
+            "right": -43.27342097650357,
+            "top": -22.91445704293636,
+        },
+        {
+            "left": -43.44779349463688,
+            "bottom": -22.91445704293636,
+            "right": -43.36060723557023,
+            "top": -22.83023921573439,
+        },
+        {
+            "left": -43.44779349463688,
+            "bottom": -22.83023921573439,
+            "right": -43.36060723557023,
+            "top": -22.74602138853241,
+        },
+        {
+            "left": -43.36060723557023,
+            "bottom": -22.91445704293636,
+            "right": -43.27342097650357,
+            "top": -22.83023921573439,
+        },
+        {
+            "left": -43.36060723557023,
+            "bottom": -22.83023921573439,
+            "right": -43.3170141060369,
+            "top": -22.74602138853241,
+        },
+        {
+            "left": -43.3170141060369,
+            "bottom": -22.83023921573439,
+            "right": -43.27342097650357,
+            "top": -22.74602138853241,
+        },
+        {
+            "left": -43.27342097650357,
+            "bottom": -23.08289269734031,
+            "right": -43.18623471743692,
+            "top": -22.99867487013834,
+        },
+        {
+            "left": -43.27342097650357,
+            "bottom": -22.99867487013834,
+            "right": -43.22982784697025,
+            "top": -22.91445704293636,
+        },
+        {
+            "left": -43.22982784697025,
+            "bottom": -22.99867487013834,
+            "right": -43.18623471743692,
+            "top": -22.91445704293636,
+        },
+        {
+            "left": -43.18623471743692,
+            "bottom": -23.08289269734031,
+            "right": -43.09904845837026,
+            "top": -22.91445704293636,
+        },
+        {
+            "left": -43.27342097650357,
+            "bottom": -22.91445704293636,
+            "right": -43.22982784697025,
+            "top": -22.83023921573439,
+        },
+        {
+            "left": -43.22982784697025,
+            "bottom": -22.91445704293636,
+            "right": -43.18623471743692,
+            "top": -22.83023921573439,
+        },
+        {
+            "left": -43.27342097650357,
+            "bottom": -22.83023921573439,
+            "right": -43.18623471743692,
+            "top": -22.74602138853241,
+        },
+        {
+            "left": -43.18623471743692,
+            "bottom": -22.91445704293636,
+            "right": -43.09904845837026,
+            "top": -22.74602138853241,
+        },
+    ]
+    awaitables = []
+    for coord in coords:
+        awaitables.append(get_waze_alerts_for_coords(coord))
+    responses = await asyncio.gather(*awaitables)
+    alerts = [alert for response in responses for alert in response]
+    if filter_type:
+        filter_type = filter_type.upper()
+        alerts = [alert for alert in alerts if alert["type"].upper() == filter_type]
+    return alerts
+
+
+def normalize_waze_alerts(alerts: List[Dict[str, Any]]) -> List[WazeAlertOut]:
+    return [
+        WazeAlertOut(
+            timestamp=DateTime.fromtimestamp(
+                alert["pubMillis"] / 1000, tz=pytz.timezone(config.TIMEZONE)
+            ),
+            street=alert["street"] if "street" in alert else None,
+            type=alert["type"],
+            subtype=alert["subtype"],
+            reliability=alert["reliability"],
+            confidence=alert["confidence"],
+            number_thumbs_up=alert["nThumbsUp"] if "nThumbsUp" in alert else None,
+            latitude=alert["location"]["y"],
+            longitude=alert["location"]["x"],
+        )
+        for alert in alerts
+    ]
 
 
 def register_tortoise(

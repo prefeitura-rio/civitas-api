@@ -34,6 +34,7 @@ from app.routers import (
     radars,
     rbac,
     users,
+    waze,
 )
 from app.utils import register_tortoise, update_resources_list
 
@@ -97,6 +98,7 @@ app.include_router(operations.router)
 app.include_router(radars.router)
 app.include_router(rbac.router)
 app.include_router(users.router)
+app.include_router(waze.router)
 
 
 add_pagination(app)
