@@ -294,18 +294,17 @@ def get_car_by_radar(
     bq_client = get_bigquery_client()
     query_job = bq_client.query(query)
     data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
-    car_passages = {}
+    car_passages = []
     for page in data.pages:
         for row in page:
             row: Row
             row_data = dict(row.items())
             placa = row_data["placa"]
-            if placa not in car_passages:
-                car_passages[placa] = []
-            car_passages[placa].append(row_data["datahora"])
-    return [
-        CarPassageOut(plate=placa, timestamps=passages) for placa, passages in car_passages.items()
-    ]
+            datahora = row_data["datahora"]
+            car_passages.append(CarPassageOut(plate=placa, timestamp=datahora))
+    # Sort car passages by timestamp ascending
+    car_passages = sorted(car_passages, key=lambda x: x.timestamp)
+    return car_passages
 
 
 def get_trips_chunks(locations, max_time_interval):

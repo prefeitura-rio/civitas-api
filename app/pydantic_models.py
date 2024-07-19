@@ -115,7 +115,7 @@ class AgentLocationOut(BaseModel):
 
 class CarPassageOut(BaseModel):
     plate: str
-    timestamps: List[datetime]
+    timestamp: datetime
 
 
 class DataRelayResponse(BaseModel):
