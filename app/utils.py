@@ -530,7 +530,7 @@ def get_radar_positions() -> List[RadarOut]:
             t1.sentido,
             COALESCE(t2.has_data, 'no') AS has_data,
             COALESCE(t2.last_detection_time, NULL) AS last_detection_time,
-            CASE 
+            CASE
             WHEN t2.last_detection_time IS NULL THEN NULL
             WHEN TIMESTAMP(t2.last_detection_time) >= TIMESTAMP_SUB(TIMESTAMP(CURRENT_DATETIME("America/Sao_Paulo")), INTERVAL 24 HOUR) THEN 'yes'
             ELSE 'no'
@@ -555,9 +555,6 @@ def get_radar_positions() -> List[RadarOut]:
         for row in page:
             row: Row
             row_data = dict(row.items())
-            row_data["last_detection_time"] = pendulum.instance(
-                row_data["last_detection_time"], tz=config.TIMEZONE
-            )
             positions.append(RadarOut(**row_data))
     return positions
 
