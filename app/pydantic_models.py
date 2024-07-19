@@ -113,6 +113,11 @@ class AgentLocationOut(BaseModel):
     last_update: datetime
 
 
+class CarPassageOut(BaseModel):
+    plate: str
+    timestamps: List[datetime]
+
+
 class DataRelayResponse(BaseModel):
     success: bool
     message: str

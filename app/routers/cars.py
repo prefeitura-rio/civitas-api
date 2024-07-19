@@ -15,6 +15,7 @@ from app.decorators import router_request
 from app.dependencies import get_user
 from app.models import MonitoredPlate, NotificationChannel, Operation, User
 from app.pydantic_models import (
+    CarPassageOut,
     MonitoredPlateIn,
     MonitoredPlateOut,
     MonitoredPlateUpdate,
@@ -339,7 +340,7 @@ async def delete_monitored_plate(
     return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
 
 
-@router_request(method="GET", router=router, path="/radar", response_model=list[str])
+@router_request(method="GET", router=router, path="/radar", response_model=list[CarPassageOut])
 async def get_cars_by_radar(
     radar: str,
     start_time: datetime,

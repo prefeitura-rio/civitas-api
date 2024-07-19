@@ -23,7 +23,7 @@ from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from app import config
 from app.models import GroupUser, Resource, User
-from app.pydantic_models import RadarOut, WazeAlertOut
+from app.pydantic_models import CarPassageOut, RadarOut, WazeAlertOut
 
 
 def build_get_car_by_radar_query(
@@ -51,7 +51,8 @@ def build_get_car_by_radar_query(
 
     query = """
         SELECT
-            placa
+            placa,
+            DATETIME(datahora, "America/Sao_Paulo") AS datahora,
         FROM `rj-cetrio.ocr_radar.readings_*`
         WHERE
             DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
@@ -69,8 +70,6 @@ def build_get_car_by_radar_query(
 
     if plate_hint:
         query += f"AND placa LIKE '{plate_hint}'"
-
-    query += "GROUP BY placa"
 
     return query
 
@@ -271,7 +270,7 @@ def get_car_by_radar(
     camera_numero: str,
     codcet: str = None,
     plate_hint: str = None,
-) -> List[str]:
+) -> List[CarPassageOut]:
     """
     Fetch cars by radar within a time range.
 
@@ -283,7 +282,7 @@ def get_car_by_radar(
         plate_hint (str, optional): The plate hint. Defaults to None.
 
     Returns:
-        List[str]: The cars.
+        List[CarPassageOut]: The car passages.
     """
     query = build_get_car_by_radar_query(
         min_datetime=min_datetime,
@@ -295,8 +294,18 @@ def get_car_by_radar(
     bq_client = get_bigquery_client()
     query_job = bq_client.query(query)
     data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
-    cars = sorted(list(set([row["placa"] for row in data])))
-    return cars
+    car_passages = {}
+    for page in data.pages:
+        for row in page:
+            row: Row
+            row_data = dict(row.items())
+            placa = row_data["placa"]
+            if placa not in car_passages:
+                car_passages[placa] = []
+            car_passages[placa].append(row_data["datahora"])
+    return [
+        CarPassageOut(plate=placa, timestamps=passages) for placa, passages in car_passages.items()
+    ]
 
 
 def get_trips_chunks(locations, max_time_interval):
