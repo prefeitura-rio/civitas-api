@@ -312,7 +312,10 @@ class RadarOut(BaseModel):
     locequip: str
     bairro: str
     logradouro: str
-    status: str
+    has_data: str
+    empresa: Optional[str] = None
+    active_in_last_24_hours: Optional[str] = None
+    last_detection_time: Optional[datetime] = None
     sentido: Optional[str] = None
 
 

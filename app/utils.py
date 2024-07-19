@@ -506,29 +506,38 @@ def get_radar_positions() -> List[RadarOut]:
         ),
 
         used_radars AS (
-            SELECT
-                DISTINCT
-                camera_numero,
-                camera_latitude,
-                camera_longitude,
-                'active' AS status
-            FROM `rj-cetrio.ocr_radar.readings_*`
+        SELECT
+            camera_numero,
+            camera_latitude,
+            camera_longitude,
+            empresa,
+            MAX(DATETIME(datahora, "America/Sao_Paulo")) AS last_detection_time,
+            'yes' AS has_data
+        FROM `rj-cetrio.ocr_radar.readings_*`
+        GROUP BY camera_numero, camera_latitude, camera_longitude, empresa
         ),
 
         selected_radar AS (
-            SELECT
-                t1.codcet,
-                COALESCE(t1.camera_numero, t2.camera_numero) AS camera_numero,
-                COALESCE(t1.latitude, t2.camera_latitude) AS latitude,
-                COALESCE(t1.longitude, t2.camera_longitude) AS longitude,
-                t1.locequip,
-                t1.bairro,
-                t1.logradouro,
-                t1.sentido,
-                COALESCE(t2.status, 'inactive') AS status
-            FROM radars t1
-            FULL OUTER JOIN used_radars t2
-                ON t1.camera_numero = t2.camera_numero
+        SELECT
+            t1.codcet,
+            COALESCE(t1.camera_numero, t2.camera_numero) AS camera_numero,
+            COALESCE(t2.empresa, NULL) AS empresa,
+            COALESCE(t1.latitude, t2.camera_latitude) AS latitude,
+            COALESCE(t1.longitude, t2.camera_longitude) AS longitude,
+            t1.locequip,
+            t1.bairro,
+            t1.logradouro,
+            t1.sentido,
+            COALESCE(t2.has_data, 'no') AS has_data,
+            COALESCE(t2.last_detection_time, NULL) AS last_detection_time,
+            CASE 
+            WHEN t2.last_detection_time IS NULL THEN NULL
+            WHEN TIMESTAMP(t2.last_detection_time) >= TIMESTAMP_SUB(TIMESTAMP(CURRENT_DATETIME("America/Sao_Paulo")), INTERVAL 24 HOUR) THEN 'yes'
+            ELSE 'no'
+            END AS active_in_last_24_hours
+        FROM radars t1
+        FULL OUTER JOIN used_radars t2
+            ON t1.camera_numero = t2.camera_numero
         )
 
         SELECT
@@ -536,7 +545,7 @@ def get_radar_positions() -> List[RadarOut]:
         FROM selected_radar
         WHERE
             codcet IS NOT NULL
-        ORDER BY codcet
+        ORDER BY last_detection_time
     """
     bq_client = get_bigquery_client()
     query_job = bq_client.query(query)
@@ -546,6 +555,9 @@ def get_radar_positions() -> List[RadarOut]:
         for row in page:
             row: Row
             row_data = dict(row.items())
+            row_data["last_detection_time"] = pendulum.instance(
+                row_data["last_detection_time"], tz=config.TIMEZONE
+            )
             positions.append(RadarOut(**row_data))
     return positions
 
