@@ -55,8 +55,8 @@ def build_get_car_by_radar_query(
             DATETIME(datahora, "America/Sao_Paulo") AS datahora,
         FROM `rj-cetrio.ocr_radar.readings_*`
         WHERE
-            DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
-            AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
+            DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
+            AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
     """.replace(
         "{{min_datetime}}", min_datetime.to_datetime_string()
     ).replace(
@@ -130,8 +130,8 @@ def build_hint_query(
         )
 
     query += """
-            AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
-            AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
+            AND DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
+            AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
         GROUP BY placa
     """.replace(
         "{{min_datetime}}", min_datetime.to_datetime_string()
@@ -181,8 +181,8 @@ def build_positions_query(
             WHERE
                 `rj-cetrio`.ocr_radar.plateDistance(placa, "{{placa}}") <= {{min_distance}}
                 AND (camera_latitude != 0 AND camera_longitude != 0)
-                AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
-                AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
+                AND DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
+                AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
             ORDER BY datahora ASC, placa ASC
         ),
 
