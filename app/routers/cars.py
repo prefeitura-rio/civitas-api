@@ -15,12 +15,13 @@ from app.decorators import router_request
 from app.dependencies import get_user
 from app.models import MonitoredPlate, NotificationChannel, Operation, User
 from app.pydantic_models import (
+    CarPassageOut,
     MonitoredPlateIn,
     MonitoredPlateOut,
     MonitoredPlateUpdate,
     Path,
 )
-from app.utils import get_path
+from app.utils import get_car_by_radar, get_hints, get_path
 
 router = APIRouter(
     prefix="/cars",
@@ -32,6 +33,65 @@ router = APIRouter(
 )
 
 
+@router_request(
+    method="GET",
+    router=router,
+    path="/hint",
+    response_model=list[str],
+    responses={
+        400: {"description": "At least one of (placa, (start_time, end_time)) must be provided"}
+    },
+)
+async def get_car_hint(
+    placa: str,
+    start_time: datetime,
+    end_time: datetime,
+    user: Annotated[User, Depends(get_user)],
+    request: Request,
+    latitude_min: float = None,
+    latitude_max: float = None,
+    longitude_min: float = None,
+    longitude_max: float = None,
+):
+    """
+    Get plates using the provided hints.
+    """
+    # Parse start_time and end_time to pendulum.DateTime
+    start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
+    end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
+
+    # Get hints
+    placa = placa.upper()
+
+    # If one of the latitude or longitude is provided, all of them must be provided
+    if (
+        latitude_min is not None
+        or latitude_max is not None
+        or longitude_min is not None
+        or longitude_max is not None
+    ):
+        if (
+            latitude_min is None
+            or latitude_max is None
+            or longitude_min is None
+            or longitude_max is None
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="If one of the latitude or longitude is provided, all of them must be provided",  # noqa
+            )
+    hints = await get_hints(
+        placa=placa,
+        min_datetime=start_time,
+        max_datetime=end_time,
+        latitude_min=latitude_min,
+        latitude_max=latitude_max,
+        longitude_min=longitude_min,
+        longitude_max=longitude_max,
+    )
+    return hints
+
+
 @router_request(method="GET", router=router, path="/path", response_model=list[Path])
 async def get_car_path(
     placa: str,
@@ -41,18 +101,21 @@ async def get_car_path(
     request: Request,
     max_time_interval: int = 60 * 60,
     polyline: bool = False,
+    min_plate_distance: float = 0,
 ):
     # Parse start_time and end_time to pendulum.DateTime
     start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
     end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
 
     # Get path
+    placa = placa.upper()
     path = await get_path(
         placa=placa,
         min_datetime=start_time,
         max_datetime=end_time,
         max_time_interval=max_time_interval,
         polyline=polyline,
+        min_plate_distance=min_plate_distance,
     )
 
     # Build response
@@ -181,6 +244,7 @@ async def get_monitored_plate(
     Gets a monitored plate by its plate number.
     """
     # Check if plate is monitored
+    plate = plate.upper()
     monitored_plate = await MonitoredPlate.filter(plate=plate).first()
     if not monitored_plate:
         raise HTTPException(status_code=404, detail="Plate not found")
@@ -204,6 +268,7 @@ async def update_monitored_plate(
     Updates a monitored plate by its plate number.
     """
     # Check if plate is monitored
+    plate = plate.upper()
     monitored_plate = await MonitoredPlate.filter(plate=plate).first()
     if not monitored_plate:
         raise HTTPException(status_code=404, detail="Plate not found")
@@ -267,8 +332,39 @@ async def delete_monitored_plate(
     Removes a plate from the monitored plates list.
     """
     # Check if plate is monitored
+    plate = plate.upper()
     monitored_plate = await MonitoredPlate.filter(plate=plate).first()
     if not monitored_plate:
         raise HTTPException(status_code=404, detail="Plate not found")
     await monitored_plate.delete()
     return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
+
+
+@router_request(method="GET", router=router, path="/radar", response_model=list[CarPassageOut])
+async def get_cars_by_radar(
+    radar: str,
+    start_time: datetime,
+    end_time: datetime,
+    user: Annotated[User, Depends(get_user)],
+    request: Request,
+    plate_hint: str = None,
+):
+    # Parse start_time and end_time to pendulum.DateTime
+    start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
+    end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
+
+    # Use either camera_numero or codcet
+    if radar in config.CODCET_TO_CAMERA_NUMERO:
+        codcet = radar
+        camera_numero = config.CODCET_TO_CAMERA_NUMERO[codcet]
+    else:
+        codcet = None
+        camera_numero = radar
+
+    return await get_car_by_radar(
+        camera_numero=camera_numero,
+        codcet=codcet,
+        min_datetime=start_time,
+        max_datetime=end_time,
+        plate_hint=plate_hint,
+    )

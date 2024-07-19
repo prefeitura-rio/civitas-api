@@ -171,3 +171,18 @@ def update_single_plate(placa: str, token: str, body: dict):
             logger.info(f"Placa {placa} atualizada com sucesso.")
     except Exception as e:
         logger.error(f"Erro ao atualizar a placa {placa}: {e}")
+
+
+def set_notification_channel(plates, notification_channel_id):
+    body = {
+        "plate": None,
+        "operation_id": None,
+        "active": None,
+        "notes": None,
+        "additional_info": None,
+        "notification_channels": [notification_channel_id],
+    }
+    token = authenticate_with_civitas_api()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        for plate in plates:
+            executor.submit(update_single_plate, plate["plate"], token, body)

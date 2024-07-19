@@ -113,6 +113,11 @@ class AgentLocationOut(BaseModel):
     last_update: datetime
 
 
+class CarPassageOut(BaseModel):
+    plate: str
+    timestamps: List[datetime]
+
+
 class DataRelayResponse(BaseModel):
     success: bool
     message: str
@@ -299,6 +304,17 @@ class PermissionOut(BaseModel):
         orm_mode = True
 
 
+class RadarOut(BaseModel):
+    codcet: str
+    camera_numero: str
+    latitude: float
+    longitude: float
+    locequip: str
+    bairro: str
+    logradouro: str
+    sentido: Optional[str] = None
+
+
 class ResourceOut(BaseModel):
     id: UUID
     name: str
@@ -361,6 +377,18 @@ class UserOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class WazeAlertOut(BaseModel):
+    timestamp: datetime
+    street: Optional[str] = None
+    type: str
+    subtype: str
+    reliability: float
+    confidence: float
+    number_thumbs_up: Optional[int] = None
+    latitude: float
+    longitude: float
 
 
 GroupOut.update_forward_refs()
