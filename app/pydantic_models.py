@@ -312,6 +312,7 @@ class RadarOut(BaseModel):
     locequip: str
     bairro: str
     logradouro: str
+    status: str
     sentido: Optional[str] = None
 
 
