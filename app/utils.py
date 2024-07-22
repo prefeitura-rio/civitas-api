@@ -55,8 +55,8 @@ def build_get_car_by_radar_query(
             DATETIME(datahora, "America/Sao_Paulo") AS datahora,
         FROM `rj-cetrio.ocr_radar.readings_*`
         WHERE
-            DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
-            AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
+            DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
+            AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
     """.replace(
         "{{min_datetime}}", min_datetime.to_datetime_string()
     ).replace(
@@ -130,8 +130,8 @@ def build_hint_query(
         )
 
     query += """
-            AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
-            AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
+            AND DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
+            AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
         GROUP BY placa
     """.replace(
         "{{min_datetime}}", min_datetime.to_datetime_string()
@@ -181,8 +181,8 @@ def build_positions_query(
             WHERE
                 `rj-cetrio`.ocr_radar.plateDistance(placa, "{{placa}}") <= {{min_distance}}
                 AND (camera_latitude != 0 AND camera_longitude != 0)
-                AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) >= DATETIME_TRUNC(DATETIME("{{min_datetime}}"), HOUR)
-                AND DATETIME_TRUNC(DATETIME(datahora, "America/Sao_Paulo"), HOUR) <= DATETIME_TRUNC(DATETIME("{{max_datetime}}"), HOUR)
+                AND DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
+                AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
             ORDER BY datahora ASC, placa ASC
         ),
 
@@ -294,18 +294,17 @@ def get_car_by_radar(
     bq_client = get_bigquery_client()
     query_job = bq_client.query(query)
     data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
-    car_passages = {}
+    car_passages = []
     for page in data.pages:
         for row in page:
             row: Row
             row_data = dict(row.items())
             placa = row_data["placa"]
-            if placa not in car_passages:
-                car_passages[placa] = []
-            car_passages[placa].append(row_data["datahora"])
-    return [
-        CarPassageOut(plate=placa, timestamps=passages) for placa, passages in car_passages.items()
-    ]
+            datahora = row_data["datahora"]
+            car_passages.append(CarPassageOut(plate=placa, timestamp=datahora))
+    # Sort car passages by timestamp ascending
+    car_passages = sorted(car_passages, key=lambda x: x.timestamp)
+    return car_passages
 
 
 def get_trips_chunks(locations, max_time_interval):
@@ -507,27 +506,38 @@ def get_radar_positions() -> List[RadarOut]:
         ),
 
         used_radars AS (
-            SELECT
-                DISTINCT
-                camera_numero,
-                camera_latitude,
-                camera_longitude
-            FROM `rj-cetrio.ocr_radar.readings_*`
+        SELECT
+            camera_numero,
+            camera_latitude,
+            camera_longitude,
+            empresa,
+            MAX(DATETIME(datahora, "America/Sao_Paulo")) AS last_detection_time,
+            'yes' AS has_data
+        FROM `rj-cetrio.ocr_radar.readings_*`
+        GROUP BY camera_numero, camera_latitude, camera_longitude, empresa
         ),
 
         selected_radar AS (
-            SELECT
-                t1.codcet,
-                COALESCE(t1.camera_numero, t2.camera_numero) AS camera_numero,
-                COALESCE(t1.latitude, t2.camera_latitude) AS latitude,
-                COALESCE(t1.longitude, t2.camera_longitude) AS longitude,
-                t1.locequip,
-                t1.bairro,
-                t1.logradouro,
-                t1.sentido
-            FROM radars t1
-            FULL OUTER JOIN used_radars t2
-                ON t1.camera_numero = t2.camera_numero
+        SELECT
+            t1.codcet,
+            COALESCE(t1.camera_numero, t2.camera_numero) AS camera_numero,
+            COALESCE(t2.empresa, NULL) AS empresa,
+            COALESCE(t1.latitude, t2.camera_latitude) AS latitude,
+            COALESCE(t1.longitude, t2.camera_longitude) AS longitude,
+            t1.locequip,
+            t1.bairro,
+            t1.logradouro,
+            t1.sentido,
+            COALESCE(t2.has_data, 'no') AS has_data,
+            COALESCE(t2.last_detection_time, NULL) AS last_detection_time,
+            CASE
+            WHEN t2.last_detection_time IS NULL THEN NULL
+            WHEN TIMESTAMP(t2.last_detection_time) >= TIMESTAMP_SUB(TIMESTAMP(CURRENT_DATETIME("America/Sao_Paulo")), INTERVAL 24 HOUR) THEN 'yes'
+            ELSE 'no'
+            END AS active_in_last_24_hours
+        FROM radars t1
+        FULL OUTER JOIN used_radars t2
+            ON t1.camera_numero = t2.camera_numero
         )
 
         SELECT
@@ -535,7 +545,7 @@ def get_radar_positions() -> List[RadarOut]:
         FROM selected_radar
         WHERE
             codcet IS NOT NULL
-        ORDER BY codcet
+        ORDER BY last_detection_time
     """
     bq_client = get_bigquery_client()
     query_job = bq_client.query(query)
