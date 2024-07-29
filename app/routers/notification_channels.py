@@ -7,7 +7,7 @@ from fastapi_pagination.api import create_page
 from tortoise.exceptions import ValidationError
 
 from app.decorators import router_request
-from app.dependencies import get_user
+from app.dependencies import is_user
 from app.models import NotificationChannel, User
 from app.pydantic_models import (
     NotificationChannelIn,
@@ -27,7 +27,7 @@ router = APIRouter(
 
 @router_request(method="GET", router=router, path="", response_model=Page[NotificationChannelOut])
 async def get_notification_channels(
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
     params: Params = Depends(),
 ):
@@ -50,7 +50,7 @@ async def get_notification_channels(
 @router_request(method="POST", router=router, path="", response_model=NotificationChannelOut)
 async def create_notification_channel(
     notification_channel: NotificationChannelIn,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -73,7 +73,7 @@ async def create_notification_channel(
 )
 async def get_notification_channel(
     notification_channel_id: str,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -94,7 +94,7 @@ async def get_notification_channel(
 async def update_notification_channel(
     notification_channel_id: str,
     notification_channel_data: NotificationChannelUpdate,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -119,7 +119,7 @@ async def update_notification_channel(
 )
 async def delete_notification_channel(
     notification_channel_id: str,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """

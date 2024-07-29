@@ -147,6 +147,8 @@ class User(Model):
     sector = fields.CharField(max_length=255, null=True)  # Setor
     email = fields.CharField(max_length=255, null=True)
     is_admin = fields.BooleanField(default=False)
+    is_user = fields.BooleanField(default=False)
+    is_agent = fields.BooleanField(default=False)
 
 
 class UserHistory(Model):

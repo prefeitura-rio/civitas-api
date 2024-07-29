@@ -8,7 +8,7 @@ from loguru import logger
 
 from app import config
 from app.decorators import router_request
-from app.dependencies import get_user
+from app.dependencies import is_user
 from app.models import User
 
 router = APIRouter(
@@ -23,7 +23,7 @@ router = APIRouter(
 
 @router_request(method="GET", router=router, path="", response_model=None)
 async def get_cameras_list(
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     try:

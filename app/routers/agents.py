@@ -8,7 +8,7 @@ from loguru import logger
 
 from app import config
 from app.decorators import router_request
-from app.dependencies import get_user
+from app.dependencies import is_user
 from app.models import User
 from app.pydantic_models import AgentLocationIn, AgentLocationOut, DataRelayResponse
 from app.redis_cache import cache
@@ -27,7 +27,7 @@ router = APIRouter(
     method="GET", router=router, path="/location", response_model=list[AgentLocationOut]
 )
 async def get_agents_location(
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     try:
@@ -53,7 +53,7 @@ async def get_agents_location(
 )
 async def set_agent_location(
     location: AgentLocationIn,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     try:
