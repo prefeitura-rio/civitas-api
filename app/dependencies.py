@@ -12,7 +12,6 @@ from app.pydantic_models import OIDCUser
 async def get_user(
     user_info: Annotated[OIDCUser, Security(get_current_user, scopes=["profile"])]
 ) -> User:
-    print(user_info)
     if config.AUTH_PROVIDER_GROUP_USER not in user_info.groups and config.AUTH_PROVIDER_GROUP_AGENT not in user_info.groups:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
