@@ -9,7 +9,7 @@ from fastapi_pagination.api import create_page
 from tortoise.transactions import in_transaction
 
 from app.decorators import router_request
-from app.dependencies import get_user, is_admin
+from app.dependencies import is_user, is_admin
 from app.models import Group, GroupUser, Permission, Resource, Role, User
 from app.pydantic_models import (
     GroupIn,
@@ -98,7 +98,7 @@ async def create_group(
 )
 async def get_group(
     group_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -130,7 +130,7 @@ async def get_group(
 async def update_group(
     group_id: UUID,
     group_data: GroupUpdate,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -163,7 +163,7 @@ async def update_group(
 )
 async def delete_group(
     group_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -192,7 +192,7 @@ async def delete_group(
 )
 async def list_group_permissions(
     group_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
     params: Params = Depends(),
 ):
@@ -265,7 +265,7 @@ async def add_permission_to_group(
 async def delete_group_permission(
     group_id: UUID,
     permission_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -297,7 +297,7 @@ async def delete_group_permission(
 )
 async def list_group_roles(
     group_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
     params: Params = Depends(),
 ):
@@ -340,7 +340,7 @@ async def list_group_roles(
 async def add_role_to_group(
     group_id: UUID,
     role: RoleIn,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -370,7 +370,7 @@ async def add_role_to_group(
 async def get_group_role(
     group_id: UUID,
     role_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -403,7 +403,7 @@ async def update_group_role(
     group_id: UUID,
     role_id: UUID,
     role_data: RoleUpdate,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -440,7 +440,7 @@ async def update_group_role(
 async def delete_group_role(
     group_id: UUID,
     role_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -473,7 +473,7 @@ async def delete_group_role(
 async def list_group_role_permissions(
     group_id: UUID,
     role_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
     params: Params = Depends(),
 ):
@@ -523,7 +523,7 @@ async def add_permission_to_group_role(
     group_id: UUID,
     role_id: UUID,
     role_permission: RolePermissionIn,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -562,7 +562,7 @@ async def delete_permission_from_group_role(
     group_id: UUID,
     role_id: UUID,
     permission_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -598,7 +598,7 @@ async def delete_permission_from_group_role(
 async def list_group_role_users(
     group_id: UUID,
     role_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
     params: Params = Depends(),
 ):
@@ -642,7 +642,7 @@ async def add_user_to_group_role(
     group_id: UUID,
     role_id: UUID,
     role_user: RoleUserIn,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -679,7 +679,7 @@ async def delete_user_from_group_role(
     group_id: UUID,
     role_id: UUID,
     user_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -714,7 +714,7 @@ async def delete_user_from_group_role(
 )
 async def list_group_users(
     group_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
     params: Params = Depends(),
 ):
@@ -762,7 +762,7 @@ async def list_group_users(
 async def add_user_to_group(
     group_id: UUID,
     group_user: GroupUserIn,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -799,7 +799,7 @@ async def add_user_to_group(
 async def get_group_user(
     group_id: UUID,
     user_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -835,7 +835,7 @@ async def update_group_user(
     group_id: UUID,
     user_id: UUID,
     group_user_data: GroupUserUpdate,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -875,7 +875,7 @@ async def update_group_user(
 async def delete_group_user(
     group_id: UUID,
     user_id: UUID,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -906,7 +906,7 @@ async def delete_group_user(
     response_model=Page[ResourceOut],
 )
 async def list_resources(
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
     params: Params = Depends(),
 ):
