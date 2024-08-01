@@ -79,3 +79,20 @@ except Exception as exc:
     logger.error(f"Failed to load CODCET to camera_numero mapping: {exc}")
     logger.error(traceback.format_exc())
     CODCET_TO_CAMERA_NUMERO = {}
+
+# Weaviate schema
+WEAVIATE_SCHEMA = {
+    "class": "Ocorrencia",
+    "vectorizer": "none",
+    "properties": [
+        {"name": "timestamp", "dataType": ["date"]},
+        {"name": "latitude", "dataType": ["number"]},
+        {"name": "longitude", "dataType": ["number"]},
+        {"name": "address", "dataType": ["text"]},
+        {"name": "category", "dataType": ["text"]},
+        {"name": "sub_category", "dataType": ["text"]},
+        {"name": "description", "dataType": ["text"]},
+        {"name": "source", "dataType": ["text"]},
+        {"name": "id_origin", "dataType": ["text"]},
+    ],
+}

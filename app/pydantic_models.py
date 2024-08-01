@@ -358,6 +358,38 @@ class RolePermissionIn(BaseModel):
     permission: UUID
 
 
+class SearchIn(BaseModel):
+    id_origin: Optional[str] = None
+    source: Optional[str] = None
+    category: Optional[str] = None
+    sub_category: Optional[str] = None
+    description_similar: Optional[str] = None
+    description_contains: Optional[str] = None
+    description_excludes: Optional[str] = None
+    latitude_min: Optional[float] = None
+    latitude_max: Optional[float] = None
+    longitude_min: Optional[float] = None
+    longitude_max: Optional[float] = None
+    timestamp_min: Optional[datetime] = None
+    timestamp_max: Optional[datetime] = None
+
+
+class SearchOutItem(BaseModel):
+    id_origin: str
+    source: str
+    category: str
+    sub_category: str
+    description: str
+    address: str
+    latitude: float
+    longitude: float
+    timestamp: datetime
+
+
+class SearchOut(BaseModel):
+    results: List[SearchOutItem]
+
+
 class UserHistoryOut(BaseModel):
     id: UUID
     method: str

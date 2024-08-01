@@ -9,6 +9,7 @@ from uuid import UUID
 import orjson as json
 import pendulum
 import pytz
+import requests
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi_cache.decorator import cache as cache_decorator
@@ -243,6 +244,63 @@ def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials
     if scopes:
         creds = creds.with_scopes(scopes)
     return creds
+
+
+def check_schema_equality(dict1: dict, dict2: dict) -> bool:
+    """
+    Check if two dictionaries are equal.
+
+    Args:
+        dict1 (dict): The first dictionary.
+        dict2 (dict): The second dictionary.
+
+    Returns:
+        bool: True if the dictionaries are equal, False otherwise.
+    """
+    for k, v in dict1.items():
+        if isinstance(v, dict):
+            if not check_schema_equality(v, dict2[k]):
+                return False
+        elif isinstance(v, list):
+            for i in range(len(v)):
+                if isinstance(v[i], dict):
+                    if not check_schema_equality(v[i], dict2[k][i]):
+                        return False
+                elif v[i] != dict2[k][i]:
+                    return False
+        elif v != dict2[k]:
+            return False
+    return True
+
+
+def create_update_weaviate_schema():
+    """
+    Create or update the Weaviate schema.
+    """
+    schema = config.WEAVIATE_SCHEMA
+    # Check if class name already exists
+    response = requests.get(f"{config.WEAVIATE_BASE_URL}/v1/schema/{schema['class']}", timeout=10)
+    if response.status_code == 200:
+        # Check if the schema is the same
+        existing_schema = response.json()
+        if not check_schema_equality(schema, existing_schema):
+            # Update schema
+            response = requests.patch(
+                f"{config.WEAVIATE_BASE_URL}/v1/schema/{schema['class']}", json=schema, timeout=10
+            )
+            if response.status_code != 200:
+                logger.error(f"Failed to update schema: {response.content}")
+            else:
+                logger.info(f"Schema updated: {response.content}")
+        else:
+            logger.info("Schema is up to date")
+    else:
+        # Create schema
+        response = requests.post(f"{config.WEAVIATE_BASE_URL}/v1/schema", json=schema, timeout=10)
+        if response.status_code != 200:
+            logger.error(f"Failed to create schema: {response.content}")
+        else:
+            logger.info(f"Schema created: {response.content}")
 
 
 def chunk_locations(locations, N):
