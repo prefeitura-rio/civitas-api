@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import base64
+import traceback
 from contextlib import AbstractAsyncContextManager
 from types import ModuleType
 from typing import Any, Dict, Iterable, List, Optional, Union
 from uuid import UUID
 
+import aiohttp
 import orjson as json
 import pendulum
 import pytz
 import requests
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi_cache.decorator import cache as cache_decorator
 from google.cloud import bigquery
@@ -54,6 +56,7 @@ def build_get_car_by_radar_query(
         SELECT
             placa,
             DATETIME(datahora, "America/Sao_Paulo") AS datahora,
+            velocidade
         FROM `rj-cetrio.ocr_radar.readings_*`
         WHERE
             DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
@@ -359,7 +362,8 @@ def get_car_by_radar(
             row_data = dict(row.items())
             placa = row_data["placa"]
             datahora = row_data["datahora"]
-            car_passages.append(CarPassageOut(plate=placa, timestamp=datahora))
+            velocidade = row_data["velocidade"]
+            car_passages.append(CarPassageOut(plate=placa, timestamp=datahora, speed=velocidade))
     # Sort car passages by timestamp ascending
     car_passages = sorted(car_passages, key=lambda x: x.timestamp)
     return car_passages
@@ -537,6 +541,24 @@ async def get_positions(
             locations.append(row_data)
 
     return {"placa": placa, "locations": locations}
+
+
+@cache_decorator(expire=config.CACHE_CAMERAS_COR_TTL)
+async def get_cameras_cor() -> list:
+    """
+    Fetch the cameras list.
+    """
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                config.TIXXI_CAMERAS_LIST_URL,
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
+                return data
+    except Exception:
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to fetch cameras list")
 
 
 @cache_decorator(expire=config.CACHE_RADAR_POSITIONS_TTL)
