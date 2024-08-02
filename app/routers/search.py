@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.decorators import router_request
 from app.dependencies import get_user
 from app.models import User
 from app.pydantic_models import SearchIn, SearchOut
+from app.utils import search_weaviate
 
 router = APIRouter(
     prefix="/search",
@@ -18,8 +19,47 @@ router = APIRouter(
 )
 
 
-@router_request(method="POST", router=router, path="", response_model=SearchOut)
-async def get_cameras_list(
-    user: Annotated[User, Depends(get_user)], request: Request, filters: SearchIn
-):
-    raise NotImplementedError("TO DO.")
+@router_request(
+    method="POST",
+    router=router,
+    path="",
+    response_model=SearchOut,
+    responses={404: {"description": "Bad Request"}},
+)
+async def search(user: Annotated[User, Depends(get_user)], request: Request, filters: SearchIn):
+    # First we need to verify that the filters are valid
+
+    # 1. Are all filters (except for limit) None?
+    if all(
+        [
+            filters.id_origin is None,
+            filters.source is None,
+            filters.category is None,
+            filters.sub_category is None,
+            filters.description_similar is None,
+            filters.description_contains is None,
+            filters.latitude_min is None,
+            filters.latitude_max is None,
+            filters.longitude_min is None,
+            filters.longitude_max is None,
+            filters.timestamp_min is None,
+            filters.timestamp_max is None,
+        ]
+    ):
+        raise HTTPException(status_code=400, detail="At least one filter must be provided.")
+
+    # 2. If either latitude_min or latitude_max is provided, both must be provided
+    if (filters.latitude_min is not None) ^ (filters.latitude_max is not None):
+        raise HTTPException(
+            status_code=400,
+            detail="When picking latitude filter, both min and max must be specified",
+        )
+
+    # 3. If either longitude_min or longitude_max is provided, both must be providade
+    if (filters.longitude_min is not None) ^ (filters.longitude_max is not None):
+        raise HTTPException(
+            status_code=400,
+            detail="When picking longitude filter, both min and max must be specified",
+        )
+
+    return await search_weaviate(filters)

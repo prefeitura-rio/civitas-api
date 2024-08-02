@@ -26,7 +26,14 @@ from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from app import config
 from app.models import GroupUser, Resource, User
-from app.pydantic_models import CarPassageOut, RadarOut, WazeAlertOut
+from app.pydantic_models import (
+    CarPassageOut,
+    RadarOut,
+    SearchIn,
+    SearchOut,
+    SearchOutItem,
+    WazeAlertOut,
+)
 
 
 def build_get_car_by_radar_query(
@@ -74,6 +81,193 @@ def build_get_car_by_radar_query(
 
     if plate_hint:
         query += f"AND placa LIKE '{plate_hint}'"
+
+    return query
+
+
+async def build_graphql_query(filters: SearchIn) -> str:
+    base_query = """
+        {
+            Get {
+                Ocorrencia (
+                    {{sorting}}
+                    {{limit_filter}}
+                    {{regular_filters}}
+                    {{semantic_filter}}
+                ) {
+                    id_origin
+                    source
+                    description
+                    category
+                    sub_category
+                    address
+                    latitude
+                    longitude
+                    timestamp
+                }
+            }
+        }
+    """
+
+    sorting = """
+        sort: {
+            path: ["_additional", "certainty"]
+            order: desc
+        }
+    """
+    sorting = ""
+
+    # Create limit filter
+    if filters.limit:
+        if not isinstance(filters.limit, int):
+            raise HTTPException(status_code=400, detail="Invalid limit")
+        limit_filter = f"limit: {filters.limit}"
+    else:
+        limit_filter = ""
+
+    # Create regular filters
+    base_regular_filters = """
+        where: {
+            operator: And,
+            operands: [{{regular_filter_operands}}]
+        },
+    """
+    regular_filter_operands = []
+    if filters.id_origin:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["id_origin"],
+                    operator: Equal,
+                    valueText: "%s",
+                }
+            """
+            % filters.id_origin
+        )
+    if filters.source:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["source"],
+                    operator: Equal,
+                    valueText: "%s",
+                }
+            """
+            % filters.source
+        )
+    if filters.category:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["category"],
+                    operator: Equal,
+                    valueText: "%s",
+                }
+            """
+            % filters.category
+        )
+    if filters.sub_category:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["sub_category"],
+                    operator: Equal,
+                    valueText: "%s",
+                }
+            """
+            % filters.sub_category
+        )
+    if filters.description_contains:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["description"],
+                    operator: ContainsAny,
+                    valueText: ["%s"],
+                }
+            """
+            % filters.description_contains
+        )
+    if filters.latitude_min and filters.latitude_max:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["latitude"],
+                    operator: GreaterThanEqual,
+                    valueNumber: %s,
+                },
+                {
+                    path: ["latitude"],
+                    operator: LessThanEqual,
+                    valueNumber: %s,
+                }
+            """
+            % (filters.latitude_min, filters.latitude_max)
+        )
+    if filters.longitude_min and filters.longitude_max:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["longitude"],
+                    operator: GreaterThanEqual,
+                    valueNumber: %s,
+                },
+                {
+                    path: ["longitude"],
+                    operator: LessThanEqual,
+                    valueNumber: %s,
+                }
+            """
+            % (filters.longitude_min, filters.longitude_max)
+        )
+    if filters.timestamp_min:
+        timestamp_min = filters.timestamp_min.replace(tzinfo=pytz.timezone("America/Sao_Paulo"))
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["timestamp"],
+                    operator: GreaterThanEqual,
+                    valueDate: "%s",
+                }
+            """
+            % timestamp_min.isoformat()
+        )
+    if filters.timestamp_max:
+        timestamp_max = filters.timestamp_min.replace(tzinfo=pytz.timezone("America/Sao_Paulo"))
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["timestamp"],
+                    operator: LessThanEqual,
+                    valueDate: "%s",
+                }
+            """
+            % timestamp_max.isoformat()
+        )
+    if regular_filter_operands:
+        regular_filters = base_regular_filters.replace(
+            "{{regular_filter_operands}}", ", ".join(regular_filter_operands)
+        )
+    else:
+        regular_filters = ""
+
+    # Create semantic filter
+    base_semantic_filter = """
+        nearVector: {
+            vector: %s,
+        }
+    """
+    semantic_query = filters.description_similar or ""
+    vector = await generate_embeddings(semantic_query)
+    semantic_filter = base_semantic_filter % vector
+
+    # Build query
+    query = base_query.replace("{{limit_filter}}", limit_filter)
+    query = query.replace("{{regular_filters}}", regular_filters)
+    query = query.replace("{{semantic_filter}}", semantic_filter)
+    query = query.replace("{{sorting}}", sorting)
+
+    logger.debug(f"GraphQL query: {query}")
 
     return query
 
@@ -322,6 +516,46 @@ def chunk_locations(locations, N):
             chunks.append(chunk)
             break
     return chunks
+
+
+async def generate_embeddings(text: str) -> List[float]:
+    """
+    Generate embeddings for a text.
+
+    Args:
+        text (str): The text.
+
+    Returns:
+        List[float]: The embeddings.
+    """
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            f"{config.EMBEDDING_API_BASE_URL}/embed/",
+            json={"text": text},
+        ) as response:
+            response.raise_for_status()
+            data = await response.json()
+            return data["embedding"]
+
+
+async def generate_embeddings_batch(texts: List[str]) -> List[List[float]]:
+    """
+    Generate embeddings for a batch of texts.
+
+    Args:
+        texts (List[str]): The texts.
+
+    Returns:
+        List[List[float]]: The embeddings.
+    """
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
+            json={"texts": texts},
+        ) as response:
+            response.raise_for_status()
+            data = await response.json()
+            return data["embeddings"]
 
 
 @cache_decorator(expire=config.CACHE_CAR_BY_RADAR_TTL)
@@ -928,6 +1162,26 @@ def register_tortoise(
             )
 
     return Manager()
+
+
+async def search_weaviate(filters: SearchIn) -> SearchOut:
+    query = await build_graphql_query(filters)
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            f"{config.WEAVIATE_BASE_URL}/v1/graphql",
+            json={"query": query},
+        ) as response:
+            response.raise_for_status()
+            data = await response.json()
+            search_out_items = []
+            logger.warning(data)
+            for item in data["data"]["Get"]["Ocorrencia"]:
+                search_out_items.append(
+                    SearchOutItem(
+                        **item,
+                    )
+                )
+            return SearchOut(results=search_out_items)
 
 
 def translate_method_to_action(method: str) -> str:

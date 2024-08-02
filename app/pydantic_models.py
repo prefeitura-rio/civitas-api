@@ -360,13 +360,13 @@ class RolePermissionIn(BaseModel):
 
 
 class SearchIn(BaseModel):
+    limit: Optional[int] = 10
     id_origin: Optional[str] = None
     source: Optional[str] = None
     category: Optional[str] = None
     sub_category: Optional[str] = None
     description_similar: Optional[str] = None
     description_contains: Optional[str] = None
-    description_excludes: Optional[str] = None
     latitude_min: Optional[float] = None
     latitude_max: Optional[float] = None
     longitude_min: Optional[float] = None
