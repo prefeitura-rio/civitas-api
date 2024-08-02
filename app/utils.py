@@ -55,6 +55,7 @@ def build_get_car_by_radar_query(
         SELECT
             placa,
             DATETIME(datahora, "America/Sao_Paulo") AS datahora,
+            velocidade
         FROM `rj-cetrio.ocr_radar.readings_*`
         WHERE
             DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
@@ -303,7 +304,8 @@ def get_car_by_radar(
             row_data = dict(row.items())
             placa = row_data["placa"]
             datahora = row_data["datahora"]
-            car_passages.append(CarPassageOut(plate=placa, timestamp=datahora))
+            velocidade = row_data["velocidade"]
+            car_passages.append(CarPassageOut(plate=placa, timestamp=datahora, speed=velocidade))
     # Sort car passages by timestamp ascending
     car_passages = sorted(car_passages, key=lambda x: x.timestamp)
     return car_passages
