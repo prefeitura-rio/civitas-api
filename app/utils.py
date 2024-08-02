@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import base64
+import traceback
 from contextlib import AbstractAsyncContextManager
 from types import ModuleType
 from typing import Any, Dict, Iterable, List, Optional, Union
 from uuid import UUID
 
+import aiohttp
 import orjson as json
 import pendulum
 import pytz
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi_cache.decorator import cache as cache_decorator
 from google.cloud import bigquery
@@ -479,6 +481,24 @@ async def get_positions(
             locations.append(row_data)
 
     return {"placa": placa, "locations": locations}
+
+
+@cache_decorator(expire=config.CACHE_CAMERAS_COR_TTL)
+async def get_cameras_cor() -> list:
+    """
+    Fetch the cameras list.
+    """
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                config.TIXXI_CAMERAS_LIST_URL,
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
+                return data
+    except Exception:
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to fetch cameras list")
 
 
 @cache_decorator(expire=config.CACHE_RADAR_POSITIONS_TTL)
