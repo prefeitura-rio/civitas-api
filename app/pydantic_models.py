@@ -116,6 +116,7 @@ class AgentLocationOut(BaseModel):
 class CarPassageOut(BaseModel):
     plate: str
     timestamp: datetime
+    speed: float
 
 
 class DataRelayResponse(BaseModel):
