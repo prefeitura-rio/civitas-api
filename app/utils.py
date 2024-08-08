@@ -179,7 +179,8 @@ def build_positions_query(
                     placa,
                     camera_numero,
                     camera_latitude,
-                    camera_longitude
+                    camera_longitude,
+                    velocidade
             FROM `rj-cetrio.ocr_radar.readings_*`
             WHERE
                 `rj-cetrio`.ocr_radar.plateDistance(placa, "{{placa}}") <= {{min_distance}}
@@ -207,7 +208,8 @@ def build_positions_query(
             COALESCE(l.latitude, p.camera_latitude) AS latitude,
             COALESCE(l.longitude, p.camera_longitude) AS longitude,
             l.bairro,
-            l.localidade
+            l.localidade,
+            p.velocidade
         FROM ordered_positions p
         JOIN loc l ON p.camera_numero = l.camera_numero
         ORDER BY p.datahora ASC
