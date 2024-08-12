@@ -406,7 +406,7 @@ class SearchOutItem(BaseModel):
     numero_logradouro: str
     latitude: float
     longitude: float
-    additional_info: SearchOutItemAdditionalInfo
+    additional_info: Optional[SearchOutItemAdditionalInfo] = None
 
 
 class SearchOut(BaseModel):
