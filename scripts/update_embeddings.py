@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import asyncio
-import json
 from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
@@ -16,6 +15,14 @@ from app import config
 from app.pydantic_models import SearchOutItem
 from app.utils import generate_embeddings_batch, get_bigquery_client
 
+EMBEDDING_COLUMNS = [
+    "orgaos",
+    "categoria",
+    "tipo_subtipo",
+    "descricao",
+    "logradouro",
+    "numero_logradouro",
+]
 EMBEDDINGS_LAST_UPDATE_KEY = "embeddings_last_update"
 UPDATE_EMBEDDINGS_LOCK_KEY = "update_embeddings_lock"
 
@@ -30,7 +37,12 @@ def generate_text_for_embedding(item: Dict[str, Any]) -> str:
     Returns:
         str: A text to be used for generating an embedding.
     """
-    return json.dumps(item)
+    text = ""
+    for column in EMBEDDING_COLUMNS:
+        value = item.get(column)
+        if value:
+            text += f"{value} "
+    return text.strip()
 
 
 def get_last_update(redis_client: Redis = None) -> DateTime:
