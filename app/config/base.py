@@ -80,3 +80,49 @@ except Exception as exc:
     logger.error(f"Failed to load CODCET to camera_numero mapping: {exc}")
     logger.error(traceback.format_exc())
     CODCET_TO_CAMERA_NUMERO = {}
+
+# Weaviate schema
+WEAVIATE_SCHEMA = {
+    "class": "Ocorrencia",
+    "vectorizer": "none",
+    "properties": [
+        {"name": "id_report", "dataType": ["uuid"]},
+        {"name": "id_source", "dataType": ["text"]},
+        {"name": "id_report_original", "dataType": ["text"]},
+        {"name": "data_report", "dataType": ["date"]},
+        {
+            "name": "orgaos",
+            "dataType": ["object[]"],
+            "nestedProperties": [{"name": "nome", "dataType": ["text"]}],
+        },
+        {"name": "categoria", "dataType": ["text"]},
+        {
+            "name": "tipo_subtipo",
+            "dataType": ["object[]"],
+            "nestedProperties": [
+                {"name": "tipo", "dataType": ["text"]},
+                {"name": "subtipo", "dataType": ["text[]"]},
+            ],
+        },
+        {"name": "descricao", "dataType": ["text"]},
+        {"name": "logradouro", "dataType": ["text"]},
+        {"name": "numero_logradouro", "dataType": ["text"]},
+        {"name": "latitude", "dataType": ["number"]},
+        {"name": "longitude", "dataType": ["number"]},
+    ],
+}
+
+# Update embeddings configuration
+EMBEDDINGS_SOURCE_TABLE = getenv_or_action("EMBEDDINGS_SOURCE_TABLE", action="raise")
+EMBEDDINGS_SOURCE_TABLE_ID_COLUMN = getenv_or_action(
+    "EMBEDDINGS_SOURCE_TABLE_ID_COLUMN", action="raise"
+)
+EMBEDDINGS_SOURCE_TABLE_TEXT_COLUMN = getenv_or_action(
+    "EMBEDDINGS_SOURCE_TABLE_TEXT_COLUMN", action="raise"
+)
+EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN = getenv_or_action(
+    "EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN", action="raise"
+)
+UPDATE_EMBEDDINGS_LOCK_TIMEOUT = int(
+    getenv_or_action("UPDATE_EMBEDDINGS_LOCK_TIMEOUT", default=86400)
+)

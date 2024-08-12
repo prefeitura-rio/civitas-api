@@ -29,3 +29,13 @@ RATE_LIMIT_DEFAULT = getenv_or_action("RATE_LIMIT_DEFAULT", default="1000/second
 GCP_SERVICE_ACCOUNT_CREDENTIALS = getenv_or_action(
     "GCP_SERVICE_ACCOUNT_CREDENTIALS", action="raise"
 )
+
+# Embeddings API configuration
+EMBEDDING_API_BASE_URL = getenv_or_action(
+    "EMBEDDING_API_BASE_URL", default="http://localhost:8082"
+).rstrip("/")
+
+# Weaviate configuration
+WEAVIATE_BASE_URL = getenv_or_action("WEAVIATE_BASE_URL", default="http://localhost:8081").rstrip(
+    "/"
+)

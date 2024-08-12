@@ -11,6 +11,7 @@ import aiohttp
 import orjson as json
 import pendulum
 import pytz
+import requests
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi_cache.decorator import cache as cache_decorator
@@ -25,7 +26,14 @@ from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from app import config
 from app.models import GroupUser, Resource, User
-from app.pydantic_models import CarPassageOut, RadarOut, WazeAlertOut
+from app.pydantic_models import (
+    CarPassageOut,
+    RadarOut,
+    SearchIn,
+    SearchOut,
+    SearchOutItem,
+    WazeAlertOut,
+)
 
 
 def build_get_car_by_radar_query(
@@ -73,6 +81,243 @@ def build_get_car_by_radar_query(
 
     if plate_hint:
         query += f"AND placa LIKE '{plate_hint}'"
+
+    return query
+
+
+async def build_graphql_query(filters: SearchIn) -> str:
+    base_query = """
+        {
+            Get {
+                Ocorrencia (
+                    {{limit_filter}}
+                    {{regular_filters}}
+                    {{semantic_filter}}
+                ) {
+                    id_report
+                    id_source
+                    id_report_original
+                    data_report
+                    orgaos {
+                        nome
+                    }
+                    categoria
+                    tipo_subtipo {
+                        tipo
+                        subtipo
+                    }
+                    descricao
+                    logradouro
+                    numero_logradouro
+                    latitude
+                    longitude
+                    _additional {
+                        certainty
+                    }
+                }
+            }
+        }
+    """
+
+    # Create limit filter
+    if filters.limit:
+        if not isinstance(filters.limit, int):
+            raise HTTPException(status_code=400, detail="Invalid limit")
+        limit_filter = f"limit: {filters.limit}"
+    else:
+        limit_filter = ""
+
+    # Create regular filters
+    base_regular_filters = """
+        where: {
+            operator: And,
+            operands: [{{regular_filter_operands}}]
+        },
+    """
+    regular_filter_operands = []
+    if filters.id_report:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["id_report"],
+                    operator: Equal,
+                    valueText: "%s",
+                }
+            """
+            % filters.id_report
+        )
+    if filters.id_report_original:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["id_report_original"],
+                    operator: Equal,
+                    valueText: "%s",
+                }
+            """
+            % filters.id_report_original
+        )
+    if filters.id_source:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["id_source"],
+                    operator: Equal,
+                    valueText: "%s",
+                }
+            """
+            % filters.id_source
+        )
+    if filters.orgaos_contains:
+        # TODO: Implement orgaos_contains filter
+        raise HTTPException(status_code=400, detail="orgaos_contains filter not yet implemented")
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["orgaos", "nome"],
+                    operator: ContainsAny,
+                    valueText: %s,
+                }
+            """
+            % filters.orgaos_contains
+        )
+    if filters.categoria:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["categoria"],
+                    operator: Equal,
+                    valueText: "%s",
+                }
+            """
+            % filters.categoria
+        )
+    if filters.categoria_contains:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["categoria"],
+                    operator: ContainsAny,
+                    valueText: %s,
+                }
+            """
+            % filters.categoria_contains
+        )
+    if filters.tipo_contains:
+        # TODO: Implement tipo_contains filter
+        raise HTTPException(status_code=400, detail="tipo_contains filter not yet implemented")
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["tipo_subtipo", "tipo"],
+                    operator: ContainsAny,
+                    valueText: %s,
+                }
+            """
+            % filters.tipo_contains
+        )
+    if filters.subtipo_contains:
+        # TODO: Implement subtipo_contains filter
+        raise HTTPException(status_code=400, detail="subtipo_contains filter not yet implemented")
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["tipo_subtipo", "subtipo"],
+                    operator: ContainsAny,
+                    valueText: %s,
+                }
+            """
+            % filters.subtipo_contains
+        )
+    if filters.descricao_contains:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["descricao"],
+                    operator: ContainsAny,
+                    valueText: %s,
+                }
+            """
+            % filters.descricao_contains
+        )
+    if filters.latitude_min and filters.latitude_max:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["latitude"],
+                    operator: GreaterThanEqual,
+                    valueNumber: %s,
+                },
+                {
+                    path: ["latitude"],
+                    operator: LessThanEqual,
+                    valueNumber: %s,
+                }
+            """
+            % (filters.latitude_min, filters.latitude_max)
+        )
+    if filters.longitude_min and filters.longitude_max:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["longitude"],
+                    operator: GreaterThanEqual,
+                    valueNumber: %s,
+                },
+                {
+                    path: ["longitude"],
+                    operator: LessThanEqual,
+                    valueNumber: %s,
+                }
+            """
+            % (filters.longitude_min, filters.longitude_max)
+        )
+    if filters.data_report_min:
+        timestamp_min = filters.data_report_min.replace(tzinfo=pytz.timezone(config.TIMEZONE))
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["%s"],
+                    operator: GreaterThanEqual,
+                    valueDate: "%s",
+                }
+            """
+            % (config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN, timestamp_min.isoformat())
+        )
+    if filters.data_report_max:
+        timestamp_max = filters.data_report_max.replace(tzinfo=pytz.timezone(config.TIMEZONE))
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["%s"],
+                    operator: LessThanEqual,
+                    valueDate: "%s",
+                }
+            """
+            % (config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN, timestamp_max.isoformat())
+        )
+    if regular_filter_operands:
+        regular_filters = base_regular_filters.replace(
+            "{{regular_filter_operands}}", ", ".join(regular_filter_operands)
+        )
+    else:
+        regular_filters = ""
+
+    # Create semantic filter
+    base_semantic_filter = """
+        nearVector: {
+            vector: %s,
+        }
+    """
+    semantic_query = filters.semantically_similar or ""
+    vector = await generate_embeddings(semantic_query)
+    semantic_filter = base_semantic_filter % vector
+
+    # Build query
+    query = base_query.replace("{{limit_filter}}", limit_filter)
+    query = query.replace("{{regular_filters}}", regular_filters)
+    query = query.replace("{{semantic_filter}}", semantic_filter)
+    query = query.replace("'", '"')
 
     return query
 
@@ -250,6 +495,63 @@ def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials
     return creds
 
 
+def check_schema_equality(dict1: dict, dict2: dict) -> bool:
+    """
+    Check if two dictionaries are equal.
+
+    Args:
+        dict1 (dict): The first dictionary.
+        dict2 (dict): The second dictionary.
+
+    Returns:
+        bool: True if the dictionaries are equal, False otherwise.
+    """
+    for k, v in dict1.items():
+        if isinstance(v, dict):
+            if not check_schema_equality(v, dict2[k]):
+                return False
+        elif isinstance(v, list):
+            for i in range(len(v)):
+                if isinstance(v[i], dict):
+                    if not check_schema_equality(v[i], dict2[k][i]):
+                        return False
+                elif v[i] != dict2[k][i]:
+                    return False
+        elif v != dict2[k]:
+            return False
+    return True
+
+
+def create_update_weaviate_schema():
+    """
+    Create or update the Weaviate schema.
+    """
+    schema = config.WEAVIATE_SCHEMA
+    # Check if class name already exists
+    response = requests.get(f"{config.WEAVIATE_BASE_URL}/v1/schema/{schema['class']}", timeout=10)
+    if response.status_code == 200:
+        # Check if the schema is the same
+        existing_schema = response.json()
+        if not check_schema_equality(schema, existing_schema):
+            # Update schema
+            response = requests.patch(
+                f"{config.WEAVIATE_BASE_URL}/v1/schema/{schema['class']}", json=schema, timeout=10
+            )
+            if response.status_code != 200:
+                logger.error(f"Failed to update schema: {response.content}")
+            else:
+                logger.info(f"Schema updated: {response.content}")
+        else:
+            logger.info("Schema is up to date")
+    else:
+        # Create schema
+        response = requests.post(f"{config.WEAVIATE_BASE_URL}/v1/schema", json=schema, timeout=10)
+        if response.status_code != 200:
+            logger.error(f"Failed to create schema: {response.content}")
+        else:
+            logger.info(f"Schema created: {response.content}")
+
+
 def chunk_locations(locations, N):
     if N >= len(locations) or N == 1:
         return [locations]
@@ -266,6 +568,46 @@ def chunk_locations(locations, N):
             chunks.append(chunk)
             break
     return chunks
+
+
+async def generate_embeddings(text: str) -> List[float]:
+    """
+    Generate embeddings for a text.
+
+    Args:
+        text (str): The text.
+
+    Returns:
+        List[float]: The embeddings.
+    """
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            f"{config.EMBEDDING_API_BASE_URL}/embed/",
+            json={"text": text},
+        ) as response:
+            response.raise_for_status()
+            data = await response.json()
+            return data["embedding"]
+
+
+async def generate_embeddings_batch(texts: List[str]) -> List[List[float]]:
+    """
+    Generate embeddings for a batch of texts.
+
+    Args:
+        texts (List[str]): The texts.
+
+    Returns:
+        List[List[float]]: The embeddings.
+    """
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
+            json={"texts": texts},
+        ) as response:
+            response.raise_for_status()
+            data = await response.json()
+            return data["embeddings"]
 
 
 @cache_decorator(expire=config.CACHE_CAR_BY_RADAR_TTL)
@@ -872,6 +1214,33 @@ def register_tortoise(
             )
 
     return Manager()
+
+
+async def search_weaviate(filters: SearchIn) -> SearchOut:
+    query = await build_graphql_query(filters)
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            f"{config.WEAVIATE_BASE_URL}/v1/graphql",
+            json={"query": query},
+        ) as response:
+            response.raise_for_status()
+            data = await response.json()
+            search_out_items = []
+            logger.warning(data)
+            for item in data["data"]["Get"]["Ocorrencia"]:
+                search_out_items.append(
+                    SearchOutItem(
+                        **item,
+                        additional_info=item["_additional"],
+                    )
+                )
+            # Sort search results by _additional.certainty descending
+            search_out_items = sorted(
+                search_out_items,
+                key=lambda x: x.additional_info.certainty,
+                reverse=True,
+            )
+            return SearchOut(results=search_out_items, total=len(search_out_items))
 
 
 def translate_method_to_action(method: str) -> str:

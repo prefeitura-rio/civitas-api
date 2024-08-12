@@ -360,6 +360,60 @@ class RolePermissionIn(BaseModel):
     permission: UUID
 
 
+class SearchIn(BaseModel):
+    limit: Optional[int] = 10
+    semantically_similar: Optional[str] = None
+    id_report: Optional[str] = None
+    id_report_original: Optional[str] = None
+    id_source: Optional[str] = None
+    data_report_min: Optional[datetime] = None
+    data_report_max: Optional[datetime] = None
+    orgaos_contains: Optional[List[str]] = None
+    categoria: Optional[str] = None
+    categoria_contains: Optional[List[str]] = None
+    tipo_contains: Optional[List[str]] = None
+    subtipo_contains: Optional[List[str]] = None
+    descricao_contains: Optional[List[str]] = None
+    latitude_min: Optional[float] = None
+    latitude_max: Optional[float] = None
+    longitude_min: Optional[float] = None
+    longitude_max: Optional[float] = None
+
+
+class SearchOutItemOrgao(BaseModel):
+    nome: str
+
+
+class SearchOutItemTipoSubtipo(BaseModel):
+    tipo: str
+    subtipo: List[str]
+
+
+class SearchOutItemAdditionalInfo(BaseModel):
+    certainty: float
+
+
+class SearchOutItem(BaseModel):
+    id_report: str
+    id_source: str
+    id_report_original: str
+    data_report: datetime
+    orgaos: List[SearchOutItemOrgao]
+    categoria: str
+    tipo_subtipo: List[SearchOutItemTipoSubtipo]
+    descricao: str
+    logradouro: str
+    numero_logradouro: str
+    latitude: float
+    longitude: float
+    additional_info: SearchOutItemAdditionalInfo
+
+
+class SearchOut(BaseModel):
+    total: int
+    results: List[SearchOutItem]
+
+
 class UserHistoryOut(BaseModel):
     id: UUID
     method: str
