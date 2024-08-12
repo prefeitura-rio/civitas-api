@@ -4,6 +4,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: update-embeddings-prod
+  namespace: civitas
 spec:
   schedule: "*/15 * * * *" # Every 15 minutes
   jobTemplate:
