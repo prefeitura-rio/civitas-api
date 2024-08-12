@@ -90,32 +90,34 @@ async def build_graphql_query(filters: SearchIn) -> str:
         {
             Get {
                 Ocorrencia (
-                    {{sorting}}
                     {{limit_filter}}
                     {{regular_filters}}
                     {{semantic_filter}}
                 ) {
-                    id_origin
-                    source
-                    description
-                    category
-                    sub_category
-                    address
+                    id_report
+                    id_source
+                    id_report_original
+                    data_report
+                    orgaos {
+                        nome
+                    }
+                    categoria
+                    tipo_subtipo {
+                        tipo
+                        subtipo
+                    }
+                    descricao
+                    logradouro
+                    numero_logradouro
                     latitude
                     longitude
-                    timestamp
+                    _additional {
+                        certainty
+                    }
                 }
             }
         }
     """
-
-    sorting = """
-        sort: {
-            path: ["_additional", "certainty"]
-            order: desc
-        }
-    """
-    sorting = ""
 
     # Create limit filter
     if filters.limit:
@@ -133,60 +135,110 @@ async def build_graphql_query(filters: SearchIn) -> str:
         },
     """
     regular_filter_operands = []
-    if filters.id_origin:
+    if filters.id_report:
         regular_filter_operands.append(
             """
                 {
-                    path: ["id_origin"],
+                    path: ["id_report"],
                     operator: Equal,
                     valueText: "%s",
                 }
             """
-            % filters.id_origin
+            % filters.id_report
         )
-    if filters.source:
+    if filters.id_report_original:
         regular_filter_operands.append(
             """
                 {
-                    path: ["source"],
+                    path: ["id_report_original"],
                     operator: Equal,
                     valueText: "%s",
                 }
             """
-            % filters.source
+            % filters.id_report_original
         )
-    if filters.category:
+    if filters.id_source:
         regular_filter_operands.append(
             """
                 {
-                    path: ["category"],
+                    path: ["id_source"],
                     operator: Equal,
                     valueText: "%s",
                 }
             """
-            % filters.category
+            % filters.id_source
         )
-    if filters.sub_category:
+    if filters.orgaos_contains:
+        # TODO: Implement orgaos_contains filter
+        raise HTTPException(status_code=400, detail="orgaos_contains filter not yet implemented")
         regular_filter_operands.append(
             """
                 {
-                    path: ["sub_category"],
-                    operator: Equal,
-                    valueText: "%s",
-                }
-            """
-            % filters.sub_category
-        )
-    if filters.description_contains:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["description"],
+                    path: ["orgaos", "nome"],
                     operator: ContainsAny,
-                    valueText: ["%s"],
+                    valueText: %s,
                 }
             """
-            % filters.description_contains
+            % filters.orgaos_contains
+        )
+    if filters.categoria:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["categoria"],
+                    operator: Equal,
+                    valueText: "%s",
+                }
+            """
+            % filters.categoria
+        )
+    if filters.categoria_contains:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["categoria"],
+                    operator: ContainsAny,
+                    valueText: %s,
+                }
+            """
+            % filters.categoria_contains
+        )
+    if filters.tipo_contains:
+        # TODO: Implement tipo_contains filter
+        raise HTTPException(status_code=400, detail="tipo_contains filter not yet implemented")
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["tipo_subtipo", "tipo"],
+                    operator: ContainsAny,
+                    valueText: %s,
+                }
+            """
+            % filters.tipo_contains
+        )
+    if filters.subtipo_contains:
+        # TODO: Implement subtipo_contains filter
+        raise HTTPException(status_code=400, detail="subtipo_contains filter not yet implemented")
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["tipo_subtipo", "subtipo"],
+                    operator: ContainsAny,
+                    valueText: %s,
+                }
+            """
+            % filters.subtipo_contains
+        )
+    if filters.descricao_contains:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["descricao"],
+                    operator: ContainsAny,
+                    valueText: %s,
+                }
+            """
+            % filters.descricao_contains
         )
     if filters.latitude_min and filters.latitude_max:
         regular_filter_operands.append(
@@ -220,29 +272,29 @@ async def build_graphql_query(filters: SearchIn) -> str:
             """
             % (filters.longitude_min, filters.longitude_max)
         )
-    if filters.timestamp_min:
-        timestamp_min = filters.timestamp_min.replace(tzinfo=pytz.timezone("America/Sao_Paulo"))
+    if filters.data_report_min:
+        timestamp_min = filters.data_report_min.replace(tzinfo=pytz.timezone(config.TIMEZONE))
         regular_filter_operands.append(
             """
                 {
-                    path: ["timestamp"],
+                    path: ["%s"],
                     operator: GreaterThanEqual,
                     valueDate: "%s",
                 }
             """
-            % timestamp_min.isoformat()
+            % (config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN, timestamp_min.isoformat())
         )
-    if filters.timestamp_max:
-        timestamp_max = filters.timestamp_min.replace(tzinfo=pytz.timezone("America/Sao_Paulo"))
+    if filters.data_report_max:
+        timestamp_max = filters.data_report_max.replace(tzinfo=pytz.timezone(config.TIMEZONE))
         regular_filter_operands.append(
             """
                 {
-                    path: ["timestamp"],
+                    path: ["%s"],
                     operator: LessThanEqual,
                     valueDate: "%s",
                 }
             """
-            % timestamp_max.isoformat()
+            % (config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN, timestamp_max.isoformat())
         )
     if regular_filter_operands:
         regular_filters = base_regular_filters.replace(
@@ -257,7 +309,7 @@ async def build_graphql_query(filters: SearchIn) -> str:
             vector: %s,
         }
     """
-    semantic_query = filters.description_similar or ""
+    semantic_query = filters.semantically_similar or ""
     vector = await generate_embeddings(semantic_query)
     semantic_filter = base_semantic_filter % vector
 
@@ -265,9 +317,7 @@ async def build_graphql_query(filters: SearchIn) -> str:
     query = base_query.replace("{{limit_filter}}", limit_filter)
     query = query.replace("{{regular_filters}}", regular_filters)
     query = query.replace("{{semantic_filter}}", semantic_filter)
-    query = query.replace("{{sorting}}", sorting)
-
-    logger.debug(f"GraphQL query: {query}")
+    query = query.replace("'", '"')
 
     return query
 
@@ -1181,9 +1231,16 @@ async def search_weaviate(filters: SearchIn) -> SearchOut:
                 search_out_items.append(
                     SearchOutItem(
                         **item,
+                        additional_info=item["_additional"],
                     )
                 )
-            return SearchOut(results=search_out_items)
+            # Sort search results by _additional.certainty descending
+            search_out_items = sorted(
+                search_out_items,
+                key=lambda x: x.additional_info.certainty,
+                reverse=True,
+            )
+            return SearchOut(results=search_out_items, total=len(search_out_items))
 
 
 def translate_method_to_action(method: str) -> str:

@@ -32,18 +32,22 @@ async def search(user: Annotated[User, Depends(get_user)], request: Request, fil
     # 1. Are all filters (except for limit) None?
     if all(
         [
-            filters.id_origin is None,
-            filters.source is None,
-            filters.category is None,
-            filters.sub_category is None,
-            filters.description_similar is None,
-            filters.description_contains is None,
+            filters.semantically_similar is None,
+            filters.id_report is None,
+            filters.id_report_original is None,
+            filters.id_source is None,
+            filters.data_report_min is None,
+            filters.data_report_max is None,
+            filters.orgaos_contains is None,
+            filters.categoria is None,
+            filters.categoria_contains is None,
+            filters.tipo_contains is None,
+            filters.subtipo_contains is None,
+            filters.descricao_contains is None,
             filters.latitude_min is None,
             filters.latitude_max is None,
             filters.longitude_min is None,
             filters.longitude_max is None,
-            filters.timestamp_min is None,
-            filters.timestamp_max is None,
         ]
     ):
         raise HTTPException(status_code=400, detail="At least one filter must be provided.")
