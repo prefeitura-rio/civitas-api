@@ -14,7 +14,7 @@ spec:
           containers:
           - name: update-embeddings-staging
             image: gcr.io/project-id/civitas
-            command: ["python", "scripts/update_embeddings.py"]
+            command: ["python", "update_embeddings.py"]
           restartPolicy: OnFailure
 
 ---
