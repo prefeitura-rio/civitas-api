@@ -9,4 +9,4 @@ RUN pip install "poetry<1.8.0" && \
     poetry install --no-dev
 
 COPY . /app
-COPY ./scripts/* /app
+COPY ./scripts/* /app/
