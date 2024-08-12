@@ -29,6 +29,7 @@ from app.routers import (
     auth,
     cameras_cor,
     cars,
+    layers,
     notification_channels,
     operations,
     radars,
@@ -99,6 +100,7 @@ app.include_router(auth.router)
 app.include_router(agents.router)
 app.include_router(cameras_cor.router)
 app.include_router(cars.router)
+app.include_router(layers.router)
 app.include_router(notification_channels.router)
 app.include_router(operations.router)
 app.include_router(radars.router)

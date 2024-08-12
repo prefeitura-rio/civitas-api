@@ -34,6 +34,7 @@ from app.pydantic_models import (
     SearchOutItem,
     WazeAlertOut,
 )
+from app.redis_cache import cache
 
 
 def build_get_car_by_radar_query(
@@ -653,6 +654,52 @@ def get_car_by_radar(
     # Sort car passages by timestamp ascending
     car_passages = sorted(car_passages, key=lambda x: x.timestamp)
     return car_passages
+
+
+@cache_decorator(expire=config.CACHE_FOGOCRUZADO_TTL)
+async def get_fogocruzado_reports() -> List[dict]:
+    """
+    Fetch reports from Fogo Cruzado API.
+
+    Returns:
+        List[dict]: The Fogocruzado reports.
+    """
+
+    async def get_url(url, url_parameters, token):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url,
+                params=url_parameters,
+                headers={"Authorization": f"Bearer {token}"},
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
+                return data
+
+    token = await cache.get_fogocruzado_token()
+    url = f"{config.FOGOCRUZADO_BASE_URL}/api/v2/occurrences"
+    url_parameters = {
+        "idCities": "d1bf56cc-6d85-4e6a-a5f5-0ab3f4074be3",  # Rio de Janeiro
+        "idState": "b112ffbe-17b3-4ad0-8f2a-2038745d1d14",  # Rio de Janeiro
+        "initialdate": pendulum.now().subtract(days=1).to_date_string(),  # Today's + yesterday's
+        "page": 1,  # Page number
+    }
+    data = await get_url(url, url_parameters, token)
+    page_count = data["pageMeta"]["pageCount"]
+    reports = data["data"]
+    awaitables = []
+    for page in range(2, page_count + 1):
+        url_parameters["page"] = page
+        awaitables.append(get_url(url, url_parameters, token))
+    additional_data = await asyncio.gather(*awaitables)
+    for data in additional_data:
+        reports += data["data"]
+    for report in reports:
+        if report["latitude"]:
+            report["latitude"] = float(report["latitude"])
+        if report["longitude"]:
+            report["longitude"] = float(report["longitude"])
+    return reports
 
 
 def get_trips_chunks(locations, max_time_interval):

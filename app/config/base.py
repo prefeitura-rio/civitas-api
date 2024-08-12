@@ -52,6 +52,7 @@ CACHE_RADAR_POSITIONS_TTL = int(getenv_or_action("CACHE_RADAR_POSITIONS_TTL", de
 CACHE_WAZE_ALERTS_TTL = int(getenv_or_action("CACHE_WAZE_ALERTS_TTL", default=60 * 5))
 CACHE_CAR_BY_RADAR_TTL = int(getenv_or_action("CACHE_CAR_BY_RADAR_TTL", default=60 * 5))
 CACHE_CAMERAS_COR_TTL = int(getenv_or_action("CACHE_CAMERAS_COR_TTL", default=60 * 5))
+CACHE_FOGOCRUZADO_TTL = int(getenv_or_action("CACHE_FOGOCRUZADO_TTL", default=60 * 5))
 
 # RBAC configuration
 RBAC_EXCLUDED_PATHS = getenv_list_or_action("RBAC_EXCLUDED_PATHS")
@@ -62,6 +63,11 @@ DATA_RELAY_BASE_URL = getenv_or_action("DATA_RELAY_BASE_URL").rstrip("/")
 DATA_RELAY_USERNAME = getenv_or_action("DATA_RELAY_USERNAME")
 DATA_RELAY_PASSWORD = getenv_or_action("DATA_RELAY_PASSWORD")
 DATA_RELAY_PUBLISH_TOKEN = getenv_or_action("DATA_RELAY_PUBLISH_TOKEN")
+
+# Fogo Cruzado API configuration
+FOGOCRUZADO_BASE_URL = getenv_or_action("FOGOCRUZADO_BASE_URL").rstrip("/")
+FOGOCRUZADO_USERNAME = getenv_or_action("FOGOCRUZADO_USERNAME")
+FOGOCRUZADO_PASSWORD = getenv_or_action("FOGOCRUZADO_PASSWORD")
 
 # Tixxi
 TIXXI_CAMERAS_LIST_URL = getenv_or_action("TIXXI_CAMERAS_LIST_URL")
