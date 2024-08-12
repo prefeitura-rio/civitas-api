@@ -15,6 +15,9 @@ spec:
           - name: update-embeddings-staging
             image: gcr.io/project-id/civitas
             command: ["python", "update_embeddings.py"]
+            envFrom:
+              - secretRef:
+                  name: civitas-staging-secrets
           restartPolicy: OnFailure
 
 ---
