@@ -29,14 +29,20 @@ from app.routers import (
     auth,
     cameras_cor,
     cars,
+    layers,
     notification_channels,
     operations,
     radars,
     rbac,
+    search,
     users,
     waze,
 )
-from app.utils import register_tortoise, update_resources_list
+from app.utils import (
+    create_update_weaviate_schema,
+    register_tortoise,
+    update_resources_list,
+)
 
 logger.remove()
 logger.add(sys.stdout, level=config.LOG_LEVEL)
@@ -56,6 +62,7 @@ async def lifespan(app: FastAPI):
         app, config=TORTOISE_ORM, generate_schemas=False, add_exception_handlers=True
     ):
         await update_resources_list(app)
+        create_update_weaviate_schema()
         yield
 
     # Run things on shutdown
@@ -93,10 +100,12 @@ app.include_router(auth.router)
 app.include_router(agents.router)
 app.include_router(cameras_cor.router)
 app.include_router(cars.router)
+app.include_router(layers.router)
 app.include_router(notification_channels.router)
 app.include_router(operations.router)
 app.include_router(radars.router)
 app.include_router(rbac.router)
+app.include_router(search.router)
 app.include_router(users.router)
 app.include_router(waze.router)
 

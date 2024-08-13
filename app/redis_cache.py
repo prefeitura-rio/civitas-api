@@ -20,6 +20,7 @@ class Cache:
         self._car_position_hash_key_template = "car:{placa}:position:{timestamp}"
         self._car_positions_sorted_set_key_template = "car:{placa}:positions"
         self._data_relay_token_key = "data_relay_token"
+        self._fogocruzado_token_key = "fogocruzado_token"
 
     async def add_position(
         self, placa: str, data: Dict[str, float | str], expire: int = config.CACHE_CAR_POSITIONS_TTL
@@ -179,6 +180,40 @@ class Cache:
                 data = await response.json()
                 token = data["access_token"]
                 await self._cache.set(self._data_relay_token_key, token, ex=data["expires_in"])
+                return token
+
+    async def get_fogocruzado_token(self) -> str:
+        """
+        Fetch the Fogo Cruzado API token from cache (or reauthenticate if it's not present or
+        expired).
+
+        Returns:
+            str: The Fogo Cruzado API token.
+        """
+        # Get token from cache
+        token: bytes = await self._cache.get(self._fogocruzado_token_key)
+        if token:
+            return token.decode()
+
+        # Authenticate and store the token in cache
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{config.FOGOCRUZADO_BASE_URL}/api/v2/auth/login",
+                headers={
+                    "accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                data={
+                    "email": config.FOGOCRUZADO_USERNAME,
+                    "password": config.FOGOCRUZADO_PASSWORD,
+                },
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
+                token = data["data"]["accessToken"]
+                await self._cache.set(
+                    self._fogocruzado_token_key, token, ex=data["data"]["expiresIn"]
+                )
                 return token
 
 

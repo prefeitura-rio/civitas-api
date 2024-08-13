@@ -1,4 +1,26 @@
 ---
+# CronJob for updating embeddings
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: update-embeddings-prod
+  namespace: civitas
+spec:
+  schedule: "*/15 * * * *" # Every 15 minutes
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: update-embeddings-prod
+            image: gcr.io/project-id/civitas
+            command: ["python", "update_embeddings.py"]
+            envFrom:
+              - secretRef:
+                  name: civitas-prod-secrets
+          restartPolicy: OnFailure
+
+---
 # API Deployment
 apiVersion: apps/v1
 kind: Deployment
