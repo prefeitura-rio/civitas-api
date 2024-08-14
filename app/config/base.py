@@ -88,8 +88,9 @@ except Exception as exc:
     CODCET_TO_CAMERA_NUMERO = {}
 
 # Weaviate schema
+WEAVIATE_SCHEMA_CLASS = getenv_or_action("WEAVIATE_SCHEMA_CLASS", action="raise")
 WEAVIATE_SCHEMA = {
-    "class": "Ocorrencia",
+    "class": WEAVIATE_SCHEMA_CLASS,
     "vectorizer": "none",
     "properties": [
         {"name": "id_report", "dataType": ["uuid"]},

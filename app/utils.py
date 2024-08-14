@@ -90,7 +90,7 @@ async def build_graphql_query(filters: SearchIn) -> str:
     base_query = """
         {
             Get {
-                Ocorrencia (
+                {{weaviate_schema_class}} (
                     {{limit_filter}}
                     {{regular_filters}}
                     {{semantic_filter}}
@@ -318,6 +318,7 @@ async def build_graphql_query(filters: SearchIn) -> str:
     query = base_query.replace("{{limit_filter}}", limit_filter)
     query = query.replace("{{regular_filters}}", regular_filters)
     query = query.replace("{{semantic_filter}}", semantic_filter)
+    query = query.replace("{{weaviate_schema_class}}", config.WEAVIATE_SCHEMA_CLASS)
     query = query.replace("'", '"')
 
     return query
@@ -535,13 +536,18 @@ def create_update_weaviate_schema():
         existing_schema = response.json()
         if not check_schema_equality(schema, existing_schema):
             # Update schema
-            response = requests.patch(
-                f"{config.WEAVIATE_BASE_URL}/v1/schema/{schema['class']}", json=schema, timeout=10
-            )
-            if response.status_code != 200:
-                logger.error(f"Failed to update schema: {response.content}")
-            else:
-                logger.info(f"Schema updated: {response.content}")
+            # TODO: Failed to update schema: b'{"error":[{"message":"updating schema:
+            # TYPE_UPDATE_CLASS: bad request :parse class update: properties cannot be updated
+            # through updating the class. Use the add property feature (e.g.
+            # \\"POST /v1/schema/{className}/properties\\") to add additional properties"}]}\n'
+            # response = requests.put(
+            #     f"{config.WEAVIATE_BASE_URL}/v1/schema/{schema['class']}", json=schema, timeout=10
+            # )
+            # if response.status_code != 200:
+            #     logger.error(f"Failed to update schema: {response.content}")
+            # else:
+            #     logger.info(f"Schema updated: {response.content}")
+            logger.warning("Schema updating is not yet implemented")
         else:
             logger.info("Schema is up to date")
     else:
@@ -1274,7 +1280,7 @@ async def search_weaviate(filters: SearchIn) -> SearchOut:
             data = await response.json()
             search_out_items = []
             logger.warning(data)
-            for item in data["data"]["Get"]["Ocorrencia"]:
+            for item in data["data"]["Get"][config.WEAVIATE_SCHEMA_CLASS]:
                 search_out_items.append(
                     SearchOutItem(
                         **item,
