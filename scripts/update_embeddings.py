@@ -161,7 +161,7 @@ def upload_batch_to_weaviate(items: List[Dict[str, Any]]):
         item[config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN] = timestamp_formatted
         item_properties = {k: v for k, v in item.items() if k != "embedding"}
         data_object = {
-            "class": "Ocorrencia",
+            "class": config.WEAVIATE_SCHEMA_CLASS,
             "id": item[config.EMBEDDINGS_SOURCE_TABLE_ID_COLUMN],
             "properties": item_properties,
             "vector": item["embedding"],
