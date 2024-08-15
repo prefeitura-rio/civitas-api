@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, validator
@@ -404,6 +404,13 @@ class ReportOut(BaseModel):
     latitude: float
     longitude: float
     additional_info: Optional[ReportAdditionalInfo] = None
+
+
+class ReportsMetadata(BaseModel):
+    distinct_sources: List[str]
+    distinct_categories: List[str]
+    distinct_types: List[str]
+    type_subtypes: Dict[str, List[str]]
 
 
 class UserHistoryOut(BaseModel):

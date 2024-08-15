@@ -31,6 +31,7 @@ from app.pydantic_models import (
     RadarOut,
     ReportFilters,
     ReportOut,
+    ReportsMetadata,
     WazeAlertOut,
 )
 from app.redis_cache import cache
@@ -838,6 +839,44 @@ async def get_positions(
             locations.append(row_data)
 
     return {"placa": placa, "locations": locations}
+
+
+@cache_decorator(expire=config.CACHE_REPORTS_METADATA_TTL)
+def get_reports_metadata() -> ReportsMetadata:
+    """
+    Fetches report metadata from BigQuery.
+    """
+    query_sources = f"""
+        SELECT DISTINCT id_source
+        FROM `{config.EMBEDDINGS_SOURCE_TABLE}`
+    """
+    query_categories = f"""
+        SELECT DISTINCT categoria
+        FROM `{config.EMBEDDINGS_SOURCE_TABLE}`
+    """
+    query_types_subtypes = f"""
+        SELECT DISTINCT tipo_subtipo.tipo AS tipo, subtipo
+        FROM `{config.EMBEDDINGS_SOURCE_TABLE}`,
+            UNNEST(tipo_subtipo) AS tipo_subtipo,
+            UNNEST(tipo_subtipo.subtipo) AS subtipo
+    """
+    bq_client = get_bigquery_client()
+    query_job_sources = bq_client.query(query_sources)
+    query_job_categories = bq_client.query(query_categories)
+    query_job_types_subtypes = bq_client.query(query_types_subtypes)
+    sources = [row["id_source"] for row in query_job_sources]
+    categories = [row["categoria"] for row in query_job_categories]
+    types_subtypes = [(row["tipo"], row["subtipo"]) for row in query_job_types_subtypes]
+    distinct_types = list(set([t[0] for t in types_subtypes]))
+    types_subtypes_dict = {t: [] for t in distinct_types}
+    for t, st in types_subtypes:
+        types_subtypes_dict[t].append(st)
+    return ReportsMetadata(
+        distinct_sources=sources,
+        distinct_categories=categories,
+        distinct_types=distinct_types,
+        type_subtypes=types_subtypes_dict,
+    )
 
 
 @cache_decorator(expire=config.CACHE_CAMERAS_COR_TTL)

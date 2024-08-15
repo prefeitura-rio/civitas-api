@@ -2,15 +2,15 @@
 from datetime import datetime
 from typing import Annotated, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi_pagination import Page, Params
 from fastapi_pagination.api import create_page
 
 from app.decorators import router_request
 from app.dependencies import get_user
 from app.models import User
-from app.pydantic_models import ReportFilters, ReportOut
-from app.utils import search_weaviate
+from app.pydantic_models import ReportFilters, ReportOut, ReportsMetadata
+from app.utils import get_reports_metadata, search_weaviate
 
 router = APIRouter(
     prefix="/reports",
@@ -77,7 +77,10 @@ async def get_report_categories(
     user: Annotated[User, Depends(get_user)],
     request: Request,
 ):
-    raise HTTPException(status_code=501, detail="Not implemented")
+    metadata: ReportsMetadata | dict = await get_reports_metadata()
+    if isinstance(metadata, dict):
+        metadata = ReportsMetadata(**metadata)
+    return metadata.distinct_categories
 
 
 @router_request(
@@ -90,7 +93,10 @@ async def get_report_sources(
     user: Annotated[User, Depends(get_user)],
     request: Request,
 ):
-    raise HTTPException(status_code=501, detail="Not implemented")
+    metadata: ReportsMetadata | dict = await get_reports_metadata()
+    if isinstance(metadata, dict):
+        metadata = ReportsMetadata(**metadata)
+    return metadata.distinct_sources
 
 
 @router_request(
@@ -104,7 +110,19 @@ async def get_report_subtypes(
     request: Request,
     type: List[str] = Query(None),
 ):
-    raise HTTPException(status_code=501, detail="Not implemented")
+    metadata: ReportsMetadata | dict = await get_reports_metadata()
+    if isinstance(metadata, dict):
+        metadata = ReportsMetadata(**metadata)
+    if not type:
+        distinct_subtypes = []
+        for k, v in metadata.type_subtypes.items():
+            distinct_subtypes.extend(v)
+        return list(set(distinct_subtypes))
+    else:
+        distinct_subtypes = []
+        for t in type:
+            distinct_subtypes.extend(metadata.type_subtypes.get(t, []))
+        return list(set(distinct_subtypes))
 
 
 @router_request(
@@ -117,4 +135,7 @@ async def get_report_types(
     user: Annotated[User, Depends(get_user)],
     request: Request,
 ):
-    raise HTTPException(status_code=501, detail="Not implemented")
+    metadata: ReportsMetadata | dict = await get_reports_metadata()
+    if isinstance(metadata, dict):
+        metadata = ReportsMetadata(**metadata)
+    return metadata.distinct_types
