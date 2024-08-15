@@ -12,7 +12,7 @@ from redis import Redis
 from redis.lock import Lock
 
 from app import config
-from app.pydantic_models import SearchOutItem
+from app.pydantic_models import ReportOut
 from app.utils import generate_embeddings_batch, get_bigquery_client
 
 EMBEDDING_COLUMNS = [
@@ -98,7 +98,7 @@ def get_redis_client() -> Redis:
     )
 
 
-def get_reports_since_last_update(last_update: DateTime) -> Tuple[List[SearchOutItem], DateTime]:
+def get_reports_since_last_update(last_update: DateTime) -> Tuple[List[ReportOut], DateTime]:
     """
     Get reports since the last update timestamp.
 
@@ -106,7 +106,7 @@ def get_reports_since_last_update(last_update: DateTime) -> Tuple[List[SearchOut
         last_update (DateTime): The last update timestamp.
 
     Returns:
-        Tuple[List[SearchOutItem], DateTime]: A list of reports and the new last update timestamp.
+        Tuple[List[ReportOut], DateTime]: A list of reports and the new last update timestamp.
     """
     client = get_bigquery_client()
     query = f"""
@@ -128,7 +128,7 @@ def get_reports_since_last_update(last_update: DateTime) -> Tuple[List[SearchOut
             timestamp = row.get(config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN)
             if (not max_timestamp) or (timestamp > max_timestamp):
                 max_timestamp = timestamp
-            reports.append(SearchOutItem(**row))
+            reports.append(ReportOut(**row))
     # Convert max_timestamp to pendulum.DateTime
     if isinstance(max_timestamp, datetime):
         max_timestamp = DateTime.instance(max_timestamp)

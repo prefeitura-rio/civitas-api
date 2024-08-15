@@ -360,19 +360,16 @@ class RolePermissionIn(BaseModel):
     permission: UUID
 
 
-class SearchIn(BaseModel):
-    limit: Optional[int] = 10
+class ReportFilters(BaseModel):
+    limit: int
+    offset: int
     semantically_similar: Optional[str] = None
     id_report: Optional[str] = None
     id_report_original: Optional[str] = None
-    id_source: Optional[str] = None
+    id_source_contains: Optional[List[str]] = None
     data_report_min: Optional[datetime] = None
     data_report_max: Optional[datetime] = None
-    orgaos_contains: Optional[List[str]] = None
-    categoria: Optional[str] = None
     categoria_contains: Optional[List[str]] = None
-    tipo_contains: Optional[List[str]] = None
-    subtipo_contains: Optional[List[str]] = None
     descricao_contains: Optional[List[str]] = None
     latitude_min: Optional[float] = None
     latitude_max: Optional[float] = None
@@ -380,38 +377,33 @@ class SearchIn(BaseModel):
     longitude_max: Optional[float] = None
 
 
-class SearchOutItemOrgao(BaseModel):
+class ReportOrgao(BaseModel):
     nome: str
 
 
-class SearchOutItemTipoSubtipo(BaseModel):
+class ReportTipoSubtipo(BaseModel):
     tipo: str
     subtipo: List[str]
 
 
-class SearchOutItemAdditionalInfo(BaseModel):
+class ReportAdditionalInfo(BaseModel):
     certainty: float
 
 
-class SearchOutItem(BaseModel):
+class ReportOut(BaseModel):
     id_report: str
     id_source: str
     id_report_original: str
     data_report: datetime
-    orgaos: List[SearchOutItemOrgao]
+    orgaos: List[ReportOrgao]
     categoria: str
-    tipo_subtipo: List[SearchOutItemTipoSubtipo]
+    tipo_subtipo: List[ReportTipoSubtipo]
     descricao: str
     logradouro: str
     numero_logradouro: str
     latitude: float
     longitude: float
-    additional_info: Optional[SearchOutItemAdditionalInfo] = None
-
-
-class SearchOut(BaseModel):
-    total: int
-    results: List[SearchOutItem]
+    additional_info: Optional[ReportAdditionalInfo] = None
 
 
 class UserHistoryOut(BaseModel):

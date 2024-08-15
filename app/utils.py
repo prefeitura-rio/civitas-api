@@ -29,9 +29,8 @@ from app.models import GroupUser, Resource, User
 from app.pydantic_models import (
     CarPassageOut,
     RadarOut,
-    SearchIn,
-    SearchOut,
-    SearchOutItem,
+    ReportFilters,
+    ReportOut,
     WazeAlertOut,
 )
 from app.redis_cache import cache
@@ -86,12 +85,12 @@ def build_get_car_by_radar_query(
     return query
 
 
-async def build_graphql_query(filters: SearchIn) -> str:
+async def build_graphql_query(filters: ReportFilters) -> str:
     base_query = """
         {
             Get {
                 {{weaviate_schema_class}} (
-                    {{limit_filter}}
+                    {{pagination_filters}}
                     {{regular_filters}}
                     {{semantic_filter}}
                 ) {
@@ -120,13 +119,8 @@ async def build_graphql_query(filters: SearchIn) -> str:
         }
     """
 
-    # Create limit filter
-    if filters.limit:
-        if not isinstance(filters.limit, int):
-            raise HTTPException(status_code=400, detail="Invalid limit")
-        limit_filter = f"limit: {filters.limit}"
-    else:
-        limit_filter = ""
+    # Create pagination filter
+    pagination_filters = f"limit: {filters.limit}\n offset: {filters.offset}"
 
     # Create regular filters
     base_regular_filters = """
@@ -158,120 +152,16 @@ async def build_graphql_query(filters: SearchIn) -> str:
             """
             % filters.id_report_original
         )
-    if filters.id_source:
+    if filters.id_source_contains:
         regular_filter_operands.append(
             """
                 {
                     path: ["id_source"],
-                    operator: Equal,
-                    valueText: "%s",
-                }
-            """
-            % filters.id_source
-        )
-    if filters.orgaos_contains:
-        # TODO: Implement orgaos_contains filter
-        raise HTTPException(status_code=400, detail="orgaos_contains filter not yet implemented")
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["orgaos", "nome"],
                     operator: ContainsAny,
                     valueText: %s,
                 }
             """
-            % filters.orgaos_contains
-        )
-    if filters.categoria:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["categoria"],
-                    operator: Equal,
-                    valueText: "%s",
-                }
-            """
-            % filters.categoria
-        )
-    if filters.categoria_contains:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["categoria"],
-                    operator: ContainsAny,
-                    valueText: %s,
-                }
-            """
-            % filters.categoria_contains
-        )
-    if filters.tipo_contains:
-        # TODO: Implement tipo_contains filter
-        raise HTTPException(status_code=400, detail="tipo_contains filter not yet implemented")
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["tipo_subtipo", "tipo"],
-                    operator: ContainsAny,
-                    valueText: %s,
-                }
-            """
-            % filters.tipo_contains
-        )
-    if filters.subtipo_contains:
-        # TODO: Implement subtipo_contains filter
-        raise HTTPException(status_code=400, detail="subtipo_contains filter not yet implemented")
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["tipo_subtipo", "subtipo"],
-                    operator: ContainsAny,
-                    valueText: %s,
-                }
-            """
-            % filters.subtipo_contains
-        )
-    if filters.descricao_contains:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["descricao"],
-                    operator: ContainsAny,
-                    valueText: %s,
-                }
-            """
-            % filters.descricao_contains
-        )
-    if filters.latitude_min and filters.latitude_max:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["latitude"],
-                    operator: GreaterThanEqual,
-                    valueNumber: %s,
-                },
-                {
-                    path: ["latitude"],
-                    operator: LessThanEqual,
-                    valueNumber: %s,
-                }
-            """
-            % (filters.latitude_min, filters.latitude_max)
-        )
-    if filters.longitude_min and filters.longitude_max:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["longitude"],
-                    operator: GreaterThanEqual,
-                    valueNumber: %s,
-                },
-                {
-                    path: ["longitude"],
-                    operator: LessThanEqual,
-                    valueNumber: %s,
-                }
-            """
-            % (filters.longitude_min, filters.longitude_max)
+            % filters.id_source_contains
         )
     if filters.data_report_min:
         timestamp_min = filters.data_report_min.replace(tzinfo=pytz.timezone(config.TIMEZONE))
@@ -297,6 +187,72 @@ async def build_graphql_query(filters: SearchIn) -> str:
             """
             % (config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN, timestamp_max.isoformat())
         )
+    if filters.categoria_contains:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["categoria"],
+                    operator: ContainsAny,
+                    valueText: %s,
+                }
+            """
+            % filters.categoria_contains
+        )
+    if filters.descricao_contains:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["descricao"],
+                    operator: ContainsAny,
+                    valueText: %s,
+                }
+            """
+            % filters.descricao_contains
+        )
+    if filters.latitude_min:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["latitude"],
+                    operator: GreaterThanEqual,
+                    valueNumber: %s,
+                }
+            """
+            % filters.latitude_min
+        )
+    if filters.latitude_max:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["latitude"],
+                    operator: LessThanEqual,
+                    valueNumber: %s,
+                }
+            """
+            % filters.latitude_max
+        )
+    if filters.longitude_min:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["longitude"],
+                    operator: GreaterThanEqual,
+                    valueNumber: %s,
+                }
+            """
+            % filters.longitude_min
+        )
+    if filters.longitude_max:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["longitude"],
+                    operator: LessThanEqual,
+                    valueNumber: %s,
+                }
+            """
+            % filters.longitude_max
+        )
     if regular_filter_operands:
         regular_filters = base_regular_filters.replace(
             "{{regular_filter_operands}}", ", ".join(regular_filter_operands)
@@ -315,11 +271,13 @@ async def build_graphql_query(filters: SearchIn) -> str:
     semantic_filter = base_semantic_filter % vector
 
     # Build query
-    query = base_query.replace("{{limit_filter}}", limit_filter)
+    query = base_query.replace("{{pagination_filters}}", pagination_filters)
     query = query.replace("{{regular_filters}}", regular_filters)
     query = query.replace("{{semantic_filter}}", semantic_filter)
     query = query.replace("{{weaviate_schema_class}}", config.WEAVIATE_SCHEMA_CLASS)
     query = query.replace("'", '"')
+
+    logger.debug(f"Generated GraphQL query: {query}")
 
     return query
 
@@ -1269,7 +1227,7 @@ def register_tortoise(
     return Manager()
 
 
-async def search_weaviate(filters: SearchIn) -> SearchOut:
+async def search_weaviate(filters: ReportFilters) -> List[ReportOut]:
     query = await build_graphql_query(filters)
     async with aiohttp.ClientSession() as session:
         async with session.post(
@@ -1278,22 +1236,22 @@ async def search_weaviate(filters: SearchIn) -> SearchOut:
         ) as response:
             response.raise_for_status()
             data = await response.json()
-            search_out_items = []
+            reports = []
             logger.warning(data)
             for item in data["data"]["Get"][config.WEAVIATE_SCHEMA_CLASS]:
-                search_out_items.append(
-                    SearchOutItem(
+                reports.append(
+                    ReportOut(
                         **item,
                         additional_info=item["_additional"],
                     )
                 )
             # Sort search results by _additional.certainty descending
-            search_out_items = sorted(
-                search_out_items,
+            reports = sorted(
+                reports,
                 key=lambda x: x.additional_info.certainty,
                 reverse=True,
             )
-            return SearchOut(results=search_out_items, total=len(search_out_items))
+            return reports
 
 
 def translate_method_to_action(method: str) -> str:
