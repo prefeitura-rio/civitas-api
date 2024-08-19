@@ -389,7 +389,8 @@ def build_positions_query(
                     velocidade
             FROM `rj-cetrio.ocr_radar.readings_*`
             WHERE
-                `rj-cetrio`.ocr_radar.plateDistance(placa, "{{placa}}") <= {{min_distance}}
+                `rj-cetrio`.ocr_radar.plateDistance(TRIM(UPPER(REGEXP_REPLACE(NORMALIZE(
+                    placa, NFD), r'\pM', ''))), "{{placa}}") <= 0.0
                 AND (camera_latitude != 0 AND camera_longitude != 0)
                 AND DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
                 AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
