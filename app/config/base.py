@@ -54,6 +54,7 @@ CACHE_WAZE_ALERTS_TTL = int(getenv_or_action("CACHE_WAZE_ALERTS_TTL", default=60
 CACHE_CAR_BY_RADAR_TTL = int(getenv_or_action("CACHE_CAR_BY_RADAR_TTL", default=60 * 5))
 CACHE_CAMERAS_COR_TTL = int(getenv_or_action("CACHE_CAMERAS_COR_TTL", default=60 * 5))
 CACHE_FOGOCRUZADO_TTL = int(getenv_or_action("CACHE_FOGOCRUZADO_TTL", default=60 * 5))
+CACHE_REPORTS_METADATA_TTL = int(getenv_or_action("CACHE_REPORTS_METADATA_TTL", default=60 * 15))
 
 # RBAC configuration
 RBAC_EXCLUDED_PATHS = getenv_list_or_action("RBAC_EXCLUDED_PATHS")
@@ -89,8 +90,9 @@ except Exception as exc:
     CODCET_TO_CAMERA_NUMERO = {}
 
 # Weaviate schema
+WEAVIATE_SCHEMA_CLASS = getenv_or_action("WEAVIATE_SCHEMA_CLASS", action="raise")
 WEAVIATE_SCHEMA = {
-    "class": "Ocorrencia",
+    "class": WEAVIATE_SCHEMA_CLASS,
     "vectorizer": "none",
     "properties": [
         {"name": "id_report", "dataType": ["uuid"]},

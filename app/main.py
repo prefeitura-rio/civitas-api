@@ -34,7 +34,7 @@ from app.routers import (
     operations,
     radars,
     rbac,
-    search,
+    reports,
     users,
     waze,
 )
@@ -105,7 +105,7 @@ app.include_router(notification_channels.router)
 app.include_router(operations.router)
 app.include_router(radars.router)
 app.include_router(rbac.router)
-app.include_router(search.router)
+app.include_router(reports.router)
 app.include_router(users.router)
 app.include_router(waze.router)
 
