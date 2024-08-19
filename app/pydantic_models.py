@@ -378,7 +378,7 @@ class ReportFilters(BaseModel):
 
 
 class ReportOrgao(BaseModel):
-    nome: str
+    nome: Optional[str] = None
 
 
 class ReportTipoSubtipo(BaseModel):
@@ -398,11 +398,11 @@ class ReportOut(BaseModel):
     orgaos: List[ReportOrgao]
     categoria: str
     tipo_subtipo: List[ReportTipoSubtipo]
-    descricao: str
-    logradouro: str
-    numero_logradouro: str
-    latitude: float
-    longitude: float
+    descricao: Optional[str] = None
+    logradouro: Optional[str] = None
+    numero_logradouro: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     additional_info: Optional[ReportAdditionalInfo] = None
 
 

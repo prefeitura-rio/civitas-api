@@ -207,7 +207,9 @@ if __name__ == "__main__":
             logger.info("Getting embeddings for reports...")
             items = [item.dict() for item in reports]
             texts = [generate_text_for_embedding(item) for item in items]
-            embeddings = asyncio.run(generate_embeddings_batch(texts))
+            embeddings = asyncio.run(
+                generate_embeddings_batch(texts, batch_size=config.UPDATE_EMBEDDINGS_BATCH_SIZE)
+            )
             items_with_embeddings = [
                 {**item, "embedding": embedding} for item, embedding in zip(items, embeddings)
             ]

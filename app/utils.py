@@ -557,24 +557,38 @@ async def generate_embeddings(text: str) -> List[float]:
             return data["embedding"]
 
 
-async def generate_embeddings_batch(texts: List[str]) -> List[List[float]]:
+async def generate_embeddings_batch(texts: List[str], batch_size: int = None) -> List[List[float]]:
     """
     Generate embeddings for a batch of texts.
 
     Args:
         texts (List[str]): The texts.
+        batch_size (int, optional): The batch size. Defaults to None.
 
     Returns:
         List[List[float]]: The embeddings.
     """
     async with aiohttp.ClientSession() as session:
-        async with session.post(
-            f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
-            json={"texts": texts},
-        ) as response:
-            response.raise_for_status()
-            data = await response.json()
-            return data["embeddings"]
+        if not batch_size:
+            async with session.post(
+                f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
+                json={"texts": texts},
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
+                return data["embeddings"]
+        embeddings = []
+        for i in range(0, len(texts), batch_size):
+            logger.debug(f"Generating embeddings for batch {i} to {i + batch_size}")
+            batch = texts[i : i + batch_size]
+            async with session.post(
+                f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
+                json={"texts": batch},
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
+                embeddings.extend(data["embeddings"])
+        return embeddings
 
 
 @cache_decorator(expire=config.CACHE_CAR_BY_RADAR_TTL)
