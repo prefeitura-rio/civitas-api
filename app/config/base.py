@@ -94,7 +94,7 @@ WEAVIATE_SCHEMA = {
     "class": WEAVIATE_SCHEMA_CLASS,
     "vectorizer": "none",
     "properties": [
-        {"name": "id_report", "dataType": ["uuid"]},
+        {"name": "id_report", "dataType": ["text"]},
         {"name": "id_source", "dataType": ["text"]},
         {"name": "id_report_original", "dataType": ["text"]},
         {"name": "data_report", "dataType": ["date"]},
@@ -125,6 +125,9 @@ EMBEDDINGS_SOURCE_TABLE = getenv_or_action("EMBEDDINGS_SOURCE_TABLE", action="ra
 EMBEDDINGS_SOURCE_TABLE_ID_COLUMN = getenv_or_action(
     "EMBEDDINGS_SOURCE_TABLE_ID_COLUMN", action="raise"
 )
+EMBEDDINGS_SOURCE_TABLE_SOURCE_COLUMN = getenv_or_action(
+    "EMBEDDINGS_SOURCE_TABLE_SOURCE_COLUMN", action="raise"
+)
 EMBEDDINGS_SOURCE_TABLE_TEXT_COLUMN = getenv_or_action(
     "EMBEDDINGS_SOURCE_TABLE_TEXT_COLUMN", action="raise"
 )
@@ -135,3 +138,6 @@ UPDATE_EMBEDDINGS_LOCK_TIMEOUT = int(
     getenv_or_action("UPDATE_EMBEDDINGS_LOCK_TIMEOUT", default=86400)
 )
 UPDATE_EMBEDDINGS_BATCH_SIZE = int(getenv_or_action("UPDATE_EMBEDDINGS_BATCH_SIZE", default=100))
+UPDATE_EMBEDDINGS_DEBUG_DISCORD_WEBHOOK = getenv_or_action(
+    "UPDATE_EMBEDDINGS_DEBUG_DISCORD_WEBHOOK", action="raise"
+)

@@ -4,7 +4,7 @@ import base64
 import traceback
 from contextlib import AbstractAsyncContextManager
 from types import ModuleType
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import UUID
 
 import aiohttp
@@ -89,6 +89,15 @@ def build_get_car_by_radar_query(
 async def build_graphql_query(filters: ReportFilters) -> str:
     base_query = """
         {
+            Aggregate {
+                {{weaviate_schema_class}} (
+                    {{regular_filters}}
+                ) {
+                    meta {
+                        count
+                    }
+                }
+            }
             Get {
                 {{weaviate_schema_class}} (
                     {{pagination_filters}}
@@ -277,8 +286,6 @@ async def build_graphql_query(filters: ReportFilters) -> str:
     query = query.replace("{{semantic_filter}}", semantic_filter)
     query = query.replace("{{weaviate_schema_class}}", config.WEAVIATE_SCHEMA_CLASS)
     query = query.replace("'", '"')
-
-    logger.debug(f"Generated GraphQL query: {query}")
 
     return query
 
@@ -579,7 +586,6 @@ async def generate_embeddings_batch(texts: List[str], batch_size: int = None) ->
                 return data["embeddings"]
         embeddings = []
         for i in range(0, len(texts), batch_size):
-            logger.debug(f"Generating embeddings for batch {i} to {i + batch_size}")
             batch = texts[i : i + batch_size]
             async with session.post(
                 f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
@@ -858,6 +864,13 @@ async def get_positions(
 
 @cache_decorator(expire=config.CACHE_REPORTS_METADATA_TTL)
 def get_reports_metadata() -> ReportsMetadata:
+    """
+    Fetches report metadata from BigQuery.
+    """
+    return get_reports_metadata_no_cache()
+
+
+def get_reports_metadata_no_cache() -> ReportsMetadata:
     """
     Fetches report metadata from BigQuery.
     """
@@ -1281,7 +1294,7 @@ def register_tortoise(
     return Manager()
 
 
-async def search_weaviate(filters: ReportFilters) -> List[ReportOut]:
+async def search_weaviate(filters: ReportFilters) -> Tuple[List[ReportOut], int]:
     query = await build_graphql_query(filters)
     async with aiohttp.ClientSession() as session:
         async with session.post(
@@ -1291,7 +1304,7 @@ async def search_weaviate(filters: ReportFilters) -> List[ReportOut]:
             response.raise_for_status()
             data = await response.json()
             reports = []
-            logger.warning(data)
+            count = data["data"]["Aggregate"][config.WEAVIATE_SCHEMA_CLASS][0]["meta"]["count"]
             for item in data["data"]["Get"][config.WEAVIATE_SCHEMA_CLASS]:
                 reports.append(
                     ReportOut(
@@ -1305,7 +1318,7 @@ async def search_weaviate(filters: ReportFilters) -> List[ReportOut]:
                 key=lambda x: x.additional_info.certainty,
                 reverse=True,
             )
-            return reports
+            return reports, count
 
 
 def translate_method_to_action(method: str) -> str:

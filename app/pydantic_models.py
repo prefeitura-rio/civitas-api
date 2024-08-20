@@ -378,7 +378,7 @@ class ReportFilters(BaseModel):
 
 
 class ReportOrgao(BaseModel):
-    nome: Optional[str] = None
+    nome: str
 
 
 class ReportTipoSubtipo(BaseModel):
