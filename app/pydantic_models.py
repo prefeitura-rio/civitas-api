@@ -307,13 +307,13 @@ class PermissionOut(BaseModel):
 
 
 class RadarOut(BaseModel):
-    codcet: str
+    codcet: Optional[str] = None
     camera_numero: str
     latitude: float
     longitude: float
-    locequip: str
-    bairro: str
-    logradouro: str
+    locequip: Optional[str] = None
+    bairro: Optional[str] = None
+    logradouro: Optional[str] = None
     has_data: str
     empresa: Optional[str] = None
     active_in_last_24_hours: Optional[str] = None
