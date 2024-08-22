@@ -58,6 +58,16 @@ async def get_current_user(authorization_header: Annotated[str, Depends(oidc_sch
             401,
         )
 
+    # Check if 'kid' exists in the header
+    if "kid" not in unverified_header:
+        raise AuthError(
+            {
+                "code": "missing_kid",
+                "description": "The JWT header is missing the 'kid' field.",
+            },
+            401,
+        )
+
     rsa_key = {}
     algorithms = ""
     for key in config.JWS["keys"]:
@@ -94,7 +104,7 @@ async def get_current_user(authorization_header: Annotated[str, Depends(oidc_sch
         raise AuthError(
             {
                 "code": "invalid_claims",
-                "description": "incorrect claims, please check the audience and issuer",
+                "description": "Incorrect claims, please check the audience and issuer",
             },
             401,
         )
@@ -102,7 +112,7 @@ async def get_current_user(authorization_header: Annotated[str, Depends(oidc_sch
         raise AuthError(
             {
                 "code": "invalid_jwt",
-                "description": "Unable to parse jwt token.",
+                "description": "Unable to parse JWT token.",
             },
             401,
         )

@@ -63,8 +63,8 @@ async def get_reports(
         longitude_max=longitude_max,
     )
 
-    reports = await search_weaviate(filters)
-    return create_page(reports, params=params, total=len(reports))
+    reports, total = await search_weaviate(filters)
+    return create_page(reports, params=params, total=total)
 
 
 @router_request(
