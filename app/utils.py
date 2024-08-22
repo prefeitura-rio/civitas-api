@@ -987,8 +987,6 @@ def get_radar_positions() -> List[RadarOut]:
         SELECT
             *
         FROM selected_radar
-        WHERE
-            codcet IS NOT NULL
         ORDER BY last_detection_time
     """
     bq_client = get_bigquery_client()
