@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_pagination import Page, Params
 from fastapi_pagination.api import create_page
+from loguru import logger
 from pendulum import DateTime
 from tortoise.transactions import in_transaction
 
@@ -58,7 +59,11 @@ async def get_car_hint(
     """
     # Parse start_time and end_time to pendulum.DateTime
     start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
+    start_time = start_time.in_tz(config.TIMEZONE)
     end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
+    end_time = end_time.in_tz(config.TIMEZONE)
+
+    logger.debug(f"Date range: {start_time} - {end_time}")
 
     # Get hints
     placa = placa.upper()
@@ -105,7 +110,11 @@ async def get_car_path(
 ):
     # Parse start_time and end_time to pendulum.DateTime
     start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
+    start_time = start_time.in_tz(config.TIMEZONE)
     end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
+    end_time = end_time.in_tz(config.TIMEZONE)
+
+    logger.debug(f"Date range: {start_time} - {end_time}")
 
     # Get path
     placa = placa.upper()
@@ -351,7 +360,11 @@ async def get_cars_by_radar(
 ):
     # Parse start_time and end_time to pendulum.DateTime
     start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
+    start_time = start_time.in_tz(config.TIMEZONE)
     end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
+    end_time = end_time.in_tz(config.TIMEZONE)
+
+    logger.debug(f"Date range: {start_time} - {end_time}")
 
     # Use either camera_numero or codcet
     if radar in config.CODCET_TO_CAMERA_NUMERO:
