@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_pagination import Page, Params
 from fastapi_pagination.api import create_page
+from loguru import logger
 from pendulum import DateTime
 from tortoise.transactions import in_transaction
 
@@ -106,6 +107,8 @@ async def get_car_path(
     # Parse start_time and end_time to pendulum.DateTime
     start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
     end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
+
+    logger.warning(f"Getting path for {placa} from {start_time} to {end_time}")
 
     # Get path
     placa = placa.upper()
