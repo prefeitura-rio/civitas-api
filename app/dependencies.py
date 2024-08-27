@@ -7,6 +7,7 @@ from app import config
 from app.models import User
 from app.oidc import get_current_user
 from app.pydantic_models import OIDCUser
+from app.utils import validate_cpf
 
 
 async def get_user(
@@ -66,6 +67,22 @@ async def is_admin(user: Annotated[User, Depends(get_user)]) -> User:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This operation requires admin privileges.",
+        )
+
+    return user
+
+
+async def has_cpf(user: Annotated[User, Depends(get_user)]) -> User:
+    if user.cpf is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This operation requires a valid CPF. Ask your administrator to update your profile.",
+        )
+
+    elif not validate_cpf(user.cpf):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This operation requires a valid CPF. Ask your administrator to update your profile.",
         )
 
     return user

@@ -70,6 +70,12 @@ FOGOCRUZADO_BASE_URL = getenv_or_action("FOGOCRUZADO_BASE_URL").rstrip("/")
 FOGOCRUZADO_USERNAME = getenv_or_action("FOGOCRUZADO_USERNAME")
 FOGOCRUZADO_PASSWORD = getenv_or_action("FOGOCRUZADO_PASSWORD")
 
+# Cortex API configuration
+CORTEX_PESSOAS_BASE_URL = getenv_or_action("CORTEX_PESSOAS_BASE_URL").rstrip("/")
+CORTEX_VEICULOS_BASE_URL = getenv_or_action("CORTEX_VEICULOS_BASE_URL").rstrip("/")
+CORTEX_USERNAME = getenv_or_action("CORTEX_USERNAME")
+CORTEX_PASSWORD = getenv_or_action("CORTEX_PASSWORD")
+
 # Tixxi
 TIXXI_CAMERAS_LIST_URL = getenv_or_action("TIXXI_CAMERAS_LIST_URL")
 

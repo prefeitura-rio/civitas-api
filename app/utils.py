@@ -459,6 +459,40 @@ def build_positions_query(
     return query
 
 
+async def cortex_request(
+    method: str,
+    url: str,
+    cpf: str,
+    raise_for_status: bool = True,
+    **kwargs: Any,
+) -> Any:
+    """
+    Make a request to the Cortex API.
+
+    Args:
+        method (str): The HTTP method.
+        url (str): The URL.
+        **kwargs (Any): The keyword arguments.
+
+    Returns:
+        Any: The response data.
+    """
+    # Get the Cortex token
+    token = await cache.get_cortex_token()
+
+    # Setup headers
+    headers = kwargs.get("headers", {})
+    headers["Authorization"] = f"Bearer {token}"
+    headers["usuario"] = cpf
+
+    # Actually make the request
+    async with aiohttp.ClientSession() as session:
+        async with session.request(method, url, headers=headers, **kwargs) as response:
+            if raise_for_status:
+                response.raise_for_status()
+            return await response.json()
+
+
 def get_bigquery_client() -> bigquery.Client:
     """Get the BigQuery client.
 
@@ -1416,3 +1450,30 @@ async def user_has_permission(user: User, action: str, resource: str) -> bool:
     #     ).all()
     #     return bool(user_permissions) and bool(parent_permissions)
     # return bool(user_permissions)
+
+
+def validate_cpf(cpf: str) -> bool:
+    def validate_digits(numbers):
+        # Validação do primeiro dígito verificador:
+        sum_of_products = sum(a * b for a, b in zip(numbers[:9], range(10, 1, -1)))
+        expected_digit = (sum_of_products * 10) % 11 % 10
+        if numbers[9] != expected_digit:
+            return False
+
+        # Validação do segundo dígito verificador:
+        sum_of_products = sum(a * b for a, b in zip(numbers[:10], range(11, 1, -1)))
+        expected_digit = (sum_of_products * 10) % 11 % 10
+        if numbers[10] != expected_digit:
+            return False
+
+        return True
+
+    numbers = [int(digit) for digit in cpf if digit.isdigit()]
+
+    if len(numbers) != 11 or len(set(numbers)) == 1:
+        return False
+
+    if not validate_digits(numbers):
+        return False
+
+    return True
