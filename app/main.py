@@ -24,7 +24,7 @@ from app.pydantic_models import HealthCheck
 from app.rate_limiter import limiter
 
 # from app.rbac import RBACMiddleware
-from app.routers import (
+from app.routers import (  # rbac,
     agents,
     auth,
     cameras_cor,
@@ -33,7 +33,6 @@ from app.routers import (
     notification_channels,
     operations,
     radars,
-    rbac,
     reports,
     users,
     waze,
@@ -104,7 +103,7 @@ app.include_router(layers.router)
 app.include_router(notification_channels.router)
 app.include_router(operations.router)
 app.include_router(radars.router)
-app.include_router(rbac.router)
+# app.include_router(rbac.router)
 app.include_router(reports.router)
 app.include_router(users.router)
 app.include_router(waze.router)
