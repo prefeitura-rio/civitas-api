@@ -371,10 +371,10 @@ class ReportFilters(BaseModel):
     data_report_max: Optional[datetime] = None
     categoria_contains: Optional[List[str]] = None
     descricao_contains: Optional[List[str]] = None
-    latitude_min: Optional[float] = None
-    latitude_max: Optional[float] = None
-    longitude_min: Optional[float] = None
-    longitude_max: Optional[float] = None
+    latitude_min: Optional[float] = -90
+    latitude_max: Optional[float] = 90
+    longitude_min: Optional[float] = -180
+    longitude_max: Optional[float] = 180
 
 
 class ReportOrgao(BaseModel):

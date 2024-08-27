@@ -38,7 +38,7 @@ AUTH_PROVIDER_GROUP_ADMIN = getenv_or_action("AUTH_PROVIDER_GROUP_ADMIN", defaul
 AUTH_PROVIDER_GROUP_USER = getenv_or_action("AUTH_PROVIDER_GROUP_USER", default="civitas")
 
 # Google Cloud Platform configuration
-GOOGLE_BIGQUERY_PAGE_SIZE = getenv_or_action("GOOGLE_BIGQUERY_PAGE_SIZE", default=100)
+GOOGLE_BIGQUERY_PAGE_SIZE = int(getenv_or_action("GOOGLE_BIGQUERY_PAGE_SIZE", default="100"))
 GOOGLE_MAPS_API_KEY = getenv_or_action("GOOGLE_MAPS_API_KEY")
 GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST = getenv_or_action(
     "GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST", default=27
@@ -98,6 +98,7 @@ WEAVIATE_SCHEMA = {
         {"name": "id_source", "dataType": ["text"]},
         {"name": "id_report_original", "dataType": ["text"]},
         {"name": "data_report", "dataType": ["date"]},
+        {"name": "data_report_seconds", "dataType": ["number"]},
         {
             "name": "orgaos",
             "dataType": ["object[]"],

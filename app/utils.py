@@ -3,6 +3,7 @@ import asyncio
 import base64
 import traceback
 from contextlib import AbstractAsyncContextManager
+from enum import Enum
 from types import ModuleType
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import UUID
@@ -35,6 +36,11 @@ from app.pydantic_models import (
     WazeAlertOut,
 )
 from app.redis_cache import cache
+
+
+class ReportsOrderBy(str, Enum):
+    TIMESTAMP = "timestamp"
+    DISTANCE = "distance"
 
 
 def build_get_car_by_radar_query(
@@ -86,7 +92,7 @@ def build_get_car_by_radar_query(
     return query
 
 
-async def build_graphql_query(filters: ReportFilters) -> str:
+async def build_graphql_query(filters: ReportFilters, order_by: ReportsOrderBy) -> str:
     base_query = """
         {
             Aggregate {
@@ -103,6 +109,7 @@ async def build_graphql_query(filters: ReportFilters) -> str:
                     {{pagination_filters}}
                     {{regular_filters}}
                     {{semantic_filter}}
+                    {{sorting}}
                 ) {
                     id_report
                     id_source
@@ -280,10 +287,24 @@ async def build_graphql_query(filters: ReportFilters) -> str:
     vector = await generate_embeddings(semantic_query)
     semantic_filter = base_semantic_filter % vector
 
+    # Create sorting
+    sorting = (
+        """
+        sort: {
+            path: "%s"
+            order: desc
+        }
+    """
+        % f"{config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN}_seconds"
+        if order_by == ReportsOrderBy.TIMESTAMP
+        else ""
+    )
+
     # Build query
     query = base_query.replace("{{pagination_filters}}", pagination_filters)
     query = query.replace("{{regular_filters}}", regular_filters)
     query = query.replace("{{semantic_filter}}", semantic_filter)
+    query = query.replace("{{sorting}}", sorting)
     query = query.replace("{{weaviate_schema_class}}", config.WEAVIATE_SCHEMA_CLASS)
     query = query.replace("'", '"')
 
@@ -1292,8 +1313,11 @@ def register_tortoise(
     return Manager()
 
 
-async def search_weaviate(filters: ReportFilters) -> Tuple[List[ReportOut], int]:
-    query = await build_graphql_query(filters)
+async def search_weaviate(
+    filters: ReportFilters, order_by: ReportsOrderBy
+) -> Tuple[List[ReportOut], int]:
+    query = await build_graphql_query(filters=filters, order_by=order_by)
+    logger.debug(f"Query: {query}")
     async with aiohttp.ClientSession() as session:
         async with session.post(
             f"{config.WEAVIATE_BASE_URL}/v1/graphql",
