@@ -3,6 +3,7 @@ import asyncio
 import traceback
 import uuid
 from datetime import datetime
+from math import isnan
 from typing import Any, Awaitable, Dict, List
 
 import pytz
@@ -273,8 +274,16 @@ def upload_batch_to_weaviate(items: List[Dict[str, Any]]):
     for item in items:
         timestamp: datetime = item[config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN]
         timestamp_formatted = timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+        timestamp_seconds = int(timestamp.timestamp())
         item[config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN] = timestamp_formatted
+        item[f"{config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN}_seconds"] = timestamp_seconds
         item_properties = {k: v for k, v in item.items() if k != "embedding"}
+        latitude = item_properties.get("latitude")
+        if latitude and isnan(latitude):
+            item_properties["latitude"] = None
+        longitude = item_properties.get("longitude")
+        if longitude and isnan(longitude):
+            item_properties["longitude"] = None
         data_object = {
             "class": config.WEAVIATE_SCHEMA_CLASS,
             "id": generate_uuid5(item[config.EMBEDDINGS_SOURCE_TABLE_ID_COLUMN]),
@@ -282,16 +291,15 @@ def upload_batch_to_weaviate(items: List[Dict[str, Any]]):
             "vector": item["embedding"],
         }
         data_objects.append(data_object)
-    response = requests.post(
-        f"{config.WEAVIATE_BASE_URL}/v1/batch/objects",
-        json={"fields": ["ALL"], "objects": data_objects},
-    )
     try:
+        response = requests.post(
+            f"{config.WEAVIATE_BASE_URL}/v1/batch/objects",
+            json={"fields": ["ALL"], "objects": data_objects},
+        )
         response.raise_for_status()
-    except requests.HTTPError as exc:
+    except Exception as exc:
         logger.error(f"Failed to upload embeddings to Weaviate: {exc}")
-        logger.error(response.text)
-        raise
+        raise exc
     data = response.json()
     for result in data:
         if "errors" in result["result"]:
@@ -326,6 +334,8 @@ if __name__ == "__main__":
             logger.info(f"Getting reports since last update for {source}...")
             last_update = sources_last_update[source]
             reports = get_reports_since_last_update(source=source, last_update=last_update)
+            # # TODO: this is a temporary fix to avoid empty latitudes and longitudes
+            # reports = [report for report in reports if report.latitude and report.longitude]
             if len(reports) > 0:
                 # Create batches for processing
                 logger.info(
@@ -356,9 +366,11 @@ if __name__ == "__main__":
 
                     # Set new last update timestamp for the source
                     max_timestamp = last_update
-                    batch_max_timestamp = items_batch[-1].get(
-                        config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN
+                    batch_max_timestamp = DateTime.instance(
+                        items_batch[-1].get(config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN)
                     )
+                    logger.debug(f"  * '{source}': Batch max timestamp: {batch_max_timestamp}")
+                    logger.debug(f"  * '{source}': Current max timestamp: {max_timestamp}")
                     if (not max_timestamp) or (batch_max_timestamp > max_timestamp):
                         max_timestamp = batch_max_timestamp
                     if isinstance(max_timestamp, datetime):

@@ -3,6 +3,7 @@ import asyncio
 from typing import Dict, List, Tuple
 
 import aiohttp
+import pytz
 from pendulum import DateTime
 from redis.asyncio import Redis
 
@@ -19,6 +20,7 @@ class Cache:
         )
         self._car_position_hash_key_template = "car:{placa}:position:{timestamp}"
         self._car_positions_sorted_set_key_template = "car:{placa}:positions"
+        self._cortex_token_key = "cortex_token"
         self._data_relay_token_key = "data_relay_token"
         self._fogocruzado_token_key = "fogocruzado_token"
 
@@ -214,6 +216,56 @@ class Cache:
                 await self._cache.set(
                     self._fogocruzado_token_key, token, ex=data["data"]["expiresIn"]
                 )
+                return token
+
+    async def get_cortex_token(self) -> str:
+        """
+        Fetch the Cortex API token from cache (or reauthenticate if it's not present or
+        expired).
+
+        Returns:
+            str: The Cortex API token.
+        """
+        # Get token from cache
+        token: bytes = await self._cache.get(self._cortex_token_key)
+
+        # Refresh the token if it's present
+        if token:
+            token = token.decode()
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{config.CORTEX_VEICULOS_BASE_URL}/auth/refresh_token",
+                    headers={"Authorization": f"Bearer {token}"},
+                ) as response:
+                    response.raise_for_status()
+                    token = response.headers.get("Authorization").replace("Bearer ", "").strip()
+                    expiration_str = response.headers.get("expirationDate")
+                    expiration = DateTime.strptime(expiration_str, "%a %b %d %H:%M:%S %Z %Y")
+                    time_until_expiration = int(
+                        expiration.diff(
+                            DateTime.now(tz=pytz.timezone(config.TIMEZONE))
+                        ).total_seconds()
+                    )
+                    await self._cache.set(self._cortex_token_key, token, ex=time_until_expiration)
+                    return token
+
+        # Authenticate and store the token in cache if it's not
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{config.CORTEX_VEICULOS_BASE_URL}/login",
+                json={
+                    "email": config.CORTEX_USERNAME,
+                    "senha": config.CORTEX_PASSWORD,
+                },
+            ) as response:
+                response.raise_for_status()
+                token = response.headers.get("Authorization").replace("Bearer ", "").strip()
+                expiration_str = response.headers.get("expirationDate")
+                expiration = DateTime.strptime(expiration_str, "%a %b %d %H:%M:%S %Z %Y")
+                time_until_expiration = int(
+                    expiration.diff(DateTime.now(tz=pytz.timezone(config.TIMEZONE))).total_seconds()
+                )
+                await self._cache.set(self._cortex_token_key, token, ex=time_until_expiration)
                 return token
 
 

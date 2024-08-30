@@ -39,7 +39,7 @@ AUTH_PROVIDER_GROUP_USER = getenv_or_action("AUTH_PROVIDER_GROUP_USER", default=
 AUTH_PROVIDER_GROUP_AGENT = getenv_or_action("AUTH_PROVIDER_GROUP_AGENT", default="civitas-agent")
 
 # Google Cloud Platform configuration
-GOOGLE_BIGQUERY_PAGE_SIZE = getenv_or_action("GOOGLE_BIGQUERY_PAGE_SIZE", default=100)
+GOOGLE_BIGQUERY_PAGE_SIZE = int(getenv_or_action("GOOGLE_BIGQUERY_PAGE_SIZE", default="100"))
 GOOGLE_MAPS_API_KEY = getenv_or_action("GOOGLE_MAPS_API_KEY")
 GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST = getenv_or_action(
     "GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST", default=27
@@ -71,6 +71,12 @@ FOGOCRUZADO_BASE_URL = getenv_or_action("FOGOCRUZADO_BASE_URL").rstrip("/")
 FOGOCRUZADO_USERNAME = getenv_or_action("FOGOCRUZADO_USERNAME")
 FOGOCRUZADO_PASSWORD = getenv_or_action("FOGOCRUZADO_PASSWORD")
 
+# Cortex API configuration
+CORTEX_PESSOAS_BASE_URL = getenv_or_action("CORTEX_PESSOAS_BASE_URL").rstrip("/")
+CORTEX_VEICULOS_BASE_URL = getenv_or_action("CORTEX_VEICULOS_BASE_URL").rstrip("/")
+CORTEX_USERNAME = getenv_or_action("CORTEX_USERNAME")
+CORTEX_PASSWORD = getenv_or_action("CORTEX_PASSWORD")
+
 # Tixxi
 TIXXI_CAMERAS_LIST_URL = getenv_or_action("TIXXI_CAMERAS_LIST_URL")
 
@@ -99,6 +105,7 @@ WEAVIATE_SCHEMA = {
         {"name": "id_source", "dataType": ["text"]},
         {"name": "id_report_original", "dataType": ["text"]},
         {"name": "data_report", "dataType": ["date"]},
+        {"name": "data_report_seconds", "dataType": ["number"]},
         {
             "name": "orgaos",
             "dataType": ["object[]"],

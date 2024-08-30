@@ -10,6 +10,152 @@ from app.enums import ActionTypeEnum, NotificationChannelTypeEnum
 from app.models import Group, GroupUser, MonitoredPlate
 
 
+class CortexArrendatario(BaseModel):
+    enderecoArrendatario: Optional[str]
+    id: Optional[int]
+    nomeArrendatario: Optional[str]
+    numeroDocumentoArrendatario: Optional[str]
+    placa: Optional[str]
+    tipoDocumentoArrendatario: Optional[str]
+
+
+class CortexPossuidor(BaseModel):
+    enderecoPossuidor: Optional[str]
+    id: Optional[int]
+    nomePossuidor: Optional[str]
+    numeroDocumentoPossuidor: Optional[str]
+    placa: Optional[str]
+    tipoDocumentoPossuidor: Optional[str]
+
+
+class CortexProprietario(BaseModel):
+    enderecoProprietario: Optional[str]
+    id: Optional[int]
+    nomeProprietario: Optional[str]
+    numeroDocumentoProprietario: Optional[str]
+    placa: Optional[str]
+    tipoDocumentoProprietario: Optional[str]
+
+
+class CortexIndiceNacionalVeiculo(BaseModel):
+    id: Optional[int]
+    metodo: Optional[str]
+    qtd: Optional[int]
+
+
+class CortexRestricao(BaseModel):
+    anoBO: Optional[str]
+    dataOcorrencia: Optional[datetime]
+    dddContato: Optional[str]
+    historico: Optional[str]
+    id: Optional[int]
+    municipioBO: Optional[str]
+    naturezaOcorrencia: Optional[str]
+    nomeDeclarante: Optional[str]
+    numeroBO: Optional[str]
+    placa: Optional[str]
+    ramalContato: Optional[str]
+    sistema: Optional[str]
+    telefoneContato: Optional[str]
+    ufBO: Optional[str]
+    unidadePolicial: Optional[str]
+
+
+class CortexPlacaOut(BaseModel):
+    anoFabricacao: Optional[str]
+    anoModelo: Optional[str]
+    anoUltimoLicenciamnento: Optional[int]
+    arrendatario: Optional[CortexArrendatario]
+    capacidadeMaximaCarga: Optional[str]
+    capacidadeMaximaTracao: Optional[str]
+    carroceria: Optional[str]
+    categoria: Optional[str]
+    chassi: Optional[str]
+    cilindrada: Optional[int]
+    codigoCarroceira: Optional[int]
+    codigoCategoria: Optional[int]
+    codigoCor: Optional[int]
+    codigoEspecie: Optional[int]
+    codigoMarcaModelo: Optional[int]
+    codigoMunicipioEmplacamento: Optional[str]
+    codigoOrgaoSRF: Optional[str]
+    codigoSegurancaCRV: Optional[str]
+    codigoTipoVeiculo: Optional[int]
+    combustivel: Optional[str]
+    cor: Optional[str]
+    dataAtualizacaoAlarme: Optional[str]
+    dataAtualizacaoRouboFurto: Optional[str]
+    dataAtualizacaoVeiculo: Optional[str]
+    dataDeclaracaoImportacao: Optional[str]
+    dataEmissaoCRLV: Optional[datetime]
+    dataEmissaoUltimoCRV: Optional[str]
+    dataEmplacamento: Optional[datetime]
+    dataHoraAtualizacaoVeiculo: Optional[datetime]
+    dataLimiteRestricaoTributaria: Optional[str]
+    dataPreCadastro: Optional[str]
+    dataReplicacao: Optional[datetime]
+    descricaoOrgaoRegiaoFiscal: Optional[str]
+    especie: Optional[str]
+    flagAtivo: Optional[bool]
+    grupoVeiculo: Optional[str]
+    id: Optional[int]
+    identificadorUnicoVeiculo: Optional[str]
+    indicadorRemarcacaoChassi: Optional[bool]
+    indicadorVeiculoLicenciadoCirculacao: Optional[str]
+    indicadorVeiculoNacional: Optional[bool]
+    indiceNacionalVeiculos: Optional[List[CortexIndiceNacionalVeiculo]]
+    lotacao: Optional[str]
+    marcaModelo: Optional[str]
+    mesAnoValidadeLicenciamento: Optional[int]
+    mesFabricacaoVeiculo: Optional[str]
+    municipioPlaca: Optional[str]
+    nomeArrendatario: Optional[str]
+    nomePossuidor: Optional[str]
+    nomeProprietario: Optional[str]
+    numeroCRV: Optional[str]
+    numeroCaixaCambio: Optional[str]
+    numeroCarroceria: Optional[str]
+    numeroDeclaracaoImportacao: Optional[str]
+    numeroEixoAuxiliar: Optional[str]
+    numeroEixoTraseiro: Optional[str]
+    numeroIdentificacaoFaturado: Optional[str]
+    numeroIdentificacaoImportador: Optional[str]
+    numeroLicencaUsoConfiguracaoVeiculosMotor: Optional[str]
+    numeroMotor: Optional[str]
+    numeroProcessoImportacao: Optional[str]
+    numeroSequenciaCRV: Optional[str]
+    numeroTipoCRLV: Optional[str]
+    numeroViaCRLV: Optional[int]
+    numeroViaCRV: Optional[int]
+    origemPossuidor: Optional[str]
+    paisTransferenciaVeiculo: Optional[str]
+    pesoBrutoTotal: Optional[str]
+    placa: Optional[str]
+    placaPreMercosul: Optional[str]
+    possuidor: Optional[CortexPossuidor]
+    potencia: Optional[int]
+    proprietario: Optional[CortexProprietario]
+    quantidadeEixo: Optional[str]
+    quantidadeRestricoesBaseEmplacamento: Optional[str]
+    registroAduaneiro: Optional[str]
+    renavam: Optional[str]
+    restricao: Optional[List[CortexRestricao]]
+    restricaoVeiculo1: Optional[str]
+    restricaoVeiculo2: Optional[str]
+    restricaoVeiculo3: Optional[str]
+    restricaoVeiculo4: Optional[str]
+    situacaoVeiculo: Optional[str]
+    tipoDocumentoFaturado: Optional[str]
+    tipoDocumentoProprietario: Optional[str]
+    tipoMontagem: Optional[str]
+    tipoVeiculo: Optional[str]
+    ufDestinoVeiculoFaturado: Optional[str]
+    ufEmplacamento: Optional[str]
+    ufFatura: Optional[str]
+    ufJurisdicaoVeiculo: Optional[str]
+    valorIPVA: Optional[int]
+
+
 class HealthCheck(BaseModel):
     status: str
 
@@ -371,10 +517,10 @@ class ReportFilters(BaseModel):
     data_report_max: Optional[datetime] = None
     categoria_contains: Optional[List[str]] = None
     descricao_contains: Optional[List[str]] = None
-    latitude_min: Optional[float] = None
-    latitude_max: Optional[float] = None
-    longitude_min: Optional[float] = None
-    longitude_max: Optional[float] = None
+    latitude_min: Optional[float] = -90
+    latitude_max: Optional[float] = 90
+    longitude_min: Optional[float] = -180
+    longitude_max: Optional[float] = 180
 
 
 class ReportOrgao(BaseModel):

@@ -3,6 +3,7 @@ import asyncio
 import base64
 import traceback
 from contextlib import AbstractAsyncContextManager
+from enum import Enum
 from types import ModuleType
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from uuid import UUID
@@ -35,6 +36,11 @@ from app.pydantic_models import (
     WazeAlertOut,
 )
 from app.redis_cache import cache
+
+
+class ReportsOrderBy(str, Enum):
+    TIMESTAMP = "timestamp"
+    DISTANCE = "distance"
 
 
 def build_get_car_by_radar_query(
@@ -86,7 +92,7 @@ def build_get_car_by_radar_query(
     return query
 
 
-async def build_graphql_query(filters: ReportFilters) -> str:
+async def build_graphql_query(filters: ReportFilters, order_by: ReportsOrderBy) -> str:
     base_query = """
         {
             Aggregate {
@@ -103,6 +109,7 @@ async def build_graphql_query(filters: ReportFilters) -> str:
                     {{pagination_filters}}
                     {{regular_filters}}
                     {{semantic_filter}}
+                    {{sorting}}
                 ) {
                     id_report
                     id_source
@@ -280,10 +287,24 @@ async def build_graphql_query(filters: ReportFilters) -> str:
     vector = await generate_embeddings(semantic_query)
     semantic_filter = base_semantic_filter % vector
 
+    # Create sorting
+    sorting = (
+        """
+        sort: {
+            path: "%s"
+            order: desc
+        }
+    """
+        % f"{config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN}_seconds"
+        if order_by == ReportsOrderBy.TIMESTAMP
+        else ""
+    )
+
     # Build query
     query = base_query.replace("{{pagination_filters}}", pagination_filters)
     query = query.replace("{{regular_filters}}", regular_filters)
     query = query.replace("{{semantic_filter}}", semantic_filter)
+    query = query.replace("{{sorting}}", sorting)
     query = query.replace("{{weaviate_schema_class}}", config.WEAVIATE_SCHEMA_CLASS)
     query = query.replace("'", '"')
 
@@ -436,6 +457,40 @@ def build_positions_query(
     )
 
     return query
+
+
+async def cortex_request(
+    method: str,
+    url: str,
+    cpf: str,
+    raise_for_status: bool = True,
+    **kwargs: Any,
+) -> Any:
+    """
+    Make a request to the Cortex API.
+
+    Args:
+        method (str): The HTTP method.
+        url (str): The URL.
+        **kwargs (Any): The keyword arguments.
+
+    Returns:
+        Any: The response data.
+    """
+    # Get the Cortex token
+    token = await cache.get_cortex_token()
+
+    # Setup headers
+    headers = kwargs.get("headers", {})
+    headers["Authorization"] = f"Bearer {token}"
+    headers["usuario"] = cpf
+
+    # Actually make the request
+    async with aiohttp.ClientSession() as session:
+        async with session.request(method, url, headers=headers, **kwargs) as response:
+            if raise_for_status:
+                response.raise_for_status()
+            return await response.json()
 
 
 def get_bigquery_client() -> bigquery.Client:
@@ -1292,8 +1347,11 @@ def register_tortoise(
     return Manager()
 
 
-async def search_weaviate(filters: ReportFilters) -> Tuple[List[ReportOut], int]:
-    query = await build_graphql_query(filters)
+async def search_weaviate(
+    filters: ReportFilters, order_by: ReportsOrderBy
+) -> Tuple[List[ReportOut], int]:
+    query = await build_graphql_query(filters=filters, order_by=order_by)
+    logger.debug(f"Query: {query}")
     async with aiohttp.ClientSession() as session:
         async with session.post(
             f"{config.WEAVIATE_BASE_URL}/v1/graphql",
@@ -1392,3 +1450,30 @@ async def user_has_permission(user: User, action: str, resource: str) -> bool:
     #     ).all()
     #     return bool(user_permissions) and bool(parent_permissions)
     # return bool(user_permissions)
+
+
+def validate_cpf(cpf: str) -> bool:
+    def validate_digits(numbers):
+        # Validação do primeiro dígito verificador:
+        sum_of_products = sum(a * b for a, b in zip(numbers[:9], range(10, 1, -1)))
+        expected_digit = (sum_of_products * 10) % 11 % 10
+        if numbers[9] != expected_digit:
+            return False
+
+        # Validação do segundo dígito verificador:
+        sum_of_products = sum(a * b for a, b in zip(numbers[:10], range(11, 1, -1)))
+        expected_digit = (sum_of_products * 10) % 11 % 10
+        if numbers[10] != expected_digit:
+            return False
+
+        return True
+
+    numbers = [int(digit) for digit in cpf if digit.isdigit()]
+
+    if len(numbers) != 11 or len(set(numbers)) == 1:
+        return False
+
+    if not validate_digits(numbers):
+        return False
+
+    return True

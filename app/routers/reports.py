@@ -10,7 +10,7 @@ from app.decorators import router_request
 from app.dependencies import get_user
 from app.models import User
 from app.pydantic_models import ReportFilters, ReportOut, ReportsMetadata
-from app.utils import get_reports_metadata, search_weaviate
+from app.utils import ReportsOrderBy, get_reports_metadata, search_weaviate
 
 router = APIRouter(
     prefix="/reports",
@@ -43,6 +43,7 @@ async def get_reports(
     latitude_max: float = None,
     longitude_min: float = None,
     longitude_max: float = None,
+    order_by: ReportsOrderBy = ReportsOrderBy.DISTANCE,
     params: Params = Depends(),
 ):
     offset = params.size * (params.page - 1)
@@ -57,13 +58,13 @@ async def get_reports(
         data_report_max=data_report_max,
         categoria_contains=categoria_contains,
         descricao_contains=descricao_contains,
-        latitude_min=latitude_min,
-        latitude_max=latitude_max,
-        longitude_min=longitude_min,
-        longitude_max=longitude_max,
+        latitude_min=latitude_min if latitude_min else -90,
+        latitude_max=latitude_max if latitude_max else 90,
+        longitude_min=longitude_min if longitude_min else -180,
+        longitude_max=longitude_max if longitude_max else 180,
     )
 
-    reports, total = await search_weaviate(filters)
+    reports, total = await search_weaviate(filters=filters, order_by=order_by)
     return create_page(reports, params=params, total=total)
 
 
