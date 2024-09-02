@@ -549,6 +549,23 @@ class ReportOut(BaseModel):
     additional_info: Optional[ReportAdditionalInfo] = None
 
 
+class ReportLatLongOut(BaseModel):
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
+class ReportTimelineOut(BaseModel):
+    data_report: datetime
+    id_source: str
+    count: int
+
+
+class ReportTopSubtypesOut(BaseModel):
+    tipo: str
+    subtipo: Optional[str] = None
+    count: int
+
+
 class ReportsMetadata(BaseModel):
     distinct_sources: List[str]
     distinct_categories: List[str]
