@@ -105,11 +105,8 @@ WEAVIATE_SCHEMA = {
         {"name": "id_report_original", "dataType": ["text"]},
         {"name": "data_report", "dataType": ["date"]},
         {"name": "data_report_seconds", "dataType": ["number"]},
-        {
-            "name": "orgaos",
-            "dataType": ["object[]"],
-            "nestedProperties": [{"name": "nome", "dataType": ["text"]}],
-        },
+        {"name": "report_data_raw", "dataType": ["text"]},
+        {"name": "orgaos", "dataType": ["text[]"]},
         {"name": "categoria", "dataType": ["text"]},
         {
             "name": "tipo_subtipo",

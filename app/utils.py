@@ -115,9 +115,7 @@ async def build_graphql_query(filters: ReportFilters, order_by: ReportsOrderBy) 
                     id_source
                     id_report_original
                     data_report
-                    orgaos {
-                        nome
-                    }
+                    orgaos
                     categoria
                     tipo_subtipo {
                         tipo
@@ -226,6 +224,17 @@ async def build_graphql_query(filters: ReportFilters, order_by: ReportsOrderBy) 
             """
             % filters.descricao_contains
         )
+    if filters.keywords:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["report_data_raw"],
+                    operator: ContainsAny,
+                    valueText: %s,
+                }
+            """
+            % filters.keywords
+        )
     if filters.latitude_min:
         regular_filter_operands.append(
             """
@@ -283,16 +292,18 @@ async def build_graphql_query(filters: ReportFilters, order_by: ReportsOrderBy) 
             vector: %s,
         }
     """
-    semantic_query = filters.semantically_similar or ""
-    vector = await generate_embeddings(semantic_query)
-    semantic_filter = base_semantic_filter % vector
+    if filters.semantically_similar:
+        vector = await generate_embeddings(filters.semantically_similar)
+        semantic_filter = base_semantic_filter % vector
+    else:
+        semantic_filter = ""
 
     # Create sorting
     sorting = (
         """
         sort: {
             path: "%s"
-            order: desc
+            order: asc
         }
     """
         % f"{config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN}_seconds"
@@ -609,14 +620,16 @@ async def generate_embeddings(text: str) -> List[float]:
     Returns:
         List[float]: The embeddings.
     """
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            f"{config.EMBEDDING_API_BASE_URL}/embed/",
-            json={"text": text},
-        ) as response:
-            response.raise_for_status()
-            data = await response.json()
-            return data["embedding"]
+    # TODO: This is a temporary placeholder for the actual implementation
+    return [0.0] * 256
+    # async with aiohttp.ClientSession() as session:
+    #     async with session.post(
+    #         f"{config.EMBEDDING_API_BASE_URL}/embed/",
+    #         json={"text": text},
+    #     ) as response:
+    #         response.raise_for_status()
+    #         data = await response.json()
+    #         return data["embedding"]
 
 
 async def generate_embeddings_batch(texts: List[str], batch_size: int = None) -> List[List[float]]:
@@ -630,26 +643,28 @@ async def generate_embeddings_batch(texts: List[str], batch_size: int = None) ->
     Returns:
         List[List[float]]: The embeddings.
     """
-    async with aiohttp.ClientSession() as session:
-        if not batch_size:
-            async with session.post(
-                f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
-                json={"texts": texts},
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-                return data["embeddings"]
-        embeddings = []
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i : i + batch_size]
-            async with session.post(
-                f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
-                json={"texts": batch},
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-                embeddings.extend(data["embeddings"])
-        return embeddings
+    # TODO: This is a temporary placeholder for the actual implementation
+    return [[0.0] * 256 for _ in texts]
+    # async with aiohttp.ClientSession() as session:
+    #     if not batch_size:
+    #         async with session.post(
+    #             f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
+    #             json={"texts": texts},
+    #         ) as response:
+    #             response.raise_for_status()
+    #             data = await response.json()
+    #             return data["embeddings"]
+    #     embeddings = []
+    #     for i in range(0, len(texts), batch_size):
+    #         batch = texts[i : i + batch_size]
+    #         async with session.post(
+    #             f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
+    #             json={"texts": batch},
+    #         ) as response:
+    #             response.raise_for_status()
+    #             data = await response.json()
+    #             embeddings.extend(data["embeddings"])
+    #     return embeddings
 
 
 @cache_decorator(expire=config.CACHE_CAR_BY_RADAR_TTL)
@@ -1351,7 +1366,6 @@ async def search_weaviate(
     filters: ReportFilters, order_by: ReportsOrderBy
 ) -> Tuple[List[ReportOut], int]:
     query = await build_graphql_query(filters=filters, order_by=order_by)
-    logger.debug(f"Query: {query}")
     async with aiohttp.ClientSession() as session:
         async with session.post(
             f"{config.WEAVIATE_BASE_URL}/v1/graphql",
@@ -1368,12 +1382,6 @@ async def search_weaviate(
                         additional_info=item["_additional"],
                     )
                 )
-            # Sort search results by _additional.certainty descending
-            reports = sorted(
-                reports,
-                key=lambda x: x.additional_info.certainty,
-                reverse=True,
-            )
             return reports, count
 
 
