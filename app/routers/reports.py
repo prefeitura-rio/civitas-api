@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Annotated, List
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi_pagination import Page, Params
 from fastapi_pagination.api import create_page
 
@@ -39,13 +39,20 @@ async def get_reports(
     data_report_max: datetime = None,
     categoria_contains: List[str] = Query(None),
     descricao_contains: List[str] = Query(None),
+    keywords: List[str] = Query(None),
     latitude_min: float = None,
     latitude_max: float = None,
     longitude_min: float = None,
     longitude_max: float = None,
-    order_by: ReportsOrderBy = ReportsOrderBy.DISTANCE,
+    order_by: ReportsOrderBy = ReportsOrderBy.TIMESTAMP,
     params: Params = Depends(),
 ):
+    # TODO: re-enable semantically similar search someday
+    if semantically_similar:
+        raise HTTPException(
+            status_code=400,
+            detail="Semantically similar search is disabled for now.",
+        )
     offset = params.size * (params.page - 1)
     filters = ReportFilters(
         limit=params.size,
@@ -58,6 +65,7 @@ async def get_reports(
         data_report_max=data_report_max,
         categoria_contains=categoria_contains,
         descricao_contains=descricao_contains,
+        keywords=keywords,
         latitude_min=latitude_min if latitude_min else -90,
         latitude_max=latitude_max if latitude_max else 90,
         longitude_min=longitude_min if longitude_min else -180,

@@ -6,6 +6,7 @@ from datetime import datetime
 from math import isnan
 from typing import Any, Awaitable, Dict, List
 
+import orjson as json
 import pytz
 import requests
 import unidecode
@@ -194,10 +195,6 @@ def get_reports_since_last_update(source: str, last_update: DateTime = None) -> 
         for row in page:
             row: Row
             row_data = dict(row)
-            # TODO: this is a temporary fix to avoid empty orgao names
-            orgaos = row_data.get("orgaos")
-            if orgaos:
-                row_data["orgaos"] = [orgao for orgao in orgaos if orgao["nome"]]
             reports.append(ReportOut(**row_data))
     return reports
 
@@ -357,7 +354,11 @@ if __name__ == "__main__":
                     # Generate embeddings for batch
                     embeddings_batch = run_sync(generate_embeddings_batch, texts_batch)
                     items_with_embeddings_batch = [
-                        {**item, "embedding": embedding}
+                        {
+                            **item,
+                            "embedding": embedding,
+                            "report_data_raw": json.dumps(item).decode().lower(),
+                        }
                         for item, embedding in zip(items_batch, embeddings_batch)
                     ]
 

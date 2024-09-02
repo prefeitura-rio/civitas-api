@@ -517,14 +517,11 @@ class ReportFilters(BaseModel):
     data_report_max: Optional[datetime] = None
     categoria_contains: Optional[List[str]] = None
     descricao_contains: Optional[List[str]] = None
+    keywords: Optional[List[str]] = None
     latitude_min: Optional[float] = -90
     latitude_max: Optional[float] = 90
     longitude_min: Optional[float] = -180
     longitude_max: Optional[float] = 180
-
-
-class ReportOrgao(BaseModel):
-    nome: str
 
 
 class ReportTipoSubtipo(BaseModel):
@@ -541,7 +538,7 @@ class ReportOut(BaseModel):
     id_source: str
     id_report_original: str
     data_report: datetime
-    orgaos: List[ReportOrgao]
+    orgaos: List[str]
     categoria: str
     tipo_subtipo: List[ReportTipoSubtipo]
     descricao: Optional[str] = None
@@ -550,6 +547,23 @@ class ReportOut(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     additional_info: Optional[ReportAdditionalInfo] = None
+
+
+class ReportLatLongOut(BaseModel):
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
+class ReportTimelineOut(BaseModel):
+    data_report: datetime
+    id_source: str
+    count: int
+
+
+class ReportTopSubtypesOut(BaseModel):
+    tipo: str
+    subtipo: Optional[str] = None
+    count: int
 
 
 class ReportsMetadata(BaseModel):

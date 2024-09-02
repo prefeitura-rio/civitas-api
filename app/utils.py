@@ -31,7 +31,6 @@ from app.pydantic_models import (
     CarPassageOut,
     RadarOut,
     ReportFilters,
-    ReportOut,
     ReportsMetadata,
     WazeAlertOut,
 )
@@ -41,6 +40,13 @@ from app.redis_cache import cache
 class ReportsOrderBy(str, Enum):
     TIMESTAMP = "timestamp"
     DISTANCE = "distance"
+
+
+class ReportsSearchMode(str, Enum):
+    FULL = "full"
+    LATLONG_ONLY = "latlong_only"
+    SOURCES_ONLY = "sources_only"
+    SUBTYPES_ONLY = "subtypes_only"
 
 
 def build_get_car_by_radar_query(
@@ -92,53 +98,16 @@ def build_get_car_by_radar_query(
     return query
 
 
-async def build_graphql_query(filters: ReportFilters, order_by: ReportsOrderBy) -> str:
-    base_query = """
-        {
-            Aggregate {
-                {{weaviate_schema_class}} (
-                    {{regular_filters}}
-                ) {
-                    meta {
-                        count
-                    }
-                }
-            }
-            Get {
-                {{weaviate_schema_class}} (
-                    {{pagination_filters}}
-                    {{regular_filters}}
-                    {{semantic_filter}}
-                    {{sorting}}
-                ) {
-                    id_report
-                    id_source
-                    id_report_original
-                    data_report
-                    orgaos {
-                        nome
-                    }
-                    categoria
-                    tipo_subtipo {
-                        tipo
-                        subtipo
-                    }
-                    descricao
-                    logradouro
-                    numero_logradouro
-                    latitude
-                    longitude
-                    _additional {
-                        certainty
-                    }
-                }
-            }
-        }
+def generate_regular_filters(filters: ReportFilters) -> str:
     """
+    Generate regular filters for the GraphQL query.
 
-    # Create pagination filter
-    pagination_filters = f"limit: {filters.limit}\n offset: {filters.offset}"
+    Args:
+        filters (ReportFilters): The report filters.
 
+    Returns:
+        str: The regular filters.
+    """
     # Create regular filters
     base_regular_filters = """
         where: {
@@ -226,6 +195,17 @@ async def build_graphql_query(filters: ReportFilters, order_by: ReportsOrderBy) 
             """
             % filters.descricao_contains
         )
+    if filters.keywords:
+        regular_filter_operands.append(
+            """
+                {
+                    path: ["report_data_raw"],
+                    operator: ContainsAny,
+                    valueText: %s,
+                }
+            """
+            % filters.keywords
+        )
     if filters.latitude_min:
         regular_filter_operands.append(
             """
@@ -277,22 +257,57 @@ async def build_graphql_query(filters: ReportFilters, order_by: ReportsOrderBy) 
     else:
         regular_filters = ""
 
+    return regular_filters
+
+
+async def build_graphql_query(
+    filters: ReportFilters, order_by: ReportsOrderBy, search_mode: ReportsSearchMode
+) -> str:
+    base_query = """
+        {
+            Aggregate {
+                {{weaviate_schema_class}} (
+                    {{regular_filters}}
+                ) {
+                    meta {
+                        count
+                    }
+                }
+            }
+            Get {
+                {{weaviate_schema_class}} (
+                    {{pagination_filters}}
+                    {{regular_filters}}
+                    {{semantic_filter}}
+                    {{sorting}}
+                ) {
+                    {{returned_attributes}}
+                }
+            }
+        }
+    """
+
+    # Create pagination filter
+    pagination_filters = f"limit: {filters.limit}\n offset: {filters.offset}"
+
     # Create semantic filter
     base_semantic_filter = """
         nearVector: {
             vector: %s,
         }
     """
-    semantic_query = filters.semantically_similar or ""
-    vector = await generate_embeddings(semantic_query)
-    semantic_filter = base_semantic_filter % vector
+    if filters.semantically_similar:
+        vector = await generate_embeddings(filters.semantically_similar)
+        semantic_filter = base_semantic_filter % vector
+    else:
+        semantic_filter = ""
 
     # Create sorting
     sorting = (
         """
         sort: {
             path: "%s"
-            order: desc
+            order: asc
         }
     """
         % f"{config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN}_seconds"
@@ -300,12 +315,55 @@ async def build_graphql_query(filters: ReportFilters, order_by: ReportsOrderBy) 
         else ""
     )
 
+    # Set returned attributes
+    if search_mode == ReportsSearchMode.FULL:
+        returned_attributes = """
+                    id_report
+                    id_source
+                    id_report_original
+                    data_report
+                    orgaos
+                    categoria
+                    tipo_subtipo {
+                        tipo
+                        subtipo
+                    }
+                    descricao
+                    logradouro
+                    numero_logradouro
+                    latitude
+                    longitude
+                    _additional {
+                        certainty
+                    }
+        """
+    elif search_mode == ReportsSearchMode.LATLONG_ONLY:
+        returned_attributes = """
+                    latitude
+                    longitude
+        """
+    elif search_mode == ReportsSearchMode.SOURCES_ONLY:
+        returned_attributes = """
+                    data_report
+                    id_source
+        """
+    elif search_mode == ReportsSearchMode.SUBTYPES_ONLY:
+        returned_attributes = """
+                    tipo_subtipo {
+                        tipo
+                        subtipo
+                    }
+        """
+    else:
+        raise ValueError("Invalid search mode")
+
     # Build query
     query = base_query.replace("{{pagination_filters}}", pagination_filters)
-    query = query.replace("{{regular_filters}}", regular_filters)
+    query = query.replace("{{regular_filters}}", generate_regular_filters(filters))
     query = query.replace("{{semantic_filter}}", semantic_filter)
     query = query.replace("{{sorting}}", sorting)
     query = query.replace("{{weaviate_schema_class}}", config.WEAVIATE_SCHEMA_CLASS)
+    query = query.replace("{{returned_attributes}}", returned_attributes)
     query = query.replace("'", '"')
 
     return query
@@ -609,14 +667,16 @@ async def generate_embeddings(text: str) -> List[float]:
     Returns:
         List[float]: The embeddings.
     """
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            f"{config.EMBEDDING_API_BASE_URL}/embed/",
-            json={"text": text},
-        ) as response:
-            response.raise_for_status()
-            data = await response.json()
-            return data["embedding"]
+    # TODO: This is a temporary placeholder for the actual implementation
+    return [0.0] * 256
+    # async with aiohttp.ClientSession() as session:
+    #     async with session.post(
+    #         f"{config.EMBEDDING_API_BASE_URL}/embed/",
+    #         json={"text": text},
+    #     ) as response:
+    #         response.raise_for_status()
+    #         data = await response.json()
+    #         return data["embedding"]
 
 
 async def generate_embeddings_batch(texts: List[str], batch_size: int = None) -> List[List[float]]:
@@ -630,26 +690,28 @@ async def generate_embeddings_batch(texts: List[str], batch_size: int = None) ->
     Returns:
         List[List[float]]: The embeddings.
     """
-    async with aiohttp.ClientSession() as session:
-        if not batch_size:
-            async with session.post(
-                f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
-                json={"texts": texts},
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-                return data["embeddings"]
-        embeddings = []
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i : i + batch_size]
-            async with session.post(
-                f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
-                json={"texts": batch},
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-                embeddings.extend(data["embeddings"])
-        return embeddings
+    # TODO: This is a temporary placeholder for the actual implementation
+    return [[0.0] * 256 for _ in texts]
+    # async with aiohttp.ClientSession() as session:
+    #     if not batch_size:
+    #         async with session.post(
+    #             f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
+    #             json={"texts": texts},
+    #         ) as response:
+    #             response.raise_for_status()
+    #             data = await response.json()
+    #             return data["embeddings"]
+    #     embeddings = []
+    #     for i in range(0, len(texts), batch_size):
+    #         batch = texts[i : i + batch_size]
+    #         async with session.post(
+    #             f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
+    #             json={"texts": batch},
+    #         ) as response:
+    #             response.raise_for_status()
+    #             data = await response.json()
+    #             embeddings.extend(data["embeddings"])
+    #     return embeddings
 
 
 @cache_decorator(expire=config.CACHE_CAR_BY_RADAR_TTL)
@@ -1348,10 +1410,11 @@ def register_tortoise(
 
 
 async def search_weaviate(
-    filters: ReportFilters, order_by: ReportsOrderBy
-) -> Tuple[List[ReportOut], int]:
-    query = await build_graphql_query(filters=filters, order_by=order_by)
-    logger.debug(f"Query: {query}")
+    filters: ReportFilters,
+    order_by: ReportsOrderBy,
+    search_mode: ReportsSearchMode,
+) -> Tuple[List[dict], int]:
+    query = await build_graphql_query(filters=filters, order_by=order_by, search_mode=search_mode)
     async with aiohttp.ClientSession() as session:
         async with session.post(
             f"{config.WEAVIATE_BASE_URL}/v1/graphql",
@@ -1363,17 +1426,11 @@ async def search_weaviate(
             count = data["data"]["Aggregate"][config.WEAVIATE_SCHEMA_CLASS][0]["meta"]["count"]
             for item in data["data"]["Get"][config.WEAVIATE_SCHEMA_CLASS]:
                 reports.append(
-                    ReportOut(
+                    dict(
                         **item,
-                        additional_info=item["_additional"],
+                        additional_info=item["_additional"] if "_additional" in item else None,
                     )
                 )
-            # Sort search results by _additional.certainty descending
-            reports = sorted(
-                reports,
-                key=lambda x: x.additional_info.certainty,
-                reverse=True,
-            )
             return reports, count
 
 
