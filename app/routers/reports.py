@@ -59,7 +59,7 @@ async def get_reports(
     latitude_max: float = None,
     longitude_min: float = None,
     longitude_max: float = None,
-    order_by: ReportsOrderBy = ReportsOrderBy.TIMESTAMP,
+    order_by: ReportsOrderBy = ReportsOrderBy.TIMESTAMP_DESC,
     params: Params = Depends(),
 ):
     # TODO: re-enable semantically similar search someday
@@ -132,7 +132,7 @@ async def get_reports_dashboard_map(
     latitude_max: float = None,
     longitude_min: float = None,
     longitude_max: float = None,
-    order_by: ReportsOrderBy = ReportsOrderBy.TIMESTAMP,
+    order_by: ReportsOrderBy = ReportsOrderBy.TIMESTAMP_DESC,
 ):
     def get_filters(offset: int, size: int) -> ReportFilters:
         return ReportFilters(
@@ -208,7 +208,7 @@ async def get_reports_dashboard_timeline(
     latitude_max: float = None,
     longitude_min: float = None,
     longitude_max: float = None,
-    order_by: ReportsOrderBy = ReportsOrderBy.TIMESTAMP,
+    order_by: ReportsOrderBy = ReportsOrderBy.TIMESTAMP_DESC,
 ):
     def get_filters(offset: int, size: int) -> ReportFilters:
         return ReportFilters(
@@ -304,7 +304,7 @@ async def get_reports_dashboard_top_subtypes(
     latitude_max: float = None,
     longitude_min: float = None,
     longitude_max: float = None,
-    order_by: ReportsOrderBy = ReportsOrderBy.TIMESTAMP,
+    order_by: ReportsOrderBy = ReportsOrderBy.TIMESTAMP_DESC,
     top_n: int = Query(5),
 ):
     def get_filters(offset: int, size: int) -> ReportFilters:
