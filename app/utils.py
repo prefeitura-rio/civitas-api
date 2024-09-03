@@ -38,7 +38,9 @@ from app.redis_cache import cache
 
 
 class ReportsOrderBy(str, Enum):
-    TIMESTAMP = "timestamp"
+    TIMESTAMP = "timestamp"  # TODO: remove this later. this is kept for backward compatibility
+    TIMESTAMP_ASC = "timestamp_asc"
+    TIMESTAMP_DESC = "timestamp_desc"
     DISTANCE = "distance"
 
 
@@ -303,17 +305,27 @@ async def build_graphql_query(
         semantic_filter = ""
 
     # Create sorting
-    sorting = (
+    sorting = ""
+    if order_by in [ReportsOrderBy.TIMESTAMP, ReportsOrderBy.TIMESTAMP_DESC]:
+        sorting = (
+            """
+            sort: {
+                path: "%s"
+                order: desc
+            }
         """
-        sort: {
-            path: "%s"
-            order: asc
-        }
-    """
-        % f"{config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN}_seconds"
-        if order_by == ReportsOrderBy.TIMESTAMP
-        else ""
-    )
+            % f"{config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN}_seconds"
+        )
+    elif order_by == ReportsOrderBy.TIMESTAMP_ASC:
+        sorting = (
+            """
+            sort: {
+                path: "%s"
+                order: asc
+            }
+        """
+            % f"{config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN}_seconds"
+        )
 
     # Set returned attributes
     if search_mode == ReportsSearchMode.FULL:
