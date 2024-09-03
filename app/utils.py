@@ -339,6 +339,7 @@ async def build_graphql_query(
         """
     elif search_mode == ReportsSearchMode.LATLONG_ONLY:
         returned_attributes = """
+                    id_report
                     latitude
                     longitude
         """

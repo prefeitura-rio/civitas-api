@@ -550,6 +550,7 @@ class ReportOut(BaseModel):
 
 
 class ReportLatLongOut(BaseModel):
+    id_report: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
