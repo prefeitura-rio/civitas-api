@@ -8,7 +8,7 @@ from fastapi_pagination import Page, Params
 from fastapi_pagination.api import create_page
 
 from app.decorators import router_request
-from app.dependencies import get_user, is_admin
+from app.dependencies import get_user, is_user, is_admin
 from app.models import User, UserHistory
 from app.pydantic_models import UserHistoryOut, UserOut
 

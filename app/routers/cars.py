@@ -13,7 +13,7 @@ from tortoise.transactions import in_transaction
 
 from app import config
 from app.decorators import router_request
-from app.dependencies import get_user, has_cpf
+from app.dependencies import has_cpf, is_user
 from app.models import MonitoredPlate, NotificationChannel, Operation, PlateData, User
 from app.pydantic_models import (
     CarPassageOut,
@@ -54,7 +54,7 @@ async def get_car_hint(
     placa: str,
     start_time: datetime,
     end_time: datetime,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
     latitude_min: float = None,
     latitude_max: float = None,
@@ -108,7 +108,7 @@ async def get_car_hint(
     method="GET", router=router, path="/monitored", response_model=Page[MonitoredPlateOut]
 )
 async def get_monitored_plates(
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
     params: Params = Depends(),
     operation_id: UUID = None,
@@ -180,7 +180,7 @@ async def get_monitored_plates(
 )
 async def create_monitored_plate(
     plate_data: MonitoredPlateIn,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -219,7 +219,7 @@ async def create_monitored_plate(
 )
 async def get_monitored_plate(
     plate: str,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -243,7 +243,7 @@ async def get_monitored_plate(
 async def update_monitored_plate(
     plate: str,
     plate_data: MonitoredPlateUpdate,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -307,7 +307,7 @@ async def update_monitored_plate(
 )
 async def delete_monitored_plate(
     plate: str,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
     """
@@ -327,7 +327,7 @@ async def get_car_path(
     placa: str,
     start_time: datetime,
     end_time: datetime,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
     max_time_interval: int = 60 * 60,
     polyline: bool = False,
@@ -399,7 +399,7 @@ async def get_cars_by_radar(
     radar: str,
     start_time: datetime,
     end_time: datetime,
-    user: Annotated[User, Depends(get_user)],
+    user: Annotated[User, Depends(is_user)],
     request: Request,
     plate_hint: str = None,
 ):

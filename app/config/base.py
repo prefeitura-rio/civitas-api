@@ -36,6 +36,7 @@ JWS = json.loads(jwksurl.read())
 # Auth provider groups
 AUTH_PROVIDER_GROUP_ADMIN = getenv_or_action("AUTH_PROVIDER_GROUP_ADMIN", default="civitas-admin")
 AUTH_PROVIDER_GROUP_USER = getenv_or_action("AUTH_PROVIDER_GROUP_USER", default="civitas")
+AUTH_PROVIDER_GROUP_AGENT = getenv_or_action("AUTH_PROVIDER_GROUP_AGENT", default="civitas-agent")
 
 # Google Cloud Platform configuration
 GOOGLE_BIGQUERY_PAGE_SIZE = int(getenv_or_action("GOOGLE_BIGQUERY_PAGE_SIZE", default="100"))

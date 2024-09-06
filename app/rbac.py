@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
 from app import config
-from app.dependencies import get_user
+from app.dependencies import is_user
 from app.models import User, UserHistory
 from app.oidc import get_current_user
 from app.pydantic_models import OIDCUser
