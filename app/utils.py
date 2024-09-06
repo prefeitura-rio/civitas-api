@@ -561,6 +561,8 @@ async def cortex_request(
         async with session.request(method, url, headers=headers, **kwargs) as response:
             if raise_for_status:
                 response.raise_for_status()
+            elif response.status != 200:
+                return response
             return await response.json()
 
 
