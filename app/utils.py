@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import base64
+import re
 import traceback
 from contextlib import AbstractAsyncContextManager
 from enum import Enum
@@ -1546,6 +1547,18 @@ def validate_cpf(cpf: str) -> bool:
         return False
 
     if not validate_digits(numbers):
+        return False
+
+    return True
+
+
+def validate_plate(plate: str) -> bool:
+    # Ensure the plate is upper case
+    plate = plate.upper()
+
+    # Ensure the plate has the correct format
+    pattern = re.compile(r"^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$")
+    if not pattern.match(plate):
         return False
 
     return True

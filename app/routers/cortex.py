@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from loguru import logger
 
 from app import config
@@ -9,7 +9,7 @@ from app.decorators import router_request
 from app.dependencies import has_cpf
 from app.models import PlateData, User
 from app.pydantic_models import CortexPlacaOut
-from app.utils import cortex_request
+from app.utils import cortex_request, validate_plate
 
 router = APIRouter(
     prefix="/cortex",
@@ -21,12 +21,23 @@ router = APIRouter(
 )
 
 
-@router_request(method="GET", router=router, path="/plate/{plate}", response_model=CortexPlacaOut)
+@router_request(
+    method="GET",
+    router=router,
+    path="/plate/{plate}",
+    response_model=CortexPlacaOut,
+    responses={400: {"detail": "Invalid plate format"}},
+)
 async def get_plate_details(
     plate: str,
     user: Annotated[User, Depends(has_cpf)],
     request: Request,
 ):
+    # Validate plate
+    plate = plate.upper()
+    if not validate_plate(plate):
+        raise HTTPException(status_code=400, detail="Invalid plate format")
+
     # Check if we already have this plate in our database
     plate_data = await PlateData.get_or_none(plate=plate)
 
