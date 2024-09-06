@@ -13,16 +13,23 @@ from tortoise.transactions import in_transaction
 
 from app import config
 from app.decorators import router_request
-from app.dependencies import is_user
-from app.models import MonitoredPlate, NotificationChannel, Operation, User
+from app.dependencies import has_cpf, is_user
+from app.models import MonitoredPlate, NotificationChannel, Operation, PlateData, User
 from app.pydantic_models import (
     CarPassageOut,
+    CortexPlacaOut,
     MonitoredPlateIn,
     MonitoredPlateOut,
     MonitoredPlateUpdate,
     Path,
 )
-from app.utils import get_car_by_radar, get_hints, get_path
+from app.utils import (
+    cortex_request,
+    get_car_by_radar,
+    get_hints,
+    get_path,
+    validate_plate,
+)
 
 router = APIRouter(
     prefix="/cars",
@@ -95,40 +102,6 @@ async def get_car_hint(
         longitude_max=longitude_max,
     )
     return hints
-
-
-@router_request(method="GET", router=router, path="/path", response_model=list[Path])
-async def get_car_path(
-    placa: str,
-    start_time: datetime,
-    end_time: datetime,
-    user: Annotated[User, Depends(is_user)],
-    request: Request,
-    max_time_interval: int = 60 * 60,
-    polyline: bool = False,
-    min_plate_distance: float = 0,
-):
-    # Parse start_time and end_time to pendulum.DateTime
-    start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
-    start_time = start_time.in_tz(config.TIMEZONE)
-    end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
-    end_time = end_time.in_tz(config.TIMEZONE)
-
-    logger.debug(f"Date range: {start_time} - {end_time}")
-
-    # Get path
-    placa = placa.upper()
-    path = await get_path(
-        placa=placa,
-        min_datetime=start_time,
-        max_datetime=end_time,
-        max_time_interval=max_time_interval,
-        polyline=polyline,
-        min_plate_distance=min_plate_distance,
-    )
-
-    # Build response
-    return [Path(**path_item) for path_item in path]
 
 
 @router_request(
@@ -347,6 +320,78 @@ async def delete_monitored_plate(
         raise HTTPException(status_code=404, detail="Plate not found")
     await monitored_plate.delete()
     return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
+
+
+@router_request(method="GET", router=router, path="/path", response_model=list[Path])
+async def get_car_path(
+    placa: str,
+    start_time: datetime,
+    end_time: datetime,
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+    max_time_interval: int = 60 * 60,
+    polyline: bool = False,
+    min_plate_distance: float = 0,
+):
+    # Parse start_time and end_time to pendulum.DateTime
+    start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
+    start_time = start_time.in_tz(config.TIMEZONE)
+    end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
+    end_time = end_time.in_tz(config.TIMEZONE)
+
+    logger.debug(f"Date range: {start_time} - {end_time}")
+
+    # Get path
+    placa = placa.upper()
+    path = await get_path(
+        placa=placa,
+        min_datetime=start_time,
+        max_datetime=end_time,
+        max_time_interval=max_time_interval,
+        polyline=polyline,
+        min_plate_distance=min_plate_distance,
+    )
+
+    # Build response
+    return [Path(**path_item) for path_item in path]
+
+
+@router_request(
+    method="GET",
+    router=router,
+    path="/plate/{plate}",
+    response_model=CortexPlacaOut,
+    responses={400: {"detail": "Invalid plate format"}},
+)
+async def get_plate_details(
+    plate: str,
+    user: Annotated[User, Depends(has_cpf)],
+    request: Request,
+):
+    # Validate plate
+    plate = plate.upper()
+    if not validate_plate(plate):
+        raise HTTPException(status_code=400, detail="Invalid plate format")
+
+    # Check if we already have this plate in our database
+    plate_data = await PlateData.get_or_none(plate=plate)
+
+    # If we do, return it
+    if plate_data:
+        logger.debug(f"Found plate {plate} in our database. Returning cached data.")
+        return CortexPlacaOut(**plate_data.data)
+
+    # If we don't, try to fetch it from Cortex
+    logger.debug(f"Plate {plate} not found in our database. Fetching data from Cortex.")
+    data = await cortex_request(
+        method="GET",
+        url=f"{config.CORTEX_VEICULOS_BASE_URL}/emplacamentos/placa/{plate}",
+        cpf=user.cpf,
+    )
+
+    # Save the data to our database
+    await PlateData.create(plate=plate, data=data)
+    return CortexPlacaOut(**data)
 
 
 @router_request(method="GET", router=router, path="/radar", response_model=list[CarPassageOut])

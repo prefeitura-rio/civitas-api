@@ -88,6 +88,52 @@ class Permission(Model):
     resource = fields.ForeignKeyField("app.Resource", related_name="permissions")
 
 
+class PlateData(Model):
+    id = fields.UUIDField(pk=True)
+    plate = fields.CharField(max_length=7, unique=True)
+    data = fields.JSONField()
+    # TODO (future): Expire this data after a certain amount of time?
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+
+@pre_save(PlateData)
+async def validate_plate_data(sender, instance: PlateData, using_db, update_fields):
+    """
+    This validator checks the following constraints:
+    - The plate must have 7 characters and be in a valid format
+    - The data must be in the same format as the specified Pydantic model
+    """
+    from app.pydantic_models import CortexPlacaOut
+
+    # Plate format validation:
+    instance.plate = instance.plate.upper()
+    # - Must be exactly 7 characters
+    if len(instance.plate) != 7:
+        raise ValidationError("The plate must have exactly 7 characters")
+
+    # - The 3 first characters must be letters
+    if not instance.plate[:3].isalpha():
+        raise ValidationError("The first 4 characters of the plate must be letters")
+
+    # - The 4th character must be a number
+    if not instance.plate[3].isdigit():
+        raise ValidationError("The 5th character of the plate must be a number")
+
+    # - The 5th character must be either a letter or a number
+    if not instance.plate[4].isalnum():
+        raise ValidationError("The 6th character of the plate must be a letter or a number")
+
+    # - The 6th and 7th characters must be numbers
+    if not instance.plate[5:].isdigit():
+        raise ValidationError("The last 2 characters of the plate must be numbers")
+
+    # Data format validation:
+    try:
+        CortexPlacaOut(**instance.data)
+    except Exception as exc:
+        raise ValidationError(str(exc))
+
+
 class Resource(Model):
     id = fields.UUIDField(pk=True)
     name = fields.CharField(max_length=255)

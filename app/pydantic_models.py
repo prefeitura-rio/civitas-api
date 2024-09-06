@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import re
 from datetime import datetime
 from typing import Dict, List, Optional
 from uuid import UUID
@@ -326,12 +325,13 @@ class MonitoredPlateIn(BaseModel):
 
     @validator("plate")
     def validate_plate(cls, value: str):
+        from app.utils import validate_plate as validate_plate_util
+
         # Ensure the plate is upper case
         value = value.upper()
 
         # Ensure the plate has the correct format
-        pattern = re.compile(r"^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$")
-        if not pattern.match(value):
+        if not validate_plate_util(value):
             raise ValueError(
                 "plate must have exactly 7 characters: "
                 "first 3 letters, 4th digit, 5th letter or digit, last 2 digits"
@@ -382,17 +382,18 @@ class MonitoredPlateUpdate(BaseModel):
 
     @validator("plate")
     def validate_plate(cls, value: str):
+        from app.utils import validate_plate as validate_plate_util
+
         if value is not None:
             # Ensure the plate is upper case
             value = value.upper()
 
-            # Ensure the plate has the correct format
-            pattern = re.compile(r"^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$")
-            if not pattern.match(value):
-                raise ValueError(
-                    "plate must have exactly 7 characters: "
-                    "first 3 letters, 4th digit, 5th letter or digit, last 2 digits"
-                )
+        # Ensure the plate has the correct format
+        if not validate_plate_util(value):
+            raise ValueError(
+                "plate must have exactly 7 characters: "
+                "first 3 letters, 4th digit, 5th letter or digit, last 2 digits"
+            )
 
         return value
 
