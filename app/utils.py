@@ -537,7 +537,7 @@ async def cortex_request(
     cpf: str,
     raise_for_status: bool = True,
     **kwargs: Any,
-) -> Any:
+) -> Tuple[bool, Any]:
     """
     Make a request to the Cortex API.
 
@@ -547,7 +547,7 @@ async def cortex_request(
         **kwargs (Any): The keyword arguments.
 
     Returns:
-        Any: The response data.
+        Tuple[bool, Any]: Whether the request was a success and the response
     """
     # Get the Cortex token
     token = await cache.get_cortex_token()
@@ -563,8 +563,8 @@ async def cortex_request(
             if raise_for_status:
                 response.raise_for_status()
             elif response.status != 200:
-                return response
-            return await response.json()
+                return False, response
+            return True, await response.json()
 
 
 def get_bigquery_client() -> bigquery.Client:
