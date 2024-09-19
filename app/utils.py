@@ -35,6 +35,7 @@ from app.pydantic_models import (
     ReportsMetadata,
     WazeAlertOut,
 )
+from app.rate_limiter_cpf import cpf_limiter
 from app.redis_cache import cache
 
 
@@ -549,6 +550,13 @@ async def cortex_request(
     Returns:
         Tuple[bool, Any]: Whether the request was a success and the response
     """
+    # Check whether the CPF is allowed to make the request
+    if not await cpf_limiter.check(cpf):
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit for this CPF exceeded Cortex limits. Try again later.",
+        )
+
     # Get the Cortex token
     token = await cache.get_cortex_token()
 
