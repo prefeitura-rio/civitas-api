@@ -35,6 +35,7 @@ from app.pydantic_models import (
     ReportsMetadata,
     WazeAlertOut,
 )
+from app.rate_limiter_cpf import cpf_limiter
 from app.redis_cache import cache
 
 
@@ -537,7 +538,7 @@ async def cortex_request(
     cpf: str,
     raise_for_status: bool = True,
     **kwargs: Any,
-) -> Any:
+) -> Tuple[bool, Any]:
     """
     Make a request to the Cortex API.
 
@@ -547,8 +548,15 @@ async def cortex_request(
         **kwargs (Any): The keyword arguments.
 
     Returns:
-        Any: The response data.
+        Tuple[bool, Any]: Whether the request was a success and the response
     """
+    # Check whether the CPF is allowed to make the request
+    if not await cpf_limiter.check(cpf):
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit for this CPF exceeded Cortex limits. Try again later.",
+        )
+
     # Get the Cortex token
     token = await cache.get_cortex_token()
 
@@ -563,8 +571,8 @@ async def cortex_request(
             if raise_for_status:
                 response.raise_for_status()
             elif response.status != 200:
-                return response
-            return await response.json()
+                return False, response
+            return True, await response.json()
 
 
 def get_bigquery_client() -> bigquery.Client:

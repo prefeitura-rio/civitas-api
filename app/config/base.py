@@ -76,6 +76,7 @@ CORTEX_PESSOAS_BASE_URL = getenv_or_action("CORTEX_PESSOAS_BASE_URL").rstrip("/"
 CORTEX_VEICULOS_BASE_URL = getenv_or_action("CORTEX_VEICULOS_BASE_URL").rstrip("/")
 CORTEX_USERNAME = getenv_or_action("CORTEX_USERNAME")
 CORTEX_PASSWORD = getenv_or_action("CORTEX_PASSWORD")
+CORTEX_CPF_RATE_LIMIT = getenv_or_action("CORTEX_CPF_RATE_LIMIT", default="2/minute")
 
 # Tixxi
 TIXXI_CAMERAS_LIST_URL = getenv_or_action("TIXXI_CAMERAS_LIST_URL")

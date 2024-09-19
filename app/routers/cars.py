@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
+from aiohttp import ClientResponse
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_pagination import Page, Params
 from fastapi_pagination.api import create_page
@@ -361,7 +362,10 @@ async def get_car_path(
     router=router,
     path="/plate/{plate}",
     response_model=CortexPlacaOut,
-    responses={400: {"detail": "Invalid plate format"}},
+    responses={
+        400: {"detail": "Invalid plate format"},
+        451: {"detail": "Unavailable for legal reasons. CPF might be blocked."},
+    },
 )
 async def get_plate_details(
     plate: str,
@@ -383,11 +387,26 @@ async def get_plate_details(
 
     # If we don't, try to fetch it from Cortex
     logger.debug(f"Plate {plate} not found in our database. Fetching data from Cortex.")
-    data = await cortex_request(
+    success, data = await cortex_request(
         method="GET",
         url=f"{config.CORTEX_VEICULOS_BASE_URL}/emplacamentos/placa/{plate}",
         cpf=user.cpf,
+        raise_for_status=False,
     )
+    if not success:
+        if isinstance(data, ClientResponse):
+            if data.status == 451:
+                raise HTTPException(
+                    status_code=451, detail="Unavailable for legal reasons. CPF might be blocked."
+                )
+            else:
+                raise HTTPException(
+                    status_code=500, detail="Something unexpected happened to Cortex API"
+                )
+        else:
+            raise HTTPException(
+                status_code=500, detail="Something unexpected happened to Cortex API"
+            )
 
     # Save the data to our database
     await PlateData.create(plate=plate, data=data)
