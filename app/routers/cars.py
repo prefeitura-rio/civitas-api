@@ -391,6 +391,7 @@ async def get_plate_details(
         method="GET",
         url=f"{config.CORTEX_VEICULOS_BASE_URL}/emplacamentos/placa/{plate}",
         cpf=user.cpf,
+        raise_for_status=False,
     )
     if not success:
         if isinstance(data, ClientResponse):
