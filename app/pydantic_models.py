@@ -155,6 +155,14 @@ class CortexPlacaOut(BaseModel):
     valorIPVA: Optional[int]
 
 
+class CortexPlacasIn(BaseModel):
+    plates: List[str]
+
+
+class CortexPlacaCreditsOut(BaseModel):
+    credits: int
+
+
 class HealthCheck(BaseModel):
     status: str
 

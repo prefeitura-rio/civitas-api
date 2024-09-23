@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 import asyncio
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, List
 from uuid import UUID
 
-from aiohttp import ClientResponse
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_pagination import Page, Params
 from fastapi_pagination.api import create_page
@@ -18,19 +17,17 @@ from app.dependencies import has_cpf, is_user
 from app.models import MonitoredPlate, NotificationChannel, Operation, PlateData, User
 from app.pydantic_models import (
     CarPassageOut,
+    CortexPlacaCreditsOut,
     CortexPlacaOut,
+    CortexPlacasIn,
     MonitoredPlateIn,
     MonitoredPlateOut,
     MonitoredPlateUpdate,
     Path,
 )
-from app.utils import (
-    cortex_request,
-    get_car_by_radar,
-    get_hints,
-    get_path,
-    validate_plate,
-)
+from app.utils import get_car_by_radar, get_hints, get_path
+from app.utils import get_plate_details as utils_get_plate_details
+from app.utils import validate_plate
 
 router = APIRouter(
     prefix="/cars",
@@ -377,40 +374,58 @@ async def get_plate_details(
     if not validate_plate(plate):
         raise HTTPException(status_code=400, detail="Invalid plate format")
 
-    # Check if we already have this plate in our database
-    plate_data = await PlateData.get_or_none(plate=plate)
+    # Get plate details
+    return await utils_get_plate_details(plate=plate, cpf=user.cpf)
 
-    # If we do, return it
-    if plate_data:
-        logger.debug(f"Found plate {plate} in our database. Returning cached data.")
-        return CortexPlacaOut(**plate_data.data)
 
-    # If we don't, try to fetch it from Cortex
-    logger.debug(f"Plate {plate} not found in our database. Fetching data from Cortex.")
-    success, data = await cortex_request(
-        method="GET",
-        url=f"{config.CORTEX_VEICULOS_BASE_URL}/emplacamentos/placa/{plate}",
-        cpf=user.cpf,
-        raise_for_status=False,
-    )
-    if not success:
-        if isinstance(data, ClientResponse):
-            if data.status == 451:
-                raise HTTPException(
-                    status_code=451, detail="Unavailable for legal reasons. CPF might be blocked."
-                )
-            else:
-                raise HTTPException(
-                    status_code=500, detail="Something unexpected happened to Cortex API"
-                )
-        else:
-            raise HTTPException(
-                status_code=500, detail="Something unexpected happened to Cortex API"
-            )
+@router_request(
+    method="POST",
+    router=router,
+    path="/plates",
+    response_model=List[CortexPlacaOut],
+)
+async def get_multiple_plates_details(
+    plates: CortexPlacasIn,
+    user: Annotated[User, Depends(has_cpf)],
+    request: Request,
+):
+    # Validate plates
+    for plate in plates.plates:
+        plate = plate.upper()
+        if not validate_plate(plate):
+            raise HTTPException(status_code=400, detail=f"Invalid plate format: {plate}")
 
-    # Save the data to our database
-    await PlateData.create(plate=plate, data=data)
-    return CortexPlacaOut(**data)
+    # Get plates from our database
+    plates_list = plates.plates
+
+    # Await for all plates in batches of 10
+    plates_details = []
+    for i in range(0, len(plates_list), 10):
+        plates_details += await asyncio.gather(
+            *[
+                utils_get_plate_details(plate=plate, cpf=user.cpf)
+                for plate in plates_list[i : i + 10]
+            ]
+        )
+
+    return plates_details
+
+
+@router_request(
+    method="POST",
+    router=router,
+    path="/plates/credit",
+    response_model=CortexPlacaCreditsOut,
+)
+async def get_necessary_credits(
+    plates: CortexPlacasIn,
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+):
+    # Check, using the provided list of plates, how many aren't in our database
+    plates_data = await PlateData.filter(plate__in=plates.plates).values_list("plate", flat=True)
+    missing_plates = list(set(plates.plates) - set(plates_data))
+    return CortexPlacaCreditsOut(credits=len(missing_plates))
 
 
 @router_request(method="GET", router=router, path="/radar", response_model=list[CarPassageOut])

@@ -27,9 +27,10 @@ from tortoise import Tortoise, connections
 from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from app import config
-from app.models import GroupUser, Resource, User
+from app.models import GroupUser, PlateData, Resource, User
 from app.pydantic_models import (
     CarPassageOut,
+    CortexPlacaOut,
     RadarOut,
     ReportFilters,
     ReportsMetadata,
@@ -573,6 +574,43 @@ async def cortex_request(
             elif response.status != 200:
                 return False, response
             return True, await response.json()
+
+
+async def get_plate_details(plate: str, cpf: str) -> CortexPlacaOut:
+    # Check if we already have this plate in our database
+    plate_data = await PlateData.get_or_none(plate=plate)
+
+    # If we do, return it
+    if plate_data:
+        logger.debug(f"Found plate {plate} in our database. Returning cached data.")
+        return CortexPlacaOut(**plate_data.data)
+
+    # If we don't, try to fetch it from Cortex
+    logger.debug(f"Plate {plate} not found in our database. Fetching data from Cortex.")
+    success, data = await cortex_request(
+        method="GET",
+        url=f"{config.CORTEX_VEICULOS_BASE_URL}/emplacamentos/placa/{plate}",
+        cpf=cpf,
+        raise_for_status=False,
+    )
+    if not success:
+        if isinstance(data, aiohttp.ClientResponse):
+            if data.status == 451:
+                raise HTTPException(
+                    status_code=451, detail="Unavailable for legal reasons. CPF might be blocked."
+                )
+            else:
+                raise HTTPException(
+                    status_code=500, detail="Something unexpected happened to Cortex API"
+                )
+        else:
+            raise HTTPException(
+                status_code=500, detail="Something unexpected happened to Cortex API"
+            )
+
+    # Save the data to our database
+    await PlateData.create(plate=plate, data=data)
+    return CortexPlacaOut(**data)
 
 
 def get_bigquery_client() -> bigquery.Client:
