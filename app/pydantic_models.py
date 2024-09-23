@@ -575,6 +575,11 @@ class ReportsMetadata(BaseModel):
     type_subtypes: Dict[str, List[str]]
 
 
+class UserCortexRemainingCreditOut(BaseModel):
+    remaining_credit: int
+    time_until_reset: int
+
+
 class UserHistoryOut(BaseModel):
     id: UUID
     method: str
