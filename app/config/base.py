@@ -8,7 +8,7 @@ import orjson as json
 import pandas as pd
 from loguru import logger
 
-from . import getenv_list_or_action, getenv_or_action
+from . import getenv_or_action
 
 # Logging
 LOG_LEVEL = getenv_or_action("LOG_LEVEL", default="INFO")
@@ -68,12 +68,6 @@ CACHE_CAMERAS_COR_TTL = int(getenv_or_action("CACHE_CAMERAS_COR_TTL", default=60
 CACHE_FOGOCRUZADO_TTL = int(getenv_or_action("CACHE_FOGOCRUZADO_TTL", default=60 * 5))
 CACHE_REPORTS_METADATA_TTL = int(
     getenv_or_action("CACHE_REPORTS_METADATA_TTL", default=60 * 15)
-)
-
-# RBAC configuration
-RBAC_EXCLUDED_PATHS = getenv_list_or_action("RBAC_EXCLUDED_PATHS")
-RBAC_PERMISSIONS_CACHE_TTL = int(
-    getenv_or_action("RBAC_PERMISSIONS_CACHE_TTL", default=60 * 5)
 )
 
 # Data Relay configuration

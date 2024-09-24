@@ -5,8 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, validator
 
-from app.enums import ActionTypeEnum, NotificationChannelTypeEnum
-from app.models import Group, GroupUser, MonitoredPlate
+from app.enums import NotificationChannelTypeEnum
+from app.models import MonitoredPlate
 
 
 class CortexArrendatario(BaseModel):
@@ -407,53 +407,6 @@ class DataRelayResponse(BaseModel):
     message: str
 
 
-class GroupIn(BaseModel):
-    name: str
-    description: Optional[str] = None
-    users: Optional[List[UUID]] = None
-
-
-class GroupOut(BaseModel):
-    id: UUID
-    name: str
-    description: Optional[str] = None
-    users: List["GroupUserOut"] = []
-
-    @classmethod
-    async def from_group(cls, group: Group):
-        group_users = await GroupUser.filter(group=group).prefetch_related("user").all()
-        users = []
-        for group_user in group_users:
-            users.append(
-                GroupUserOut(
-                    user=UserOut.from_orm(group_user.user),
-                    is_group_admin=group_user.is_group_admin,
-                )
-            )
-        return GroupOut(
-            id=group.id, name=group.name, description=group.description, users=users
-        )
-
-
-class GroupUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-
-
-class GroupUserIn(BaseModel):
-    user: UUID
-    is_group_admin: bool
-
-
-class GroupUserOut(BaseModel):
-    user: "UserOut"
-    is_group_admin: bool
-
-
-class GroupUserUpdate(BaseModel):
-    is_group_admin: Optional[bool] = None
-
-
 class MonitoredPlateIn(BaseModel):
     plate: str = Field(...)
     operation_id: UUID
@@ -578,20 +531,6 @@ class OperationUpdate(BaseModel):
     description: Optional[str] = None
 
 
-class PermissionIn(BaseModel):
-    action: ActionTypeEnum
-    resource: UUID
-
-
-class PermissionOut(BaseModel):
-    id: UUID
-    action: ActionTypeEnum
-    resource: UUID
-
-    class Config:
-        orm_mode = True
-
-
 class RadarOut(BaseModel):
     codcet: Optional[str] = None
     camera_numero: str
@@ -605,45 +544,6 @@ class RadarOut(BaseModel):
     active_in_last_24_hours: Optional[str] = None
     last_detection_time: Optional[datetime] = None
     sentido: Optional[str] = None
-
-
-class ResourceOut(BaseModel):
-    id: UUID
-    name: str
-
-    class Config:
-        orm_mode = True
-
-
-class RoleIn(BaseModel):
-    name: str
-    description: Optional[str] = None
-    users: Optional[List[UUID]] = None
-    permissions: Optional[List[UUID]] = None
-
-
-class RoleOut(BaseModel):
-    id: UUID
-    name: str
-    description: Optional[str] = None
-    users: List[UUID] = []
-    permissions: List[UUID] = []
-
-    class Config:
-        orm_mode = True
-
-
-class RoleUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-
-
-class RoleUserIn(BaseModel):
-    user: UUID
-
-
-class RolePermissionIn(BaseModel):
-    permission: UUID
 
 
 class ReportFilters(BaseModel):
@@ -756,6 +656,4 @@ class WazeAlertOut(BaseModel):
     longitude: float
 
 
-GroupOut.update_forward_refs()
-GroupUserOut.update_forward_refs()
 MonitoredPlateOut.update_forward_refs()

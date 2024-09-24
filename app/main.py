@@ -23,8 +23,7 @@ from app.oidc import AuthError
 from app.pydantic_models import HealthCheck
 from app.rate_limiter import limiter
 
-# from app.rbac import RBACMiddleware
-from app.routers import (  # rbac,
+from app.routers import (
     agents,
     auth,
     cameras_cor,
@@ -97,7 +96,6 @@ app.add_middleware(
     allow_headers=config.ALLOWED_HEADERS,
     allow_credentials=config.ALLOW_CREDENTIALS,
 )
-# app.add_middleware(RBACMiddleware)
 
 app.include_router(auth.router)
 app.include_router(agents.router)
@@ -109,7 +107,6 @@ app.include_router(notification_channels.router)
 app.include_router(operations.router)
 app.include_router(people.router)
 app.include_router(radars.router)
-# app.include_router(rbac.router)
 app.include_router(reports.router)
 app.include_router(users.router)
 app.include_router(waze.router)
