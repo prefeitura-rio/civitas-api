@@ -26,7 +26,7 @@ from tortoise import Tortoise, connections
 from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from app import config
-from app.models import CompanyData, PersonData, PlateData, Resource
+from app.models import CompanyData, PersonData, PlateData
 from app.pydantic_models import (
     CarPassageOut,
     CortexCompanyOut,
@@ -1627,34 +1627,6 @@ def translate_method_to_action(method: str) -> str:
         "DELETE": "delete",
     }
     return mapping.get(method.upper(), "read")
-
-
-async def update_resources_list(app: FastAPI):
-    """
-    Update the resources list with the current routes.
-
-    Args:
-        app (FastAPI): The FastAPI app
-    """
-    # Get list of current resources
-    current_resources = sorted(list(set([route.path[1:] for route in app.routes])))
-
-    # Create list of awaitables for database resources
-    awaitables = []
-
-    # Eliminate resources from database that are not in the current resources list
-    for resource in await Resource.all():
-        if resource.name not in current_resources:
-            awaitables.append(resource.delete())
-
-    # Add resources to database that are not in the database
-    for resource in current_resources:
-        if await Resource.filter(name=resource).exists():
-            continue
-        awaitables.append(Resource.create(name=resource))
-
-    # Execute all awaitables
-    await asyncio.gather(*awaitables)
 
 
 def validate_cpf(cpf: str) -> bool:

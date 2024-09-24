@@ -41,7 +41,6 @@ from app.routers import (
 from app.utils import (
     create_update_weaviate_schema,
     register_tortoise,
-    update_resources_list,
 )
 
 logger.remove()
@@ -61,7 +60,6 @@ async def lifespan(app: FastAPI):
     async with register_tortoise(
         app, config=TORTOISE_ORM, generate_schemas=False, add_exception_handlers=True
     ):
-        await update_resources_list(app)
         create_update_weaviate_schema()
         yield
 
