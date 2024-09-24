@@ -8,7 +8,7 @@ import orjson as json
 import pandas as pd
 from loguru import logger
 
-from . import getenv_list_or_action, getenv_or_action
+from . import getenv_or_action
 
 # Logging
 LOG_LEVEL = getenv_or_action("LOG_LEVEL", default="INFO")
@@ -34,12 +34,20 @@ jwksurl = urlopen(OIDC_ISSUER_URL + "/jwks/")
 JWS = json.loads(jwksurl.read())
 
 # Auth provider groups
-AUTH_PROVIDER_GROUP_ADMIN = getenv_or_action("AUTH_PROVIDER_GROUP_ADMIN", default="civitas-admin")
-AUTH_PROVIDER_GROUP_USER = getenv_or_action("AUTH_PROVIDER_GROUP_USER", default="civitas")
-AUTH_PROVIDER_GROUP_AGENT = getenv_or_action("AUTH_PROVIDER_GROUP_AGENT", default="civitas-agent")
+AUTH_PROVIDER_GROUP_ADMIN = getenv_or_action(
+    "AUTH_PROVIDER_GROUP_ADMIN", default="civitas-admin"
+)
+AUTH_PROVIDER_GROUP_USER = getenv_or_action(
+    "AUTH_PROVIDER_GROUP_USER", default="civitas"
+)
+AUTH_PROVIDER_GROUP_AGENT = getenv_or_action(
+    "AUTH_PROVIDER_GROUP_AGENT", default="civitas-agent"
+)
 
 # Google Cloud Platform configuration
-GOOGLE_BIGQUERY_PAGE_SIZE = int(getenv_or_action("GOOGLE_BIGQUERY_PAGE_SIZE", default="100"))
+GOOGLE_BIGQUERY_PAGE_SIZE = int(
+    getenv_or_action("GOOGLE_BIGQUERY_PAGE_SIZE", default="100")
+)
 GOOGLE_MAPS_API_KEY = getenv_or_action("GOOGLE_MAPS_API_KEY")
 GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST = getenv_or_action(
     "GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST", default=27
@@ -47,18 +55,20 @@ GOOGLE_MAPS_API_MAX_POINTS_PER_REQUEST = getenv_or_action(
 
 # Cache configuration
 CACHE_CAR_PATH_TTL = int(getenv_or_action("CACHE_CAR_PATH_TTL", default=60 * 10))
-CACHE_CAR_POSITIONS_TTL = int(getenv_or_action("CACHE_CAR_POSITIONS_TTL", default=60 * 10))
+CACHE_CAR_POSITIONS_TTL = int(
+    getenv_or_action("CACHE_CAR_POSITIONS_TTL", default=60 * 10)
+)
 CACHE_CAR_HINTS_TTL = int(getenv_or_action("CACHE_CAR_HINTS_TTL", default=60 * 10))
-CACHE_RADAR_POSITIONS_TTL = int(getenv_or_action("CACHE_RADAR_POSITIONS_TTL", default=60 * 60 * 24))
+CACHE_RADAR_POSITIONS_TTL = int(
+    getenv_or_action("CACHE_RADAR_POSITIONS_TTL", default=60 * 60 * 24)
+)
 CACHE_WAZE_ALERTS_TTL = int(getenv_or_action("CACHE_WAZE_ALERTS_TTL", default=60 * 5))
 CACHE_CAR_BY_RADAR_TTL = int(getenv_or_action("CACHE_CAR_BY_RADAR_TTL", default=60 * 5))
 CACHE_CAMERAS_COR_TTL = int(getenv_or_action("CACHE_CAMERAS_COR_TTL", default=60 * 5))
 CACHE_FOGOCRUZADO_TTL = int(getenv_or_action("CACHE_FOGOCRUZADO_TTL", default=60 * 5))
-CACHE_REPORTS_METADATA_TTL = int(getenv_or_action("CACHE_REPORTS_METADATA_TTL", default=60 * 15))
-
-# RBAC configuration
-RBAC_EXCLUDED_PATHS = getenv_list_or_action("RBAC_EXCLUDED_PATHS")
-RBAC_PERMISSIONS_CACHE_TTL = int(getenv_or_action("RBAC_PERMISSIONS_CACHE_TTL", default=60 * 5))
+CACHE_REPORTS_METADATA_TTL = int(
+    getenv_or_action("CACHE_REPORTS_METADATA_TTL", default=60 * 15)
+)
 
 # Data Relay configuration
 DATA_RELAY_BASE_URL = getenv_or_action("DATA_RELAY_BASE_URL").rstrip("/")
@@ -82,9 +92,13 @@ CORTEX_CPF_RATE_LIMIT = getenv_or_action("CORTEX_CPF_RATE_LIMIT", default="2/min
 TIXXI_CAMERAS_LIST_URL = getenv_or_action("TIXXI_CAMERAS_LIST_URL")
 
 # External data that is loaded persistently
-DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL = getenv_or_action("DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL")
+DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL = getenv_or_action(
+    "DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL"
+)
 try:
-    _df_codcet_to_camera_numero: pd.DataFrame = pd.read_csv(DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL)
+    _df_codcet_to_camera_numero: pd.DataFrame = pd.read_csv(
+        DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL
+    )
     _df_codcet_to_camera_numero.dropna(inplace=True)
     CODCET_TO_CAMERA_NUMERO: Dict[str, str] = (
         _df_codcet_to_camera_numero.groupby("codcet")["camera_numero"]
@@ -143,7 +157,9 @@ EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN = getenv_or_action(
 UPDATE_EMBEDDINGS_LOCK_TIMEOUT = int(
     getenv_or_action("UPDATE_EMBEDDINGS_LOCK_TIMEOUT", default=86400)
 )
-UPDATE_EMBEDDINGS_BATCH_SIZE = int(getenv_or_action("UPDATE_EMBEDDINGS_BATCH_SIZE", default=100))
+UPDATE_EMBEDDINGS_BATCH_SIZE = int(
+    getenv_or_action("UPDATE_EMBEDDINGS_BATCH_SIZE", default=100)
+)
 UPDATE_EMBEDDINGS_DEBUG_DISCORD_WEBHOOK = getenv_or_action(
     "UPDATE_EMBEDDINGS_DEBUG_DISCORD_WEBHOOK", action="raise"
 )

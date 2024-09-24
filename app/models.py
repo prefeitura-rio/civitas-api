@@ -7,25 +7,42 @@ from tortoise.exceptions import ValidationError
 from tortoise.models import Model
 from tortoise.signals import pre_save
 
-from app.enums import ActionTypeEnum, NotificationChannelTypeEnum
+from app.enums import NotificationChannelTypeEnum
 
 
-class Group(Model):
+class CompanyData(Model):
     id = fields.UUIDField(pk=True)
-    name = fields.CharField(max_length=100)
-    description = fields.TextField(null=True)
+    cnpj = fields.CharField(max_length=14, unique=True)
+    data = fields.JSONField()
+    # TODO (future): Expire this data after a certain amount of time?
+    created_at = fields.DatetimeField(auto_now_add=True)
 
 
-class GroupUser(Model):
-    id = fields.UUIDField(pk=True)
-    group = fields.ForeignKeyField("app.Group", related_name="group_users")
-    user = fields.ForeignKeyField("app.User", related_name="groups")
-    is_group_admin = fields.BooleanField(default=False)
+@pre_save(CompanyData)
+async def validate_company_data(sender, instance: CompanyData, using_db, update_fields):
+    """
+    This validator checks the following constraints:
+    - The CNPJ must have 14 characters and be in a valid format
+    - The data must be in the same format as the specified Pydantic model
+    """
+    from app.pydantic_models import CortexCompanyOut
+    from app.utils import validate_cnpj
+
+    if not validate_cnpj(instance.cnpj):
+        raise ValidationError("Invalid CNPJ format")
+
+    # Data format validation:
+    try:
+        CortexCompanyOut(**instance.data)
+    except Exception as exc:
+        raise ValidationError(str(exc))
 
 
 class MonitoredPlate(Model):
     id = fields.UUIDField(pk=True)
-    operation = fields.ForeignKeyField("app.Operation", related_name="monitored_plates", null=True)
+    operation = fields.ForeignKeyField(
+        "app.Operation", related_name="monitored_plates", null=True
+    )
     plate = fields.CharField(max_length=7)
     active = fields.BooleanField(default=True)
     notes = fields.TextField(null=True)
@@ -81,11 +98,32 @@ class Operation(Model):
     description = fields.TextField(null=True)
 
 
-class Permission(Model):
+class PersonData(Model):
     id = fields.UUIDField(pk=True)
-    group = fields.ForeignKeyField("app.Group", related_name="permissions")
-    action = fields.CharEnumField(enum_type=ActionTypeEnum)
-    resource = fields.ForeignKeyField("app.Resource", related_name="permissions")
+    cpf = fields.CharField(max_length=11, unique=True)
+    data = fields.JSONField()
+    # TODO (future): Expire this data after a certain amount of time?
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+
+@pre_save(PersonData)
+async def validate_person_data(sender, instance: PersonData, using_db, update_fields):
+    """
+    This validator checks the following constraints:
+    - The CPF must have 11 characters and be in a valid format
+    - The data must be in the same format as the specified Pydantic model
+    """
+    from app.pydantic_models import CortexPersonOut
+    from app.utils import validate_cpf
+
+    if not validate_cpf(instance.cpf):
+        raise ValidationError("Invalid CPF format")
+
+    # Data format validation:
+    try:
+        CortexPersonOut(**instance.data)
+    except Exception as exc:
+        raise ValidationError(str(exc))
 
 
 class PlateData(Model):
@@ -121,7 +159,9 @@ async def validate_plate_data(sender, instance: PlateData, using_db, update_fiel
 
     # - The 5th character must be either a letter or a number
     if not instance.plate[4].isalnum():
-        raise ValidationError("The 6th character of the plate must be a letter or a number")
+        raise ValidationError(
+            "The 6th character of the plate must be a letter or a number"
+        )
 
     # - The 6th and 7th characters must be numbers
     if not instance.plate[5:].isdigit():
@@ -132,55 +172,6 @@ async def validate_plate_data(sender, instance: PlateData, using_db, update_fiel
         CortexPlacaOut(**instance.data)
     except Exception as exc:
         raise ValidationError(str(exc))
-
-
-class Resource(Model):
-    id = fields.UUIDField(pk=True)
-    name = fields.CharField(max_length=255)
-
-
-class Role(Model):
-    id = fields.UUIDField(pk=True)
-    name = fields.CharField(max_length=255)
-    description = fields.TextField(null=True)
-    group = fields.ForeignKeyField("app.Group", related_name="roles")
-    users = fields.ManyToManyField("app.User", related_name="roles")
-    permissions = fields.ManyToManyField("app.Permission", related_name="roles")
-
-
-@pre_save(Role)
-async def validate_role(sender, instance: Role, using_db, update_fields):
-    """
-    This validator checks the following constraints:
-    - The role must have at least one permission
-    - All permissions in the role must be from the same group as the role
-    - All users in the role must be in the same group as the role
-    """
-    # The role must have at least one permission
-    n_permissions = await instance.permissions.all().count()
-    if n_permissions == 0:
-        raise ValidationError("The role must have at least one permission")
-
-    # All permissions in the role must be from the same group as the role
-    group: Group = await instance.group
-    permission: Permission
-    for permission in await instance.permissions.all():
-        if permission.group != group:
-            raise ValidationError(
-                "All permissions in the role must be from the same group as the role"
-            )
-
-    # All users in the role must be in the same group as the role
-    user: User
-    for user in await instance.users.all():
-        user_ok = False
-        user_group: Group
-        for user_group in await user.groups.all():
-            if user_group == group:
-                user_ok = True
-                break
-        if not user_ok:
-            raise ValidationError("All users in the role must be in the same group as the role")
 
 
 class User(Model):

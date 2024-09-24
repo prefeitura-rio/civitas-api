@@ -19,7 +19,9 @@ router = APIRouter(
 )
 
 
-@router_request(method="GET", router=router, path="/police", response_model=List[WazeAlertOut])
+@router_request(
+    method="GET", router=router, path="/police", response_model=List[WazeAlertOut]
+)
 async def get_waze_police_alerts(
     user: Annotated[User, Depends(is_user)],
     request: Request,

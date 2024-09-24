@@ -7,7 +7,6 @@ from contextlib import AbstractAsyncContextManager
 from enum import Enum
 from types import ModuleType
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
-from uuid import UUID
 
 import aiohttp
 import orjson as json
@@ -27,9 +26,12 @@ from tortoise import Tortoise, connections
 from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from app import config
-from app.models import GroupUser, Resource, User
+from app.models import CompanyData, PersonData, PlateData
 from app.pydantic_models import (
     CarPassageOut,
+    CortexCompanyOut,
+    CortexPersonOut,
+    CortexPlacaOut,
     RadarOut,
     ReportFilters,
     ReportsMetadata,
@@ -40,7 +42,9 @@ from app.redis_cache import cache
 
 
 class ReportsOrderBy(str, Enum):
-    TIMESTAMP = "timestamp"  # TODO: remove this later. this is kept for backward compatibility
+    TIMESTAMP = (
+        "timestamp"  # TODO: remove this later. this is kept for backward compatibility
+    )
     TIMESTAMP_ASC = "timestamp_asc"
     TIMESTAMP_DESC = "timestamp_desc"
     DISTANCE = "distance"
@@ -85,14 +89,14 @@ def build_get_car_by_radar_query(
         WHERE
             DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
             AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
-    """.replace(
-        "{{min_datetime}}", min_datetime.to_datetime_string()
-    ).replace(
+    """.replace("{{min_datetime}}", min_datetime.to_datetime_string()).replace(
         "{{max_datetime}}", max_datetime.to_datetime_string()
     )
 
     if codcet:
-        query += f"AND (camera_numero = '{codcet}' OR camera_numero = '{camera_numero}')"
+        query += (
+            f"AND (camera_numero = '{codcet}' OR camera_numero = '{camera_numero}')"
+        )
     else:
         query += f"AND camera_numero = '{camera_numero}'"
 
@@ -154,7 +158,9 @@ def generate_regular_filters(filters: ReportFilters) -> str:
             % filters.id_source_contains
         )
     if filters.data_report_min:
-        timestamp_min = filters.data_report_min.replace(tzinfo=pytz.timezone(config.TIMEZONE))
+        timestamp_min = filters.data_report_min.replace(
+            tzinfo=pytz.timezone(config.TIMEZONE)
+        )
         regular_filter_operands.append(
             """
                 {
@@ -163,10 +169,15 @@ def generate_regular_filters(filters: ReportFilters) -> str:
                     valueDate: "%s",
                 }
             """
-            % (config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN, timestamp_min.isoformat())
+            % (
+                config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN,
+                timestamp_min.isoformat(),
+            )
         )
     if filters.data_report_max:
-        timestamp_max = filters.data_report_max.replace(tzinfo=pytz.timezone(config.TIMEZONE))
+        timestamp_max = filters.data_report_max.replace(
+            tzinfo=pytz.timezone(config.TIMEZONE)
+        )
         regular_filter_operands.append(
             """
                 {
@@ -175,7 +186,10 @@ def generate_regular_filters(filters: ReportFilters) -> str:
                     valueDate: "%s",
                 }
             """
-            % (config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN, timestamp_max.isoformat())
+            % (
+                config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN,
+                timestamp_max.isoformat(),
+            )
         )
     if filters.categoria_contains:
         regular_filter_operands.append(
@@ -417,25 +431,19 @@ def build_hint_query(
         FROM `rj-cetrio.ocr_radar.readings_*`
         WHERE
             placa LIKE '{{placa}}'
-    """.replace(
-        "{{placa}}", placa
-    )
+    """.replace("{{placa}}", placa)
 
     if latitude_min and latitude_max:
         query += """
             AND (camera_latitude BETWEEN {{latitude_min}} AND {{latitude_max}})
-        """.replace(
-            "{{latitude_min}}", str(latitude_min)
-        ).replace(
+        """.replace("{{latitude_min}}", str(latitude_min)).replace(
             "{{latitude_max}}", str(latitude_max)
         )
 
     if longitude_min and longitude_max:
         query += """
             AND (camera_longitude BETWEEN {{longitude_min}} AND {{longitude_max}})
-        """.replace(
-            "{{longitude_min}}", str(longitude_min)
-        ).replace(
+        """.replace("{{longitude_min}}", str(longitude_min)).replace(
             "{{longitude_max}}", str(longitude_max)
         )
 
@@ -443,9 +451,7 @@ def build_hint_query(
             AND DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
             AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
         GROUP BY placa
-    """.replace(
-        "{{min_datetime}}", min_datetime.to_datetime_string()
-    ).replace(
+    """.replace("{{min_datetime}}", min_datetime.to_datetime_string()).replace(
         "{{max_datetime}}", max_datetime.to_datetime_string()
     )
 
@@ -521,9 +527,7 @@ def build_positions_query(
         FROM ordered_positions p
         JOIN loc l ON p.camera_numero = l.camera_numero
         ORDER BY p.datahora ASC
-        """.replace(
-            "{{placa}}", placa
-        )
+        """.replace("{{placa}}", placa)
         .replace("{{min_datetime}}", min_datetime.to_datetime_string())
         .replace("{{max_datetime}}", max_datetime.to_datetime_string())
         .replace("{{min_distance}}", str(min_distance))
@@ -573,6 +577,129 @@ async def cortex_request(
             elif response.status != 200:
                 return False, response
             return True, await response.json()
+
+
+async def get_company_details(cnpj: str, cpf: str) -> CortexCompanyOut:
+    # Check if we already have this company in our database
+    company_data = await CompanyData.get_or_none(cnpj=cnpj)
+
+    # If we do, return it
+    if company_data:
+        logger.debug(f"Found CNPJ {cnpj} in our database. Returning cached data.")
+        return CortexCompanyOut(**company_data.data)
+
+    # If we don't, try to fetch it from Cortex
+    logger.debug(f"CNPJ {cnpj} not found in our database. Fetching data from Cortex.")
+    success, data = await cortex_request(
+        method="GET",
+        url=f"{config.CORTEX_PESSOAS_BASE_URL}/pessoajuridica/{cnpj}",
+        cpf=cpf,
+        raise_for_status=False,
+    )
+    if not success:
+        if isinstance(data, aiohttp.ClientResponse):
+            logger.debug(f"Failed to fetch data from Cortex for CNPJ {cnpj}.")
+            logger.debug(f"Status: {data.status}")
+            if data.status == 451:
+                raise HTTPException(
+                    status_code=451,
+                    detail="Unavailable for legal reasons. CPF might be blocked.",
+                )
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Something unexpected happened to Cortex API",
+                )
+        else:
+            raise HTTPException(
+                status_code=500, detail="Something unexpected happened to Cortex API"
+            )
+
+    # Save the data to our database
+    await CompanyData.create(cnpj=cnpj, data=data)
+    return CortexCompanyOut(**data)
+
+
+async def get_person_details(lookup_cpf: str, cpf: str) -> CortexPersonOut:
+    # Check if we already have this person in our database
+    person_data = await PersonData.get_or_none(cpf=lookup_cpf)
+
+    # If we do, return it
+    if person_data:
+        logger.debug(f"Found CPF {lookup_cpf} in our database. Returning cached data.")
+        return CortexPersonOut(**person_data.data)
+
+    # If we don't, try to fetch it from Cortex
+    logger.debug(
+        f"CPF {lookup_cpf} not found in our database. Fetching data from Cortex."
+    )
+    success, data = await cortex_request(
+        method="GET",
+        url=f"{config.CORTEX_PESSOAS_BASE_URL}/pessoafisica/{lookup_cpf}",
+        cpf=cpf,
+        raise_for_status=False,
+    )
+    if not success:
+        if isinstance(data, aiohttp.ClientResponse):
+            logger.debug(f"Failed to fetch data from Cortex for CPF {lookup_cpf}.")
+            logger.debug(f"Status: {data.status}")
+            if data.status == 451:
+                raise HTTPException(
+                    status_code=451,
+                    detail="Unavailable for legal reasons. CPF might be blocked.",
+                )
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Something unexpected happened to Cortex API",
+                )
+        else:
+            raise HTTPException(
+                status_code=500, detail="Something unexpected happened to Cortex API"
+            )
+
+    # Save the data to our database
+    await PersonData.create(cpf=lookup_cpf, data=data)
+    return CortexPersonOut(**data)
+
+
+async def get_plate_details(plate: str, cpf: str) -> CortexPlacaOut:
+    # Check if we already have this plate in our database
+    plate_data = await PlateData.get_or_none(plate=plate)
+
+    # If we do, return it
+    if plate_data:
+        logger.debug(f"Found plate {plate} in our database. Returning cached data.")
+        return CortexPlacaOut(**plate_data.data)
+
+    # If we don't, try to fetch it from Cortex
+    logger.debug(f"Plate {plate} not found in our database. Fetching data from Cortex.")
+    success, data = await cortex_request(
+        method="GET",
+        url=f"{config.CORTEX_VEICULOS_BASE_URL}/emplacamentos/placa/{plate}",
+        cpf=cpf,
+        raise_for_status=False,
+    )
+    if not success:
+        if isinstance(data, aiohttp.ClientResponse):
+            if data.status == 451:
+                raise HTTPException(
+                    status_code=451,
+                    detail="Unavailable for legal reasons. CPF might be blocked.",
+                )
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Something unexpected happened to Cortex API",
+                )
+        else:
+            raise HTTPException(
+                status_code=500, detail="Something unexpected happened to Cortex API"
+            )
+
+    # Save the data to our database
+    await PlateData.create(plate=plate, data=data)
+    return CortexPlacaOut(**data)
 
 
 def get_bigquery_client() -> bigquery.Client:
@@ -634,7 +761,9 @@ def create_update_weaviate_schema():
     """
     schema = config.WEAVIATE_SCHEMA
     # Check if class name already exists
-    response = requests.get(f"{config.WEAVIATE_BASE_URL}/v1/schema/{schema['class']}", timeout=10)
+    response = requests.get(
+        f"{config.WEAVIATE_BASE_URL}/v1/schema/{schema['class']}", timeout=10
+    )
     if response.status_code == 200:
         # Check if the schema is the same
         existing_schema = response.json()
@@ -656,7 +785,9 @@ def create_update_weaviate_schema():
             logger.info("Schema is up to date")
     else:
         # Create schema
-        response = requests.post(f"{config.WEAVIATE_BASE_URL}/v1/schema", json=schema, timeout=10)
+        response = requests.post(
+            f"{config.WEAVIATE_BASE_URL}/v1/schema", json=schema, timeout=10
+        )
         if response.status_code != 200:
             logger.error(f"Failed to create schema: {response.content}")
         else:
@@ -703,7 +834,9 @@ async def generate_embeddings(text: str) -> List[float]:
     #         return data["embedding"]
 
 
-async def generate_embeddings_batch(texts: List[str], batch_size: int = None) -> List[List[float]]:
+async def generate_embeddings_batch(
+    texts: List[str], batch_size: int = None
+) -> List[List[float]]:
     """
     Generate embeddings for a batch of texts.
 
@@ -777,7 +910,9 @@ def get_car_by_radar(
             placa = row_data["placa"]
             datahora = row_data["datahora"]
             velocidade = row_data["velocidade"]
-            car_passages.append(CarPassageOut(plate=placa, timestamp=datahora, speed=velocidade))
+            car_passages.append(
+                CarPassageOut(plate=placa, timestamp=datahora, speed=velocidade)
+            )
     # Sort car passages by timestamp ascending
     car_passages = sorted(car_passages, key=lambda x: x.timestamp)
     return car_passages
@@ -808,7 +943,9 @@ async def get_fogocruzado_reports() -> List[dict]:
     url_parameters = {
         "idCities": "d1bf56cc-6d85-4e6a-a5f5-0ab3f4074be3",  # Rio de Janeiro
         "idState": "b112ffbe-17b3-4ad0-8f2a-2038745d1d14",  # Rio de Janeiro
-        "initialdate": pendulum.now().subtract(days=1).to_date_string(),  # Today's + yesterday's
+        "initialdate": pendulum.now()
+        .subtract(days=1)
+        .to_date_string(),  # Today's + yesterday's
         "page": 1,  # Page number
     }
     data = await get_url(url, url_parameters, token)
@@ -842,7 +979,9 @@ def get_trips_chunks(locations, max_time_interval):
         point_anterior = locations[i - 1]
         point_atual = locations[i]
 
-        diferenca_tempo = (point_atual["datetime"] - point_anterior["datetime"]).total_seconds()
+        diferenca_tempo = (
+            point_atual["datetime"] - point_anterior["datetime"]
+        ).total_seconds()
         point_anterior["seconds_to_next_point"] = diferenca_tempo
         if diferenca_tempo > max_time_interval:
             point_anterior["seconds_to_next_point"] = None
@@ -851,9 +990,9 @@ def get_trips_chunks(locations, max_time_interval):
         else:
             current_chunk.append(point_atual)
 
-    current_chunk[-1][
-        "seconds_to_next_point"
-    ] = None  # Ensure the last point in the final chunk has None
+    current_chunk[-1]["seconds_to_next_point"] = (
+        None  # Ensure the last point in the final chunk has None
+    )
     chunks.append(current_chunk)
 
     for chunk in chunks:
@@ -929,7 +1068,13 @@ async def get_hints(
         List[str]: The plate hints.
     """
     query = build_hint_query(
-        placa, min_datetime, max_datetime, latitude_min, latitude_max, longitude_min, longitude_max
+        placa,
+        min_datetime,
+        max_datetime,
+        latitude_min,
+        latitude_max,
+        longitude_min,
+        longitude_max,
     )
     bq_client = get_bigquery_client()
     query_job = bq_client.query(query)
@@ -997,7 +1142,9 @@ async def get_positions(
         for row in page:
             row: Row
             row_data = dict(row.items())
-            row_data["datahora"] = pendulum.instance(row_data["datahora"], tz=config.TIMEZONE)
+            row_data["datahora"] = pendulum.instance(
+                row_data["datahora"], tz=config.TIMEZONE
+            )
             locations.append(row_data)
 
     return {"placa": placa, "locations": locations}
@@ -1399,8 +1546,12 @@ def register_tortoise(
     """Custom implementation of `register_tortoise` for lifespan support"""
 
     async def init_orm() -> None:  # pylint: disable=W0612
-        await Tortoise.init(config=config, config_file=config_file, db_url=db_url, modules=modules)
-        logger.info(f"Tortoise-ORM started, {connections._get_storage()}, {Tortoise.apps}")
+        await Tortoise.init(
+            config=config, config_file=config_file, db_url=db_url, modules=modules
+        )
+        logger.info(
+            f"Tortoise-ORM started, {connections._get_storage()}, {Tortoise.apps}"
+        )
         if generate_schemas:
             logger.info("Tortoise-ORM generating schema")
             await Tortoise.generate_schemas()
@@ -1424,10 +1575,14 @@ def register_tortoise(
             return JSONResponse(status_code=404, content={"detail": str(exc)})
 
         @app.exception_handler(IntegrityError)
-        async def integrityerror_exception_handler(request: Request, exc: IntegrityError):
+        async def integrityerror_exception_handler(
+            request: Request, exc: IntegrityError
+        ):
             return JSONResponse(
                 status_code=422,
-                content={"detail": [{"loc": [], "msg": str(exc), "type": "IntegrityError"}]},
+                content={
+                    "detail": [{"loc": [], "msg": str(exc), "type": "IntegrityError"}]
+                },
             )
 
     return Manager()
@@ -1438,7 +1593,9 @@ async def search_weaviate(
     order_by: ReportsOrderBy,
     search_mode: ReportsSearchMode,
 ) -> Tuple[List[dict], int]:
-    query = await build_graphql_query(filters=filters, order_by=order_by, search_mode=search_mode)
+    query = await build_graphql_query(
+        filters=filters, order_by=order_by, search_mode=search_mode
+    )
     async with aiohttp.ClientSession() as session:
         async with session.post(
             f"{config.WEAVIATE_BASE_URL}/v1/graphql",
@@ -1447,12 +1604,16 @@ async def search_weaviate(
             response.raise_for_status()
             data = await response.json()
             reports = []
-            count = data["data"]["Aggregate"][config.WEAVIATE_SCHEMA_CLASS][0]["meta"]["count"]
+            count = data["data"]["Aggregate"][config.WEAVIATE_SCHEMA_CLASS][0]["meta"][
+                "count"
+            ]
             for item in data["data"]["Get"][config.WEAVIATE_SCHEMA_CLASS]:
                 reports.append(
                     dict(
                         **item,
-                        additional_info=item["_additional"] if "_additional" in item else None,
+                        additional_info=item["_additional"]
+                        if "_additional" in item
+                        else None,
                     )
                 )
             return reports, count
@@ -1466,71 +1627,6 @@ def translate_method_to_action(method: str) -> str:
         "DELETE": "delete",
     }
     return mapping.get(method.upper(), "read")
-
-
-async def update_resources_list(app: FastAPI):
-    """
-    Update the resources list with the current routes.
-
-    Args:
-        app (FastAPI): The FastAPI app
-    """
-    # Get list of current resources
-    current_resources = sorted(list(set([route.path[1:] for route in app.routes])))
-    current_resources = [
-        resource for resource in current_resources if resource not in config.RBAC_EXCLUDED_PATHS
-    ]
-
-    # Create list of awaitables for database resources
-    awaitables = []
-
-    # Eliminate resources from database that are not in the current resources list
-    for resource in await Resource.all():
-        if resource.name not in current_resources:
-            awaitables.append(resource.delete())
-
-    # Add resources to database that are not in the database
-    for resource in current_resources:
-        if await Resource.filter(name=resource).exists():
-            continue
-        awaitables.append(Resource.create(name=resource))
-
-    # Execute all awaitables
-    await asyncio.gather(*awaitables)
-
-
-@cache_decorator(expire=config.RBAC_PERMISSIONS_CACHE_TTL)
-async def user_is_group_admin(group_id: UUID, user: User) -> bool:
-    if user.is_admin:
-        return True
-    elif GroupUser.filter(group__id=group_id, user=user, is_group_admin=True).exists():
-        return True
-    return False
-
-
-@cache_decorator(expire=config.RBAC_PERMISSIONS_CACHE_TTL)
-async def user_is_group_member(group_id: UUID, user: User) -> bool:
-    if user.is_admin:
-        return True
-    elif GroupUser.filter(group__id=group_id, user=user).exists():
-        return True
-    return False
-
-
-@cache_decorator(expire=config.RBAC_PERMISSIONS_CACHE_TTL)
-async def user_has_permission(user: User, action: str, resource: str) -> bool:
-    return True  # TODO: implement
-    # user_permissions = await Permission.filter(
-    #     role__group=user.group, action=action, resource=resource
-    # ).all()
-
-    # parent_group = await user.group.parent_group
-    # if parent_group:
-    #     parent_permissions = await Permission.filter(
-    #         role__group=parent_group, action=action, resource=resource
-    #     ).all()
-    #     return bool(user_permissions) and bool(parent_permissions)
-    # return bool(user_permissions)
 
 
 def validate_cpf(cpf: str) -> bool:
@@ -1558,6 +1654,33 @@ def validate_cpf(cpf: str) -> bool:
         return False
 
     return True
+
+
+def validate_cnpj(cnpj: str) -> bool:
+    # Adapted from: https://wiki.python.org.br/VerificadorDeCpfCnpjSimples
+    cnpj = "".join(re.findall("\d", str(cnpj)))
+
+    if (not cnpj) or (len(cnpj) < 14):
+        return False
+
+    # Pega apenas os 12 primeiros dígitos do CNPJ e gera os 2 dígitos que faltam
+    inteiros = [int(c) for c in cnpj]
+    novo = inteiros[:12]
+
+    prod = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    while len(novo) < 14:
+        r = sum([x * y for (x, y) in zip(novo, prod)]) % 11
+        if r > 1:
+            f = 11 - r
+        else:
+            f = 0
+        novo.append(f)
+        prod.insert(0, 6)
+
+    # Se o número gerado coincidir com o número original, é válido
+    if novo == inteiros:
+        return cnpj
+    return False
 
 
 def validate_plate(plate: str) -> bool:

@@ -23,15 +23,16 @@ from app.oidc import AuthError
 from app.pydantic_models import HealthCheck
 from app.rate_limiter import limiter
 
-# from app.rbac import RBACMiddleware
-from app.routers import (  # rbac,
+from app.routers import (
     agents,
     auth,
     cameras_cor,
     cars,
+    companies,
     layers,
     notification_channels,
     operations,
+    people,
     radars,
     reports,
     users,
@@ -40,7 +41,6 @@ from app.routers import (  # rbac,
 from app.utils import (
     create_update_weaviate_schema,
     register_tortoise,
-    update_resources_list,
 )
 
 logger.remove()
@@ -60,7 +60,6 @@ async def lifespan(app: FastAPI):
     async with register_tortoise(
         app, config=TORTOISE_ORM, generate_schemas=False, add_exception_handlers=True
     ):
-        await update_resources_list(app)
         create_update_weaviate_schema()
         yield
 
@@ -80,7 +79,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 logger.debug("Configuring CORS with the following settings:")
 allow_origins = config.ALLOWED_ORIGINS if config.ALLOWED_ORIGINS else ()
 logger.debug(f"ALLOWED_ORIGINS: {allow_origins}")
-allow_origin_regex = config.ALLOWED_ORIGINS_REGEX if config.ALLOWED_ORIGINS_REGEX else None
+allow_origin_regex = (
+    config.ALLOWED_ORIGINS_REGEX if config.ALLOWED_ORIGINS_REGEX else None
+)
 logger.debug(f"ALLOWED_ORIGINS_REGEX: {allow_origin_regex}")
 logger.debug(f"ALLOWED_METHODS: {config.ALLOWED_METHODS}")
 logger.debug(f"ALLOWED_HEADERS: {config.ALLOWED_HEADERS}")
@@ -93,17 +94,17 @@ app.add_middleware(
     allow_headers=config.ALLOWED_HEADERS,
     allow_credentials=config.ALLOW_CREDENTIALS,
 )
-# app.add_middleware(RBACMiddleware)
 
 app.include_router(auth.router)
 app.include_router(agents.router)
 app.include_router(cameras_cor.router)
 app.include_router(cars.router)
+app.include_router(companies.router)
 app.include_router(layers.router)
 app.include_router(notification_channels.router)
 app.include_router(operations.router)
+app.include_router(people.router)
 app.include_router(radars.router)
-# app.include_router(rbac.router)
 app.include_router(reports.router)
 app.include_router(users.router)
 app.include_router(waze.router)
@@ -179,4 +180,6 @@ def handle_auth_error(request: Request, ex: AuthError):
 async def handle_request_validation_error(request: Request, ex: RequestValidationError):
     logger.error(f"RequestValidationError: {ex.errors()}")
     content = {"detail": ex.errors()}
-    return JSONResponse(content=content, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    return JSONResponse(
+        content=content, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
+    )

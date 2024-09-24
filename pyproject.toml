@@ -47,14 +47,6 @@ tortoise_orm = "app.db.TORTOISE_ORM"
 location = "./migrations"
 src_folder = "./."
 
-[tool.black]
-line-length = 100
-target-version = ["py311"]
-include = "\\.pyi?$"
-
-[tool.isort]
-profile = "black"
-
 [tool.taskipy.tasks]
 lint = "black . && isort . && flake8 ."
 serve = "uvicorn app.main:app --reload --port 8080"

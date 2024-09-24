@@ -163,7 +163,9 @@ def get_redis_client() -> Redis:
     )
 
 
-def get_reports_since_last_update(source: str, last_update: DateTime = None) -> List[ReportOut]:
+def get_reports_since_last_update(
+    source: str, last_update: DateTime = None
+) -> List[ReportOut]:
     """
     Get reports since the last update timestamp.
 
@@ -232,7 +234,9 @@ def send_discord_message(message: str):
             raise
 
 
-def set_last_update(last_update: DateTime, source_slug: str, redis_client: Redis = None):
+def set_last_update(
+    last_update: DateTime, source_slug: str, redis_client: Redis = None
+):
     """
     Set the last update timestamp in Redis.
 
@@ -273,7 +277,9 @@ def upload_batch_to_weaviate(items: List[Dict[str, Any]]):
         timestamp_formatted = timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
         timestamp_seconds = int(timestamp.timestamp())
         item[config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN] = timestamp_formatted
-        item[f"{config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN}_seconds"] = timestamp_seconds
+        item[f"{config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN}_seconds"] = (
+            timestamp_seconds
+        )
         item_properties = {k: v for k, v in item.items() if k != "embedding"}
         latitude = item_properties.get("latitude")
         if latitude and isnan(latitude):
@@ -316,7 +322,9 @@ if __name__ == "__main__":
         # List sources
         logger.info("Listing reports sources...")
         sources = get_sources()
-        logger.info(f"Found {len(sources)} sources: {[source for source in sources.keys()]}")
+        logger.info(
+            f"Found {len(sources)} sources: {[source for source in sources.keys()]}"
+        )
         logger.info("Getting last update timestamps for sources...")
         # Get last update for each source
         sources_last_update = get_sources_last_update(sources=sources)
@@ -330,7 +338,9 @@ if __name__ == "__main__":
             # Get reports since last update
             logger.info(f"Getting reports since last update for {source}...")
             last_update = sources_last_update[source]
-            reports = get_reports_since_last_update(source=source, last_update=last_update)
+            reports = get_reports_since_last_update(
+                source=source, last_update=last_update
+            )
             # # TODO: this is a temporary fix to avoid empty latitudes and longitudes
             # reports = [report for report in reports if report.latitude and report.longitude]
             if len(reports) > 0:
@@ -368,16 +378,24 @@ if __name__ == "__main__":
                     # Set new last update timestamp for the source
                     max_timestamp = last_update
                     batch_max_timestamp = DateTime.instance(
-                        items_batch[-1].get(config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN)
+                        items_batch[-1].get(
+                            config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN
+                        )
                     )
-                    logger.debug(f"  * '{source}': Batch max timestamp: {batch_max_timestamp}")
-                    logger.debug(f"  * '{source}': Current max timestamp: {max_timestamp}")
+                    logger.debug(
+                        f"  * '{source}': Batch max timestamp: {batch_max_timestamp}"
+                    )
+                    logger.debug(
+                        f"  * '{source}': Current max timestamp: {max_timestamp}"
+                    )
                     if (not max_timestamp) or (batch_max_timestamp > max_timestamp):
                         max_timestamp = batch_max_timestamp
                     if isinstance(max_timestamp, datetime):
                         max_timestamp = DateTime.instance(max_timestamp)
                     set_last_update(last_update=max_timestamp, source_slug=source_slug)
-                    logger.info(f"  * '{source}': New last update timestamp set to {max_timestamp}")
+                    logger.info(
+                        f"  * '{source}': New last update timestamp set to {max_timestamp}"
+                    )
 
                     # Log progress
                     batches_percentage = batch_number / num_batches * 100

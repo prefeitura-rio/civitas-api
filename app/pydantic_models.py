@@ -5,8 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, validator
 
-from app.enums import ActionTypeEnum, NotificationChannelTypeEnum
-from app.models import Group, GroupUser, MonitoredPlate
+from app.enums import NotificationChannelTypeEnum
+from app.models import MonitoredPlate
 
 
 class CortexArrendatario(BaseModel):
@@ -155,6 +155,143 @@ class CortexPlacaOut(BaseModel):
     valorIPVA: Optional[int]
 
 
+class CortexPlacasIn(BaseModel):
+    plates: List[str]
+
+
+class CortexIndiceNacionalPessoa(BaseModel):
+    id: Optional[int]
+    metodo: Optional[str]
+    qtd: Optional[int]
+
+
+class CortexPersonOut(BaseModel):
+    anoExercicioOcupacao: Optional[str]
+    anoObito: Optional[str]
+    bairro: Optional[str]
+    cep: Optional[str]
+    complementoLogradouro: Optional[str]
+    dataAtualizacao: Optional[datetime]
+    dataNascimento: Optional[str]
+    ddd: Optional[str]
+    id: Optional[int]
+    identificadorResidenteExterior: Optional[str]
+    indicadorEstrangeiro: Optional[str]
+    indicadorMoradorEstrangeiro: Optional[bool]
+    indiceNacionalPessoas: Optional[List[CortexIndiceNacionalPessoa]]
+    latitudeAproximadaLocal: Optional[float]
+    logradouro: Optional[str]
+    longitudeAproximadaLocal: Optional[float]
+    municipio: Optional[str]
+    municipioNaturalidade: Optional[str]
+    naturezaOcupacao: Optional[str]
+    nomeCompleto: Optional[str]
+    nomeMae: Optional[str]
+    nomeSocial: Optional[str]
+    numeroCPF: Optional[str]
+    numeroLogradouro: Optional[str]
+    ocupacaoPrincipal: Optional[str]
+    paisNascimento: Optional[str]
+    paisResidencia: Optional[str]
+    regiaoFiscal: Optional[str]
+    sexo: Optional[str]
+    situacaoCadastral: Optional[str]
+    telefone: Optional[str]
+    tipoLogradouro: Optional[str]
+    tituloEleitor: Optional[str]
+    uf: Optional[str]
+    ufNaturalidade: Optional[str]
+
+
+class CortexPeopleIn(BaseModel):
+    cpfs: List[str]
+
+
+class CortexCnpjContador(BaseModel):
+    classificacaoCRCContadorPF: Optional[str]
+    classificacaoCRCEmpresaContabil: Optional[str]
+    cnpjEmpresaContabil: Optional[str]
+    crcEmpresaContabil: Optional[str]
+    nomeContador: Optional[str]
+    numeroCPFContador: Optional[str]
+    numeroRegistroContadorPF: Optional[str]
+    tipoCRCContadorPF: Optional[str]
+    tipoCRCEmpresaContabil: Optional[str]
+    ufCRCContador: Optional[str]
+    ufCRCEmpresaContabil: Optional[str]
+
+
+class CortexCnpjSocio(BaseModel):
+    cpfRepresentanteLegal: Optional[str]
+    dataEntradaSociedade: Optional[str]
+    identificadorSocio: Optional[str]
+    nomeRepresentanteLegal: Optional[str]
+    nomeSocio: Optional[str]
+    numeroCPF: Optional[str]
+    paisSocioEstrangeiro: Optional[str]
+    percentualCapitalSocial: Optional[float]
+    qualificacaoRepresentanteLegal: Optional[str]
+    qualificacaoSocio: Optional[str]
+
+
+class CortexSucessao(BaseModel):
+    cnpjSucedida: Optional[str]
+    cnpjSucessora: Optional[str]
+    dataOperacaoSucessora: Optional[str]
+    operacaoRealizadaSucessora: Optional[str]
+    razaoSocialSucedida: Optional[str]
+    razaoSocialSucessora: Optional[str]
+
+
+class CortexCompanyOut(BaseModel):
+    bairro: Optional[str]
+    capitalSocialEmpresa: Optional[str]
+    cep: Optional[str]
+    cnaeFiscal: Optional[str]
+    cnaeSecundario: Optional[str]
+    cnpj: Optional[str]
+    cnpjContador: Optional[List[CortexCnpjContador]]
+    cnpjSocio: Optional[List[CortexCnpjSocio]]
+    codigoCnaeFiscal: Optional[str]
+    codigoCnaeSecundario: Optional[str]
+    complementoLogradouro: Optional[str]
+    cpfResponsavel: Optional[str]
+    dataExclusaoSimples: Optional[str]
+    dataInicioAtividade: Optional[str]
+    dataOpcaoSimples: Optional[str]
+    dataSituacaoCadastral: Optional[str]
+    email: Optional[str]
+    fax: Optional[str]
+    indicadorMatrizFilial: Optional[str]
+    logradouro: Optional[str]
+    motivoSituacaoCadastral: Optional[str]
+    municipio: Optional[str]
+    naturezaJuridica: Optional[str]
+    nomeCidadeExterior: Optional[str]
+    nomeFantasia: Optional[str]
+    nomePais: Optional[str]
+    nomeResponsavel: Optional[str]
+    numeroLogradouro: Optional[str]
+    opcaoSimples: Optional[str]
+    porteEmpresa: Optional[str]
+    qualificacaoPessoaJuridicaResponsavelEmpresa: Optional[str]
+    razaoSocial: Optional[str]
+    situacaoCadastral: Optional[str]
+    sucessao: Optional[List[CortexSucessao]]
+    telefone1: Optional[str]
+    telefone2: Optional[str]
+    tipoLogradouro: Optional[str]
+    uf: Optional[str]
+
+
+class CortexCompaniesIn(BaseModel):
+    cnpjs: List[str]
+
+
+class CortexCreditsOut(BaseModel):
+    credits: int
+
+
 class HealthCheck(BaseModel):
     status: str
 
@@ -268,51 +405,6 @@ class CarPassageOut(BaseModel):
 class DataRelayResponse(BaseModel):
     success: bool
     message: str
-
-
-class GroupIn(BaseModel):
-    name: str
-    description: Optional[str] = None
-    users: Optional[List[UUID]] = None
-
-
-class GroupOut(BaseModel):
-    id: UUID
-    name: str
-    description: Optional[str] = None
-    users: List["GroupUserOut"] = []
-
-    @classmethod
-    async def from_group(cls, group: Group):
-        group_users = await GroupUser.filter(group=group).prefetch_related("user").all()
-        users = []
-        for group_user in group_users:
-            users.append(
-                GroupUserOut(
-                    user=UserOut.from_orm(group_user.user),
-                    is_group_admin=group_user.is_group_admin,
-                )
-            )
-        return GroupOut(id=group.id, name=group.name, description=group.description, users=users)
-
-
-class GroupUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-
-
-class GroupUserIn(BaseModel):
-    user: UUID
-    is_group_admin: bool
-
-
-class GroupUserOut(BaseModel):
-    user: "UserOut"
-    is_group_admin: bool
-
-
-class GroupUserUpdate(BaseModel):
-    is_group_admin: Optional[bool] = None
 
 
 class MonitoredPlateIn(BaseModel):
@@ -439,20 +531,6 @@ class OperationUpdate(BaseModel):
     description: Optional[str] = None
 
 
-class PermissionIn(BaseModel):
-    action: ActionTypeEnum
-    resource: UUID
-
-
-class PermissionOut(BaseModel):
-    id: UUID
-    action: ActionTypeEnum
-    resource: UUID
-
-    class Config:
-        orm_mode = True
-
-
 class RadarOut(BaseModel):
     codcet: Optional[str] = None
     camera_numero: str
@@ -466,45 +544,6 @@ class RadarOut(BaseModel):
     active_in_last_24_hours: Optional[str] = None
     last_detection_time: Optional[datetime] = None
     sentido: Optional[str] = None
-
-
-class ResourceOut(BaseModel):
-    id: UUID
-    name: str
-
-    class Config:
-        orm_mode = True
-
-
-class RoleIn(BaseModel):
-    name: str
-    description: Optional[str] = None
-    users: Optional[List[UUID]] = None
-    permissions: Optional[List[UUID]] = None
-
-
-class RoleOut(BaseModel):
-    id: UUID
-    name: str
-    description: Optional[str] = None
-    users: List[UUID] = []
-    permissions: List[UUID] = []
-
-    class Config:
-        orm_mode = True
-
-
-class RoleUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-
-
-class RoleUserIn(BaseModel):
-    user: UUID
-
-
-class RolePermissionIn(BaseModel):
-    permission: UUID
 
 
 class ReportFilters(BaseModel):
@@ -575,6 +614,11 @@ class ReportsMetadata(BaseModel):
     type_subtypes: Dict[str, List[str]]
 
 
+class UserCortexRemainingCreditOut(BaseModel):
+    remaining_credit: int
+    time_until_reset: int
+
+
 class UserHistoryOut(BaseModel):
     id: UUID
     method: str
@@ -612,6 +656,4 @@ class WazeAlertOut(BaseModel):
     longitude: float
 
 
-GroupOut.update_forward_refs()
-GroupUserOut.update_forward_refs()
 MonitoredPlateOut.update_forward_refs()

@@ -25,7 +25,10 @@ class Cache:
         self._fogocruzado_token_key = "fogocruzado_token"
 
     async def add_position(
-        self, placa: str, data: Dict[str, float | str], expire: int = config.CACHE_CAR_POSITIONS_TTL
+        self,
+        placa: str,
+        data: Dict[str, float | str],
+        expire: int = config.CACHE_CAR_POSITIONS_TTL,
     ) -> None:
         """
         Adds a car position to cache.
@@ -45,7 +48,9 @@ class Cache:
         sorted_set_key = self._car_positions_sorted_set_key_template.format(placa=placa)
         timestamp: DateTime = data["datahora"]
         score = int(timestamp.timestamp())
-        hash_key = self._car_position_hash_key_template.format(placa=placa, timestamp=timestamp)
+        hash_key = self._car_position_hash_key_template.format(
+            placa=placa, timestamp=timestamp
+        )
 
         # Store the detailed data in a hash
         data["datahora"] = timestamp.to_iso8601_string()
@@ -138,7 +143,9 @@ class Cache:
         sorted_set_key = self._car_positions_sorted_set_key_template.format(placa=placa)
         start_score = int(start_time.timestamp())
         end_score = int(end_time.timestamp())
-        hash_keys = await self._cache.zrangebyscore(sorted_set_key, start_score, end_score)
+        hash_keys = await self._cache.zrangebyscore(
+            sorted_set_key, start_score, end_score
+        )
 
         # Get the positions
         awaitables = [self._cache.hgetall(hash_key) for hash_key in hash_keys]
@@ -181,7 +188,9 @@ class Cache:
                 response.raise_for_status()
                 data = await response.json()
                 token = data["access_token"]
-                await self._cache.set(self._data_relay_token_key, token, ex=data["expires_in"])
+                await self._cache.set(
+                    self._data_relay_token_key, token, ex=data["expires_in"]
+                )
                 return token
 
     async def get_fogocruzado_token(self) -> str:
@@ -238,15 +247,23 @@ class Cache:
                     headers={"Authorization": f"Bearer {token}"},
                 ) as response:
                     response.raise_for_status()
-                    token = response.headers.get("Authorization").replace("Bearer ", "").strip()
+                    token = (
+                        response.headers.get("Authorization")
+                        .replace("Bearer ", "")
+                        .strip()
+                    )
                     expiration_str = response.headers.get("expirationDate")
-                    expiration = DateTime.strptime(expiration_str, "%a %b %d %H:%M:%S %Z %Y")
+                    expiration = DateTime.strptime(
+                        expiration_str, "%a %b %d %H:%M:%S %Z %Y"
+                    )
                     time_until_expiration = int(
                         expiration.diff(
                             DateTime.now(tz=pytz.timezone(config.TIMEZONE))
                         ).total_seconds()
                     )
-                    await self._cache.set(self._cortex_token_key, token, ex=time_until_expiration)
+                    await self._cache.set(
+                        self._cortex_token_key, token, ex=time_until_expiration
+                    )
                     return token
 
         # Authenticate and store the token in cache if it's not
@@ -259,13 +276,21 @@ class Cache:
                 },
             ) as response:
                 response.raise_for_status()
-                token = response.headers.get("Authorization").replace("Bearer ", "").strip()
-                expiration_str = response.headers.get("expirationDate")
-                expiration = DateTime.strptime(expiration_str, "%a %b %d %H:%M:%S %Z %Y")
-                time_until_expiration = int(
-                    expiration.diff(DateTime.now(tz=pytz.timezone(config.TIMEZONE))).total_seconds()
+                token = (
+                    response.headers.get("Authorization").replace("Bearer ", "").strip()
                 )
-                await self._cache.set(self._cortex_token_key, token, ex=time_until_expiration)
+                expiration_str = response.headers.get("expirationDate")
+                expiration = DateTime.strptime(
+                    expiration_str, "%a %b %d %H:%M:%S %Z %Y"
+                )
+                time_until_expiration = int(
+                    expiration.diff(
+                        DateTime.now(tz=pytz.timezone(config.TIMEZONE))
+                    ).total_seconds()
+                )
+                await self._cache.set(
+                    self._cortex_token_key, token, ex=time_until_expiration
+                )
                 return token
 
 

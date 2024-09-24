@@ -8,9 +8,11 @@ from fastapi_pagination import Page, Params
 from fastapi_pagination.api import create_page
 
 from app.decorators import router_request
-from app.dependencies import get_user, is_user, is_admin
+from app.dependencies import get_user, is_admin
 from app.models import User, UserHistory
-from app.pydantic_models import UserHistoryOut, UserOut
+from app.pydantic_models import UserCortexRemainingCreditOut, UserHistoryOut, UserOut
+from app.rate_limiter_cpf import cpf_limiter
+from app.utils import validate_cpf
 
 router = APIRouter(
     prefix="/users",
@@ -81,7 +83,9 @@ async def get_full_history(
         filtered = True
     if not filtered:
         history_query = history_query.all()
-    history_obj = await history_query.order_by("timestamp").limit(params.size).offset(offset)
+    history_obj = (
+        await history_query.order_by("timestamp").limit(params.size).offset(offset)
+    )
     history = [
         UserHistoryOut(
             id=history.id,
@@ -127,8 +131,43 @@ async def get_user_by_id(
     """
     user_obj = await User.get_or_none(id=user_id)
     if not user_obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     return UserOut.from_orm(user_obj)
+
+
+@router_request(
+    method="GET",
+    router=router,
+    path="/{user_id}/cortex-remaining-credits",
+    response_model=UserCortexRemainingCreditOut,
+    responses={
+        404: {"description": "User not found"},
+    },
+)
+async def get_user_cortex_remaining_credits(
+    request: Request, user_id: UUID, user: Annotated[User, Depends(is_admin)]
+) -> UserCortexRemainingCreditOut:
+    """
+    Get user cortex remaining credits by ID
+    """
+    user_obj = await User.get_or_none(id=user_id)
+    if not user_obj:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    if not user_obj.cpf:
+        raise HTTPException(
+            status_code=status.HTTP_451_UNAVAILABLE_FOR_LEGAL_REASONS,
+            detail="User has no CPF",
+        )
+    if not validate_cpf(user_obj.cpf):
+        raise HTTPException(
+            status_code=status.HTTP_451_UNAVAILABLE_FOR_LEGAL_REASONS,
+            detail="User has invalid CPF",
+        )
+    return await cpf_limiter.get_remaining(user_obj.cpf)
 
 
 @router_request(
@@ -156,7 +195,9 @@ async def get_user_history(
     """
     user_obj = await User.get_or_none(id=user_id)
     if not user_obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     offset = params.size * (params.page - 1)
     history_query = UserHistory.filter(user=user_obj)
     if method:
@@ -171,7 +212,9 @@ async def get_user_history(
         history_query = history_query.filter(timestamp__gte=start_time)
     if end_time:
         history_query = history_query.filter(timestamp__lte=end_time)
-    history_obj = await history_query.order_by("timestamp").limit(params.size).offset(offset)
+    history_obj = (
+        await history_query.order_by("timestamp").limit(params.size).offset(offset)
+    )
     history = [
         UserHistoryOut(
             id=history.id,

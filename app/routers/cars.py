@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 import asyncio
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, List
 from uuid import UUID
 
-from aiohttp import ClientResponse
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_pagination import Page, Params
 from fastapi_pagination.api import create_page
@@ -18,19 +17,17 @@ from app.dependencies import has_cpf, is_user
 from app.models import MonitoredPlate, NotificationChannel, Operation, PlateData, User
 from app.pydantic_models import (
     CarPassageOut,
+    CortexCreditsOut,
     CortexPlacaOut,
+    CortexPlacasIn,
     MonitoredPlateIn,
     MonitoredPlateOut,
     MonitoredPlateUpdate,
     Path,
 )
-from app.utils import (
-    cortex_request,
-    get_car_by_radar,
-    get_hints,
-    get_path,
-    validate_plate,
-)
+from app.utils import get_car_by_radar, get_hints, get_path
+from app.utils import get_plate_details as utils_get_plate_details
+from app.utils import validate_plate
 
 router = APIRouter(
     prefix="/cars",
@@ -48,7 +45,9 @@ router = APIRouter(
     path="/hint",
     response_model=list[str],
     responses={
-        400: {"description": "At least one of (placa, (start_time, end_time)) must be provided"}
+        400: {
+            "description": "At least one of (placa, (start_time, end_time)) must be provided"
+        }
     },
 )
 async def get_car_hint(
@@ -106,7 +105,10 @@ async def get_car_hint(
 
 
 @router_request(
-    method="GET", router=router, path="/monitored", response_model=Page[MonitoredPlateOut]
+    method="GET",
+    router=router,
+    path="/monitored",
+    response_model=Page[MonitoredPlateOut],
 )
 async def get_monitored_plates(
     user: Annotated[User, Depends(is_user)],
@@ -130,7 +132,9 @@ async def get_monitored_plates(
         operation = await Operation.get_or_none(id=operation_id)
         if not operation:
             raise HTTPException(status_code=404, detail="Operation not found")
-        monitored_plates_queryset = monitored_plates_queryset.filter(operation=operation)
+        monitored_plates_queryset = monitored_plates_queryset.filter(
+            operation=operation
+        )
     if operation_title:
         filtered = True
         monitored_plates_queryset = monitored_plates_queryset.filter(
@@ -141,9 +145,13 @@ async def get_monitored_plates(
         monitored_plates_queryset = monitored_plates_queryset.filter(active=active)
     if notification_channel_id:
         filtered = True
-        notification_channel = await NotificationChannel.get_or_none(id=notification_channel_id)
+        notification_channel = await NotificationChannel.get_or_none(
+            id=notification_channel_id
+        )
         if not notification_channel:
-            raise HTTPException(status_code=404, detail="Notification channel not found")
+            raise HTTPException(
+                status_code=404, detail="Notification channel not found"
+            )
         monitored_plates_queryset = monitored_plates_queryset.filter(
             notification_channels=notification_channel
         )
@@ -160,7 +168,9 @@ async def get_monitored_plates(
     if not filtered:
         monitored_plates_queryset = monitored_plates_queryset.all()
     monitored_plates_obj = (
-        await monitored_plates_queryset.order_by("plate").limit(params.size).offset(offset)
+        await monitored_plates_queryset.order_by("plate")
+        .limit(params.size)
+        .offset(offset)
     )
     monitored_plates_awaitables = [
         MonitoredPlateOut.from_monitored_plate(monitored_plate)
@@ -206,7 +216,9 @@ async def create_monitored_plate(
             for channel_id in plate_data.notification_channels:
                 channel = await NotificationChannel.get_or_none(id=channel_id)
                 if not channel:
-                    raise HTTPException(status_code=404, detail="Notification channel not found")
+                    raise HTTPException(
+                        status_code=404, detail="Notification channel not found"
+                    )
                 await monitored_plate.notification_channels.add(channel)
     return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
 
@@ -262,7 +274,9 @@ async def update_monitored_plate(
             if key == "additional_info":
                 # Additional info must be a Dict[str, str]
                 if not isinstance(value, dict):
-                    raise HTTPException(status_code=400, detail="additional_info must be a dict")
+                    raise HTTPException(
+                        status_code=400, detail="additional_info must be a dict"
+                    )
                 for k, v in value.items():
                     if not isinstance(k, str) or not isinstance(v, str):
                         raise HTTPException(
@@ -285,12 +299,14 @@ async def update_monitored_plate(
                 for channel_id in value:
                     if not isinstance(channel_id, UUID):
                         raise HTTPException(
-                            status_code=400, detail="notification_channels must be a list of UUIDs"
+                            status_code=400,
+                            detail="notification_channels must be a list of UUIDs",
                         )
                     channel = await NotificationChannel.get_or_none(id=channel_id)
                     if not channel:
                         raise HTTPException(
-                            status_code=404, detail=f"Notification channel '{channel_id}' not found"
+                            status_code=404,
+                            detail=f"Notification channel '{channel_id}' not found",
                         )
                     await monitored_plate.notification_channels.add(channel)
                 continue
@@ -377,43 +393,67 @@ async def get_plate_details(
     if not validate_plate(plate):
         raise HTTPException(status_code=400, detail="Invalid plate format")
 
-    # Check if we already have this plate in our database
-    plate_data = await PlateData.get_or_none(plate=plate)
+    # Get plate details
+    return await utils_get_plate_details(plate=plate, cpf=user.cpf)
 
-    # If we do, return it
-    if plate_data:
-        logger.debug(f"Found plate {plate} in our database. Returning cached data.")
-        return CortexPlacaOut(**plate_data.data)
 
-    # If we don't, try to fetch it from Cortex
-    logger.debug(f"Plate {plate} not found in our database. Fetching data from Cortex.")
-    success, data = await cortex_request(
-        method="GET",
-        url=f"{config.CORTEX_VEICULOS_BASE_URL}/emplacamentos/placa/{plate}",
-        cpf=user.cpf,
-        raise_for_status=False,
-    )
-    if not success:
-        if isinstance(data, ClientResponse):
-            if data.status == 451:
-                raise HTTPException(
-                    status_code=451, detail="Unavailable for legal reasons. CPF might be blocked."
-                )
-            else:
-                raise HTTPException(
-                    status_code=500, detail="Something unexpected happened to Cortex API"
-                )
-        else:
+@router_request(
+    method="POST",
+    router=router,
+    path="/plates",
+    response_model=List[CortexPlacaOut],
+)
+async def get_multiple_plates_details(
+    plates: CortexPlacasIn,
+    user: Annotated[User, Depends(has_cpf)],
+    request: Request,
+):
+    # Validate plates
+    for plate in plates.plates:
+        plate = plate.upper()
+        if not validate_plate(plate):
             raise HTTPException(
-                status_code=500, detail="Something unexpected happened to Cortex API"
+                status_code=400, detail=f"Invalid plate format: {plate}"
             )
 
-    # Save the data to our database
-    await PlateData.create(plate=plate, data=data)
-    return CortexPlacaOut(**data)
+    # Get plates from our database
+    plates_list = plates.plates
+
+    # Await for all plates in batches of 10
+    plates_details = []
+    for i in range(0, len(plates_list), 10):
+        plates_details += await asyncio.gather(
+            *[
+                utils_get_plate_details(plate=plate, cpf=user.cpf)
+                for plate in plates_list[i : i + 10]
+            ]
+        )
+
+    return plates_details
 
 
-@router_request(method="GET", router=router, path="/radar", response_model=list[CarPassageOut])
+@router_request(
+    method="POST",
+    router=router,
+    path="/plates/credit",
+    response_model=CortexCreditsOut,
+)
+async def get_necessary_credits(
+    plates: CortexPlacasIn,
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+):
+    # Check, using the provided list of plates, how many aren't in our database
+    plates_data = await PlateData.filter(plate__in=plates.plates).values_list(
+        "plate", flat=True
+    )
+    missing_plates = list(set(plates.plates) - set(plates_data))
+    return CortexCreditsOut(credits=len(missing_plates))
+
+
+@router_request(
+    method="GET", router=router, path="/radar", response_model=list[CarPassageOut]
+)
 async def get_cars_by_radar(
     radar: str,
     start_time: datetime,

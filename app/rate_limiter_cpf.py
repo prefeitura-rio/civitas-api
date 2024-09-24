@@ -5,6 +5,7 @@ from typing import Tuple
 from redis.asyncio import Redis, WatchError
 
 from app import config
+from app.pydantic_models import UserCortexRemainingCreditOut
 
 
 class RateLimiterCPF:
@@ -15,7 +16,9 @@ class RateLimiterCPF:
             db=config.REDIS_DB,
             password=config.REDIS_PASSWORD,
         )
-        self._max_requests, self._time_window = self.parse_rate_limit(config.CORTEX_CPF_RATE_LIMIT)
+        self._max_requests, self._time_window = self.parse_rate_limit(
+            config.CORTEX_CPF_RATE_LIMIT
+        )
 
     @classmethod
     def parse_rate_limit(cls, limit_text: str) -> Tuple[int, int]:
@@ -91,6 +94,33 @@ class RateLimiterCPF:
             except WatchError:
                 # Another client changed the key, retry
                 return self.check(cpf)
+
+    async def get_remaining(self, cpf: str) -> UserCortexRemainingCreditOut:
+        """
+        Get the remaining credit for the given CPF.
+
+        Args:
+            cpf (str): The CPF to check.
+
+        Returns:
+            UserCortexRemainingCreditOut: The remaining credit for the CPF.
+        """
+        key = f"cpf_rate_limiter:{cpf}"
+        current_count = await self._redis.get(key)
+        if current_count is None:
+            current_count = 0
+        else:
+            current_count = int(current_count)
+
+        time_to_live = await self._redis.ttl(key)
+        if time_to_live == -2:
+            # Key does not exist, this is the first request
+            time_to_live = self._time_window
+
+        return UserCortexRemainingCreditOut(
+            remaining_credit=self._max_requests - current_count,
+            time_until_reset=time_to_live,
+        )
 
 
 cpf_limiter = RateLimiterCPF()
