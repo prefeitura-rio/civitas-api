@@ -159,7 +159,55 @@ class CortexPlacasIn(BaseModel):
     plates: List[str]
 
 
-class CortexPlacaCreditsOut(BaseModel):
+class CortexIndiceNacionalPessoa(BaseModel):
+    id: Optional[int]
+    metodo: Optional[str]
+    qtd: Optional[int]
+
+
+class CortexPersonOut(BaseModel):
+    anoExercicioOcupacao: Optional[str]
+    anoObito: Optional[str]
+    bairro: Optional[str]
+    cep: Optional[str]
+    complementoLogradouro: Optional[str]
+    dataAtualizacao: Optional[datetime]
+    dataNascimento: Optional[str]
+    ddd: Optional[str]
+    id: Optional[int]
+    identificadorResidenteExterior: Optional[str]
+    indicadorEstrangeiro: Optional[str]
+    indicadorMoradorEstrangeiro: Optional[bool]
+    indiceNacionalPessoas: Optional[List[CortexIndiceNacionalPessoa]]
+    latitudeAproximadaLocal: Optional[float]
+    logradouro: Optional[str]
+    longitudeAproximadaLocal: Optional[float]
+    municipio: Optional[str]
+    municipioNaturalidade: Optional[str]
+    naturezaOcupacao: Optional[str]
+    nomeCompleto: Optional[str]
+    nomeMae: Optional[str]
+    nomeSocial: Optional[str]
+    numeroCPF: Optional[str]
+    numeroLogradouro: Optional[str]
+    ocupacaoPrincipal: Optional[str]
+    paisNascimento: Optional[str]
+    paisResidencia: Optional[str]
+    regiaoFiscal: Optional[str]
+    sexo: Optional[str]
+    situacaoCadastral: Optional[str]
+    telefone: Optional[str]
+    tipoLogradouro: Optional[str]
+    tituloEleitor: Optional[str]
+    uf: Optional[str]
+    ufNaturalidade: Optional[str]
+
+
+class CortexPeopleIn(BaseModel):
+    cpfs: List[str]
+
+
+class CortexCreditsOut(BaseModel):
     credits: int
 
 

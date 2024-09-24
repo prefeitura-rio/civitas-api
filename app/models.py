@@ -88,6 +88,34 @@ class Permission(Model):
     resource = fields.ForeignKeyField("app.Resource", related_name="permissions")
 
 
+class PersonData(Model):
+    id = fields.UUIDField(pk=True)
+    cpf = fields.CharField(max_length=11, unique=True)
+    data = fields.JSONField()
+    # TODO (future): Expire this data after a certain amount of time?
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+
+@pre_save(PersonData)
+async def validate_person_data(sender, instance: PersonData, using_db, update_fields):
+    """
+    This validator checks the following constraints:
+    - The CPF must have 11 characters and be in a valid format
+    - The data must be in the same format as the specified Pydantic model
+    """
+    from app.pydantic_models import CortexPersonOut
+    from app.utils import validate_cpf
+
+    if not validate_cpf(instance.cpf):
+        raise ValidationError("Invalid CPF format")
+
+    # Data format validation:
+    try:
+        CortexPersonOut(**instance.data)
+    except Exception as exc:
+        raise ValidationError(str(exc))
+
+
 class PlateData(Model):
     id = fields.UUIDField(pk=True)
     plate = fields.CharField(max_length=7, unique=True)

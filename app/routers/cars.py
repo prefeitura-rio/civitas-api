@@ -17,7 +17,7 @@ from app.dependencies import has_cpf, is_user
 from app.models import MonitoredPlate, NotificationChannel, Operation, PlateData, User
 from app.pydantic_models import (
     CarPassageOut,
-    CortexPlacaCreditsOut,
+    CortexCreditsOut,
     CortexPlacaOut,
     CortexPlacasIn,
     MonitoredPlateIn,
@@ -415,7 +415,7 @@ async def get_multiple_plates_details(
     method="POST",
     router=router,
     path="/plates/credit",
-    response_model=CortexPlacaCreditsOut,
+    response_model=CortexCreditsOut,
 )
 async def get_necessary_credits(
     plates: CortexPlacasIn,
@@ -425,7 +425,7 @@ async def get_necessary_credits(
     # Check, using the provided list of plates, how many aren't in our database
     plates_data = await PlateData.filter(plate__in=plates.plates).values_list("plate", flat=True)
     missing_plates = list(set(plates.plates) - set(plates_data))
-    return CortexPlacaCreditsOut(credits=len(missing_plates))
+    return CortexCreditsOut(credits=len(missing_plates))
 
 
 @router_request(method="GET", router=router, path="/radar", response_model=list[CarPassageOut])

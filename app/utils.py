@@ -27,9 +27,10 @@ from tortoise import Tortoise, connections
 from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from app import config
-from app.models import GroupUser, PlateData, Resource, User
+from app.models import GroupUser, PersonData, PlateData, Resource, User
 from app.pydantic_models import (
     CarPassageOut,
+    CortexPersonOut,
     CortexPlacaOut,
     RadarOut,
     ReportFilters,
@@ -574,6 +575,45 @@ async def cortex_request(
             elif response.status != 200:
                 return False, response
             return True, await response.json()
+
+
+async def get_person_details(lookup_cpf: str, cpf: str) -> CortexPersonOut:
+    # Check if we already have this plate in our database
+    person_data = await PersonData.get_or_none(cpf=lookup_cpf)
+
+    # If we do, return it
+    if person_data:
+        logger.debug(f"Found CPF {lookup_cpf} in our database. Returning cached data.")
+        return CortexPersonOut(**person_data.data)
+
+    # If we don't, try to fetch it from Cortex
+    logger.debug(f"CPF {lookup_cpf} not found in our database. Fetching data from Cortex.")
+    success, data = await cortex_request(
+        method="GET",
+        url=f"{config.CORTEX_PESSOAS_BASE_URL}/pessoafisica/{lookup_cpf}",
+        cpf=cpf,
+        raise_for_status=False,
+    )
+    if not success:
+        if isinstance(data, aiohttp.ClientResponse):
+            logger.debug(f"Failed to fetch data from Cortex for CPF {lookup_cpf}.")
+            logger.debug(f"Status: {data.status}")
+            if data.status == 451:
+                raise HTTPException(
+                    status_code=451, detail="Unavailable for legal reasons. CPF might be blocked."
+                )
+            else:
+                raise HTTPException(
+                    status_code=500, detail="Something unexpected happened to Cortex API"
+                )
+        else:
+            raise HTTPException(
+                status_code=500, detail="Something unexpected happened to Cortex API"
+            )
+
+    # Save the data to our database
+    await PersonData.create(cpf=lookup_cpf, data=data)
+    return CortexPersonOut(**data)
 
 
 async def get_plate_details(plate: str, cpf: str) -> CortexPlacaOut:

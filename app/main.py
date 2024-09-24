@@ -32,6 +32,7 @@ from app.routers import (  # rbac,
     layers,
     notification_channels,
     operations,
+    people,
     radars,
     reports,
     users,
@@ -102,6 +103,7 @@ app.include_router(cars.router)
 app.include_router(layers.router)
 app.include_router(notification_channels.router)
 app.include_router(operations.router)
+app.include_router(people.router)
 app.include_router(radars.router)
 # app.include_router(rbac.router)
 app.include_router(reports.router)
