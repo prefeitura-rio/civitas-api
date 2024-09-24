@@ -207,6 +207,87 @@ class CortexPeopleIn(BaseModel):
     cpfs: List[str]
 
 
+class CortexCnpjContador(BaseModel):
+    classificacaoCRCContadorPF: Optional[str]
+    classificacaoCRCEmpresaContabil: Optional[str]
+    cnpjEmpresaContabil: Optional[str]
+    crcEmpresaContabil: Optional[str]
+    nomeContador: Optional[str]
+    numeroCPFContador: Optional[str]
+    numeroRegistroContadorPF: Optional[str]
+    tipoCRCContadorPF: Optional[str]
+    tipoCRCEmpresaContabil: Optional[str]
+    ufCRCContador: Optional[str]
+    ufCRCEmpresaContabil: Optional[str]
+
+
+class CortexCnpjSocio(BaseModel):
+    cpfRepresentanteLegal: Optional[str]
+    dataEntradaSociedade: Optional[str]
+    identificadorSocio: Optional[str]
+    nomeRepresentanteLegal: Optional[str]
+    nomeSocio: Optional[str]
+    numeroCPF: Optional[str]
+    paisSocioEstrangeiro: Optional[str]
+    percentualCapitalSocial: Optional[float]
+    qualificacaoRepresentanteLegal: Optional[str]
+    qualificacaoSocio: Optional[str]
+
+
+class CortexSucessao(BaseModel):
+    cnpjSucedida: Optional[str]
+    cnpjSucessora: Optional[str]
+    dataOperacaoSucessora: Optional[str]
+    operacaoRealizadaSucessora: Optional[str]
+    razaoSocialSucedida: Optional[str]
+    razaoSocialSucessora: Optional[str]
+
+
+class CortexCompanyOut(BaseModel):
+    bairro: Optional[str]
+    capitalSocialEmpresa: Optional[str]
+    cep: Optional[str]
+    cnaeFiscal: Optional[str]
+    cnaeSecundario: Optional[str]
+    cnpj: Optional[str]
+    cnpjContador: Optional[List[CortexCnpjContador]]
+    cnpjSocio: Optional[List[CortexCnpjSocio]]
+    codigoCnaeFiscal: Optional[str]
+    codigoCnaeSecundario: Optional[str]
+    complementoLogradouro: Optional[str]
+    cpfResponsavel: Optional[str]
+    dataExclusaoSimples: Optional[str]
+    dataInicioAtividade: Optional[str]
+    dataOpcaoSimples: Optional[str]
+    dataSituacaoCadastral: Optional[str]
+    email: Optional[str]
+    fax: Optional[str]
+    indicadorMatrizFilial: Optional[str]
+    logradouro: Optional[str]
+    motivoSituacaoCadastral: Optional[str]
+    municipio: Optional[str]
+    naturezaJuridica: Optional[str]
+    nomeCidadeExterior: Optional[str]
+    nomeFantasia: Optional[str]
+    nomePais: Optional[str]
+    nomeResponsavel: Optional[str]
+    numeroLogradouro: Optional[str]
+    opcaoSimples: Optional[str]
+    porteEmpresa: Optional[str]
+    qualificacaoPessoaJuridicaResponsavelEmpresa: Optional[str]
+    razaoSocial: Optional[str]
+    situacaoCadastral: Optional[str]
+    sucessao: Optional[List[CortexSucessao]]
+    telefone1: Optional[str]
+    telefone2: Optional[str]
+    tipoLogradouro: Optional[str]
+    uf: Optional[str]
+
+
+class CortexCompaniesIn(BaseModel):
+    cnpjs: List[str]
+
+
 class CortexCreditsOut(BaseModel):
     credits: int
 

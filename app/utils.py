@@ -27,9 +27,10 @@ from tortoise import Tortoise, connections
 from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from app import config
-from app.models import GroupUser, PersonData, PlateData, Resource, User
+from app.models import CompanyData, GroupUser, PersonData, PlateData, Resource, User
 from app.pydantic_models import (
     CarPassageOut,
+    CortexCompanyOut,
     CortexPersonOut,
     CortexPlacaOut,
     RadarOut,
@@ -577,8 +578,47 @@ async def cortex_request(
             return True, await response.json()
 
 
+async def get_company_details(cnpj: str, cpf: str) -> CortexCompanyOut:
+    # Check if we already have this company in our database
+    company_data = await CompanyData.get_or_none(cnpj=cnpj)
+
+    # If we do, return it
+    if company_data:
+        logger.debug(f"Found CNPJ {cnpj} in our database. Returning cached data.")
+        return CortexCompanyOut(**company_data.data)
+
+    # If we don't, try to fetch it from Cortex
+    logger.debug(f"CNPJ {cnpj} not found in our database. Fetching data from Cortex.")
+    success, data = await cortex_request(
+        method="GET",
+        url=f"{config.CORTEX_PESSOAS_BASE_URL}/pessoajuridica/{cnpj}",
+        cpf=cpf,
+        raise_for_status=False,
+    )
+    if not success:
+        if isinstance(data, aiohttp.ClientResponse):
+            logger.debug(f"Failed to fetch data from Cortex for CNPJ {cnpj}.")
+            logger.debug(f"Status: {data.status}")
+            if data.status == 451:
+                raise HTTPException(
+                    status_code=451, detail="Unavailable for legal reasons. CPF might be blocked."
+                )
+            else:
+                raise HTTPException(
+                    status_code=500, detail="Something unexpected happened to Cortex API"
+                )
+        else:
+            raise HTTPException(
+                status_code=500, detail="Something unexpected happened to Cortex API"
+            )
+
+    # Save the data to our database
+    await CompanyData.create(cnpj=cnpj, data=data)
+    return CortexCompanyOut(**data)
+
+
 async def get_person_details(lookup_cpf: str, cpf: str) -> CortexPersonOut:
-    # Check if we already have this plate in our database
+    # Check if we already have this person in our database
     person_data = await PersonData.get_or_none(cpf=lookup_cpf)
 
     # If we do, return it
@@ -1636,6 +1676,33 @@ def validate_cpf(cpf: str) -> bool:
         return False
 
     return True
+
+
+def validate_cnpj(cnpj: str) -> bool:
+    # Adapted from: https://wiki.python.org.br/VerificadorDeCpfCnpjSimples
+    cnpj = "".join(re.findall("\d", str(cnpj)))
+
+    if (not cnpj) or (len(cnpj) < 14):
+        return False
+
+    # Pega apenas os 12 primeiros dígitos do CNPJ e gera os 2 dígitos que faltam
+    inteiros = [int(c) for c in cnpj]
+    novo = inteiros[:12]
+
+    prod = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    while len(novo) < 14:
+        r = sum([x * y for (x, y) in zip(novo, prod)]) % 11
+        if r > 1:
+            f = 11 - r
+        else:
+            f = 0
+        novo.append(f)
+        prod.insert(0, 6)
+
+    # Se o número gerado coincidir com o número original, é válido
+    if novo == inteiros:
+        return cnpj
+    return False
 
 
 def validate_plate(plate: str) -> bool:

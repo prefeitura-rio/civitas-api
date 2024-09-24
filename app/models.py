@@ -10,6 +10,34 @@ from tortoise.signals import pre_save
 from app.enums import ActionTypeEnum, NotificationChannelTypeEnum
 
 
+class CompanyData(Model):
+    id = fields.UUIDField(pk=True)
+    cnpj = fields.CharField(max_length=14, unique=True)
+    data = fields.JSONField()
+    # TODO (future): Expire this data after a certain amount of time?
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+
+@pre_save(CompanyData)
+async def validate_company_data(sender, instance: CompanyData, using_db, update_fields):
+    """
+    This validator checks the following constraints:
+    - The CNPJ must have 14 characters and be in a valid format
+    - The data must be in the same format as the specified Pydantic model
+    """
+    from app.pydantic_models import CortexCompanyOut
+    from app.utils import validate_cnpj
+
+    if not validate_cnpj(instance.cnpj):
+        raise ValidationError("Invalid CNPJ format")
+
+    # Data format validation:
+    try:
+        CortexCompanyOut(**instance.data)
+    except Exception as exc:
+        raise ValidationError(str(exc))
+
+
 class Group(Model):
     id = fields.UUIDField(pk=True)
     name = fields.CharField(max_length=100)

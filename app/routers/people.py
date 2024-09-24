@@ -37,7 +37,7 @@ async def get_multiple_people_details(
         if not validate_cpf(cpf):
             raise HTTPException(status_code=400, detail=f"Invalid CPF format: {cpf}")
 
-    # Await for all plates in batches of 10
+    # Await for all people in batches of 10
     cpfs_list = cpfs.cpfs
     cpfs_details = []
     for i in range(0, len(cpfs_list), 10):
@@ -62,7 +62,7 @@ async def get_necessary_credits(
     user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
-    # Check, using the provided list of plates, how many aren't in our database
+    # Check, using the provided list of CPFs, how many aren't in our database
     cpfs_data = await PersonData.filter(cpf__in=cpfs.cpfs).values_list("cpf", flat=True)
     missing_cpfs = list(set(cpfs.cpfs) - set(cpfs_data))
     return CortexCreditsOut(credits=len(missing_cpfs))
@@ -87,5 +87,5 @@ async def get_person_details(
     if not validate_cpf(cpf):
         raise HTTPException(status_code=400, detail="Invalid CPF format")
 
-    # Get plate details
+    # Get CPF details
     return await utils_get_person_details(lookup_cpf=cpf, cpf=user.cpf)
