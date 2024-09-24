@@ -16,7 +16,9 @@ class RateLimiterCPF:
             db=config.REDIS_DB,
             password=config.REDIS_PASSWORD,
         )
-        self._max_requests, self._time_window = self.parse_rate_limit(config.CORTEX_CPF_RATE_LIMIT)
+        self._max_requests, self._time_window = self.parse_rate_limit(
+            config.CORTEX_CPF_RATE_LIMIT
+        )
 
     @classmethod
     def parse_rate_limit(cls, limit_text: str) -> Tuple[int, int]:

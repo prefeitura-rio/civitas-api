@@ -430,7 +430,9 @@ class GroupOut(BaseModel):
                     is_group_admin=group_user.is_group_admin,
                 )
             )
-        return GroupOut(id=group.id, name=group.name, description=group.description, users=users)
+        return GroupOut(
+            id=group.id, name=group.name, description=group.description, users=users
+        )
 
 
 class GroupUpdate(BaseModel):

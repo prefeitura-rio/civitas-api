@@ -42,7 +42,10 @@ async def get_multiple_companies_details(
     cnpjs_details = []
     for i in range(0, len(cnpjs_list), 10):
         cnpjs_details += await asyncio.gather(
-            *[utils_get_company_details(cnpj=cnpj, cpf=user.cpf) for cnpj in cnpjs_list[i : i + 10]]
+            *[
+                utils_get_company_details(cnpj=cnpj, cpf=user.cpf)
+                for cnpj in cnpjs_list[i : i + 10]
+            ]
         )
 
     return cnpjs_details
@@ -60,7 +63,9 @@ async def get_necessary_credits(
     request: Request,
 ):
     # Check, using the provided list of CNPJs, how many aren't in our database
-    cnpjs_data = await CompanyData.filter(cnpj__in=cnpjs.cnpjs).values_list("cnpj", flat=True)
+    cnpjs_data = await CompanyData.filter(cnpj__in=cnpjs.cnpjs).values_list(
+        "cnpj", flat=True
+    )
     missing_cnpjs = list(set(cnpjs.cnpjs) - set(cnpjs_data))
     return CortexCreditsOut(credits=len(missing_cnpjs))
 

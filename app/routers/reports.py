@@ -163,7 +163,9 @@ async def get_reports_dashboard_map(
     tasks_batch_size = 5
     initial_filters = get_filters(offset=0, size=page_size)
     reports, total = await search_weaviate(
-        filters=initial_filters, order_by=order_by, search_mode=ReportsSearchMode.LATLONG_ONLY
+        filters=initial_filters,
+        order_by=order_by,
+        search_mode=ReportsSearchMode.LATLONG_ONLY,
     )
     if total > page_size:
         tasks = []
@@ -171,12 +173,16 @@ async def get_reports_dashboard_map(
             filters = get_filters(offset=offset, size=page_size)
             tasks.append(
                 search_weaviate(
-                    filters=filters, order_by=order_by, search_mode=ReportsSearchMode.LATLONG_ONLY
+                    filters=filters,
+                    order_by=order_by,
+                    search_mode=ReportsSearchMode.LATLONG_ONLY,
                 )
             )
         # Submit tasks in batches
         for i in range(0, len(tasks), tasks_batch_size):
-            logger.debug(f"Submitting tasks {i} to {i+tasks_batch_size} of {len(tasks)}")
+            logger.debug(
+                f"Submitting tasks {i} to {i+tasks_batch_size} of {len(tasks)}"
+            )
             results = await asyncio.gather(*tasks[i : i + tasks_batch_size])
             for reports_batch, _ in results:
                 reports.extend(reports_batch)
@@ -239,7 +245,9 @@ async def get_reports_dashboard_timeline(
     tasks_batch_size = 5
     initial_filters = get_filters(offset=0, size=page_size)
     reports, total = await search_weaviate(
-        filters=initial_filters, order_by=order_by, search_mode=ReportsSearchMode.SOURCES_ONLY
+        filters=initial_filters,
+        order_by=order_by,
+        search_mode=ReportsSearchMode.SOURCES_ONLY,
     )
     if total > page_size:
         tasks = []
@@ -247,12 +255,16 @@ async def get_reports_dashboard_timeline(
             filters = get_filters(offset=offset, size=page_size)
             tasks.append(
                 search_weaviate(
-                    filters=filters, order_by=order_by, search_mode=ReportsSearchMode.SOURCES_ONLY
+                    filters=filters,
+                    order_by=order_by,
+                    search_mode=ReportsSearchMode.SOURCES_ONLY,
                 )
             )
         # Submit tasks in batches
         for i in range(0, len(tasks), tasks_batch_size):
-            logger.debug(f"Submitting tasks {i} to {i+tasks_batch_size} of {len(tasks)}")
+            logger.debug(
+                f"Submitting tasks {i} to {i+tasks_batch_size} of {len(tasks)}"
+            )
             results = await asyncio.gather(*tasks[i : i + tasks_batch_size])
             for reports_batch, _ in results:
                 reports.extend(reports_batch)
@@ -274,7 +286,9 @@ async def get_reports_dashboard_timeline(
         for source, count in sources.items():
             date: Date
             datetime_ = datetime(date.year, date.month, date.day)
-            reports.append(ReportTimelineOut(data_report=datetime_, id_source=source, count=count))
+            reports.append(
+                ReportTimelineOut(data_report=datetime_, id_source=source, count=count)
+            )
 
     # Sort reports by date and source
     reports = sorted(reports, key=lambda r: (r.data_report, r.id_source))
@@ -336,7 +350,9 @@ async def get_reports_dashboard_top_subtypes(
     tasks_batch_size = 5
     initial_filters = get_filters(offset=0, size=page_size)
     reports, total = await search_weaviate(
-        filters=initial_filters, order_by=order_by, search_mode=ReportsSearchMode.SUBTYPES_ONLY
+        filters=initial_filters,
+        order_by=order_by,
+        search_mode=ReportsSearchMode.SUBTYPES_ONLY,
     )
     if total > page_size:
         tasks = []
@@ -344,12 +360,16 @@ async def get_reports_dashboard_top_subtypes(
             filters = get_filters(offset=offset, size=page_size)
             tasks.append(
                 search_weaviate(
-                    filters=filters, order_by=order_by, search_mode=ReportsSearchMode.SUBTYPES_ONLY
+                    filters=filters,
+                    order_by=order_by,
+                    search_mode=ReportsSearchMode.SUBTYPES_ONLY,
                 )
             )
         # Submit tasks in batches
         for i in range(0, len(tasks), tasks_batch_size):
-            logger.debug(f"Submitting tasks {i} to {i+tasks_batch_size} of {len(tasks)}")
+            logger.debug(
+                f"Submitting tasks {i} to {i+tasks_batch_size} of {len(tasks)}"
+            )
             results = await asyncio.gather(*tasks[i : i + tasks_batch_size])
             for reports_batch, _ in results:
                 reports.extend(reports_batch)
@@ -362,7 +382,11 @@ async def get_reports_dashboard_top_subtypes(
             for subtipo in tipo_subtipo["subtipo"]:
                 key = hash(f"{tipo}{subtipo}")
                 if key not in reports_by_type_subtype:
-                    reports_by_type_subtype[key] = {"tipo": tipo, "subtipo": subtipo, "count": 0}
+                    reports_by_type_subtype[key] = {
+                        "tipo": tipo,
+                        "subtipo": subtipo,
+                        "count": 0,
+                    }
                 reports_by_type_subtype[key]["count"] += 1
 
     reports = [ReportTopSubtypesOut(**r) for r in reports_by_type_subtype.values()]

@@ -53,7 +53,9 @@ class GroupUser(Model):
 
 class MonitoredPlate(Model):
     id = fields.UUIDField(pk=True)
-    operation = fields.ForeignKeyField("app.Operation", related_name="monitored_plates", null=True)
+    operation = fields.ForeignKeyField(
+        "app.Operation", related_name="monitored_plates", null=True
+    )
     plate = fields.CharField(max_length=7)
     active = fields.BooleanField(default=True)
     notes = fields.TextField(null=True)
@@ -177,7 +179,9 @@ async def validate_plate_data(sender, instance: PlateData, using_db, update_fiel
 
     # - The 5th character must be either a letter or a number
     if not instance.plate[4].isalnum():
-        raise ValidationError("The 6th character of the plate must be a letter or a number")
+        raise ValidationError(
+            "The 6th character of the plate must be a letter or a number"
+        )
 
     # - The 6th and 7th characters must be numbers
     if not instance.plate[5:].isdigit():
@@ -236,7 +240,9 @@ async def validate_role(sender, instance: Role, using_db, update_fields):
                 user_ok = True
                 break
         if not user_ok:
-            raise ValidationError("All users in the role must be in the same group as the role")
+            raise ValidationError(
+                "All users in the role must be in the same group as the role"
+            )
 
 
 class User(Model):

@@ -46,7 +46,9 @@ async def authenticate_user(form_data: OAuth2PasswordRequestForm) -> Token:
         username=form_data.username, password=form_data.password
     )
     expires_in = datetime.fromtimestamp(expires_at) - datetime.now()
-    return Token(access_token=token, token_type=token_type, expires_in=expires_in.seconds)
+    return Token(
+        access_token=token, token_type=token_type, expires_in=expires_in.seconds
+    )
 
 
 async def get_current_user(authorization_header: Annotated[str, Depends(oidc_scheme)]):
@@ -99,7 +101,9 @@ async def get_current_user(authorization_header: Annotated[str, Depends(oidc_sch
             issuer=config.OIDC_ISSUER_URL,
         )
     except jwt.ExpiredSignatureError:
-        raise AuthError({"code": "token_expired", "description": "token is expired"}, 401)
+        raise AuthError(
+            {"code": "token_expired", "description": "token is expired"}, 401
+        )
     except jwt.JWTClaimsError:
         raise AuthError(
             {

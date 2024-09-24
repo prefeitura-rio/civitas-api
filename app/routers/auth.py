@@ -10,7 +10,9 @@ from app.pydantic_models import Token
 from app.rate_limiter import limiter
 
 router = APIRouter(
-    prefix="/auth", tags=["Authentication"], responses={429: {"error": "Rate limit exceeded"}}
+    prefix="/auth",
+    tags=["Authentication"],
+    responses={429: {"error": "Rate limit exceeded"}},
 )
 
 

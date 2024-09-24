@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
 from app import config
-from app.dependencies import is_user
+from app.dependencies import get_user
 from app.models import User, UserHistory
 from app.oidc import get_current_user
 from app.pydantic_models import OIDCUser
@@ -30,13 +30,17 @@ class RBACMiddleware(BaseHTTPMiddleware):
         try:
             authorization: str = request.headers.get("Authorization")
             if not authorization or not authorization.startswith("Bearer "):
-                return JSONResponse(status_code=401, content={"detail": "Invalid credentials"})
+                return JSONResponse(
+                    status_code=401, content={"detail": "Invalid credentials"}
+                )
 
             token = authorization.split(" ")[1]
             oidc_user: OIDCUser = await get_current_user(token)
             user: User = await get_user(oidc_user)
 
-            if not await user_has_permission(user=user, action=action, resource=resource):
+            if not await user_has_permission(
+                user=user, action=action, resource=resource
+            ):
                 if method == "GET":
                     body = None
                 else:
@@ -57,7 +61,9 @@ class RBACMiddleware(BaseHTTPMiddleware):
                 return JSONResponse(status_code=403, content={"detail": "Forbidden"})
         except Exception as e:
             logger.error(f"Error on RBAC: {e}")
-            return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+            return JSONResponse(
+                status_code=500, content={"detail": "Internal Server Error"}
+            )
 
         logger.debug(f"User {user.email} has permission to {action} on {resource}")
         response = await call_next(request)

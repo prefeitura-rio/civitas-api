@@ -43,7 +43,9 @@ from app.redis_cache import cache
 
 
 class ReportsOrderBy(str, Enum):
-    TIMESTAMP = "timestamp"  # TODO: remove this later. this is kept for backward compatibility
+    TIMESTAMP = (
+        "timestamp"  # TODO: remove this later. this is kept for backward compatibility
+    )
     TIMESTAMP_ASC = "timestamp_asc"
     TIMESTAMP_DESC = "timestamp_desc"
     DISTANCE = "distance"
@@ -88,14 +90,14 @@ def build_get_car_by_radar_query(
         WHERE
             DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
             AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
-    """.replace(
-        "{{min_datetime}}", min_datetime.to_datetime_string()
-    ).replace(
+    """.replace("{{min_datetime}}", min_datetime.to_datetime_string()).replace(
         "{{max_datetime}}", max_datetime.to_datetime_string()
     )
 
     if codcet:
-        query += f"AND (camera_numero = '{codcet}' OR camera_numero = '{camera_numero}')"
+        query += (
+            f"AND (camera_numero = '{codcet}' OR camera_numero = '{camera_numero}')"
+        )
     else:
         query += f"AND camera_numero = '{camera_numero}'"
 
@@ -157,7 +159,9 @@ def generate_regular_filters(filters: ReportFilters) -> str:
             % filters.id_source_contains
         )
     if filters.data_report_min:
-        timestamp_min = filters.data_report_min.replace(tzinfo=pytz.timezone(config.TIMEZONE))
+        timestamp_min = filters.data_report_min.replace(
+            tzinfo=pytz.timezone(config.TIMEZONE)
+        )
         regular_filter_operands.append(
             """
                 {
@@ -166,10 +170,15 @@ def generate_regular_filters(filters: ReportFilters) -> str:
                     valueDate: "%s",
                 }
             """
-            % (config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN, timestamp_min.isoformat())
+            % (
+                config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN,
+                timestamp_min.isoformat(),
+            )
         )
     if filters.data_report_max:
-        timestamp_max = filters.data_report_max.replace(tzinfo=pytz.timezone(config.TIMEZONE))
+        timestamp_max = filters.data_report_max.replace(
+            tzinfo=pytz.timezone(config.TIMEZONE)
+        )
         regular_filter_operands.append(
             """
                 {
@@ -178,7 +187,10 @@ def generate_regular_filters(filters: ReportFilters) -> str:
                     valueDate: "%s",
                 }
             """
-            % (config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN, timestamp_max.isoformat())
+            % (
+                config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN,
+                timestamp_max.isoformat(),
+            )
         )
     if filters.categoria_contains:
         regular_filter_operands.append(
@@ -420,25 +432,19 @@ def build_hint_query(
         FROM `rj-cetrio.ocr_radar.readings_*`
         WHERE
             placa LIKE '{{placa}}'
-    """.replace(
-        "{{placa}}", placa
-    )
+    """.replace("{{placa}}", placa)
 
     if latitude_min and latitude_max:
         query += """
             AND (camera_latitude BETWEEN {{latitude_min}} AND {{latitude_max}})
-        """.replace(
-            "{{latitude_min}}", str(latitude_min)
-        ).replace(
+        """.replace("{{latitude_min}}", str(latitude_min)).replace(
             "{{latitude_max}}", str(latitude_max)
         )
 
     if longitude_min and longitude_max:
         query += """
             AND (camera_longitude BETWEEN {{longitude_min}} AND {{longitude_max}})
-        """.replace(
-            "{{longitude_min}}", str(longitude_min)
-        ).replace(
+        """.replace("{{longitude_min}}", str(longitude_min)).replace(
             "{{longitude_max}}", str(longitude_max)
         )
 
@@ -446,9 +452,7 @@ def build_hint_query(
             AND DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
             AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
         GROUP BY placa
-    """.replace(
-        "{{min_datetime}}", min_datetime.to_datetime_string()
-    ).replace(
+    """.replace("{{min_datetime}}", min_datetime.to_datetime_string()).replace(
         "{{max_datetime}}", max_datetime.to_datetime_string()
     )
 
@@ -524,9 +528,7 @@ def build_positions_query(
         FROM ordered_positions p
         JOIN loc l ON p.camera_numero = l.camera_numero
         ORDER BY p.datahora ASC
-        """.replace(
-            "{{placa}}", placa
-        )
+        """.replace("{{placa}}", placa)
         .replace("{{min_datetime}}", min_datetime.to_datetime_string())
         .replace("{{max_datetime}}", max_datetime.to_datetime_string())
         .replace("{{min_distance}}", str(min_distance))
@@ -601,11 +603,13 @@ async def get_company_details(cnpj: str, cpf: str) -> CortexCompanyOut:
             logger.debug(f"Status: {data.status}")
             if data.status == 451:
                 raise HTTPException(
-                    status_code=451, detail="Unavailable for legal reasons. CPF might be blocked."
+                    status_code=451,
+                    detail="Unavailable for legal reasons. CPF might be blocked.",
                 )
             else:
                 raise HTTPException(
-                    status_code=500, detail="Something unexpected happened to Cortex API"
+                    status_code=500,
+                    detail="Something unexpected happened to Cortex API",
                 )
         else:
             raise HTTPException(
@@ -627,7 +631,9 @@ async def get_person_details(lookup_cpf: str, cpf: str) -> CortexPersonOut:
         return CortexPersonOut(**person_data.data)
 
     # If we don't, try to fetch it from Cortex
-    logger.debug(f"CPF {lookup_cpf} not found in our database. Fetching data from Cortex.")
+    logger.debug(
+        f"CPF {lookup_cpf} not found in our database. Fetching data from Cortex."
+    )
     success, data = await cortex_request(
         method="GET",
         url=f"{config.CORTEX_PESSOAS_BASE_URL}/pessoafisica/{lookup_cpf}",
@@ -640,11 +646,13 @@ async def get_person_details(lookup_cpf: str, cpf: str) -> CortexPersonOut:
             logger.debug(f"Status: {data.status}")
             if data.status == 451:
                 raise HTTPException(
-                    status_code=451, detail="Unavailable for legal reasons. CPF might be blocked."
+                    status_code=451,
+                    detail="Unavailable for legal reasons. CPF might be blocked.",
                 )
             else:
                 raise HTTPException(
-                    status_code=500, detail="Something unexpected happened to Cortex API"
+                    status_code=500,
+                    detail="Something unexpected happened to Cortex API",
                 )
         else:
             raise HTTPException(
@@ -677,11 +685,13 @@ async def get_plate_details(plate: str, cpf: str) -> CortexPlacaOut:
         if isinstance(data, aiohttp.ClientResponse):
             if data.status == 451:
                 raise HTTPException(
-                    status_code=451, detail="Unavailable for legal reasons. CPF might be blocked."
+                    status_code=451,
+                    detail="Unavailable for legal reasons. CPF might be blocked.",
                 )
             else:
                 raise HTTPException(
-                    status_code=500, detail="Something unexpected happened to Cortex API"
+                    status_code=500,
+                    detail="Something unexpected happened to Cortex API",
                 )
         else:
             raise HTTPException(
@@ -752,7 +762,9 @@ def create_update_weaviate_schema():
     """
     schema = config.WEAVIATE_SCHEMA
     # Check if class name already exists
-    response = requests.get(f"{config.WEAVIATE_BASE_URL}/v1/schema/{schema['class']}", timeout=10)
+    response = requests.get(
+        f"{config.WEAVIATE_BASE_URL}/v1/schema/{schema['class']}", timeout=10
+    )
     if response.status_code == 200:
         # Check if the schema is the same
         existing_schema = response.json()
@@ -774,7 +786,9 @@ def create_update_weaviate_schema():
             logger.info("Schema is up to date")
     else:
         # Create schema
-        response = requests.post(f"{config.WEAVIATE_BASE_URL}/v1/schema", json=schema, timeout=10)
+        response = requests.post(
+            f"{config.WEAVIATE_BASE_URL}/v1/schema", json=schema, timeout=10
+        )
         if response.status_code != 200:
             logger.error(f"Failed to create schema: {response.content}")
         else:
@@ -821,7 +835,9 @@ async def generate_embeddings(text: str) -> List[float]:
     #         return data["embedding"]
 
 
-async def generate_embeddings_batch(texts: List[str], batch_size: int = None) -> List[List[float]]:
+async def generate_embeddings_batch(
+    texts: List[str], batch_size: int = None
+) -> List[List[float]]:
     """
     Generate embeddings for a batch of texts.
 
@@ -895,7 +911,9 @@ def get_car_by_radar(
             placa = row_data["placa"]
             datahora = row_data["datahora"]
             velocidade = row_data["velocidade"]
-            car_passages.append(CarPassageOut(plate=placa, timestamp=datahora, speed=velocidade))
+            car_passages.append(
+                CarPassageOut(plate=placa, timestamp=datahora, speed=velocidade)
+            )
     # Sort car passages by timestamp ascending
     car_passages = sorted(car_passages, key=lambda x: x.timestamp)
     return car_passages
@@ -926,7 +944,9 @@ async def get_fogocruzado_reports() -> List[dict]:
     url_parameters = {
         "idCities": "d1bf56cc-6d85-4e6a-a5f5-0ab3f4074be3",  # Rio de Janeiro
         "idState": "b112ffbe-17b3-4ad0-8f2a-2038745d1d14",  # Rio de Janeiro
-        "initialdate": pendulum.now().subtract(days=1).to_date_string(),  # Today's + yesterday's
+        "initialdate": pendulum.now()
+        .subtract(days=1)
+        .to_date_string(),  # Today's + yesterday's
         "page": 1,  # Page number
     }
     data = await get_url(url, url_parameters, token)
@@ -960,7 +980,9 @@ def get_trips_chunks(locations, max_time_interval):
         point_anterior = locations[i - 1]
         point_atual = locations[i]
 
-        diferenca_tempo = (point_atual["datetime"] - point_anterior["datetime"]).total_seconds()
+        diferenca_tempo = (
+            point_atual["datetime"] - point_anterior["datetime"]
+        ).total_seconds()
         point_anterior["seconds_to_next_point"] = diferenca_tempo
         if diferenca_tempo > max_time_interval:
             point_anterior["seconds_to_next_point"] = None
@@ -969,9 +991,9 @@ def get_trips_chunks(locations, max_time_interval):
         else:
             current_chunk.append(point_atual)
 
-    current_chunk[-1][
-        "seconds_to_next_point"
-    ] = None  # Ensure the last point in the final chunk has None
+    current_chunk[-1]["seconds_to_next_point"] = (
+        None  # Ensure the last point in the final chunk has None
+    )
     chunks.append(current_chunk)
 
     for chunk in chunks:
@@ -1047,7 +1069,13 @@ async def get_hints(
         List[str]: The plate hints.
     """
     query = build_hint_query(
-        placa, min_datetime, max_datetime, latitude_min, latitude_max, longitude_min, longitude_max
+        placa,
+        min_datetime,
+        max_datetime,
+        latitude_min,
+        latitude_max,
+        longitude_min,
+        longitude_max,
     )
     bq_client = get_bigquery_client()
     query_job = bq_client.query(query)
@@ -1115,7 +1143,9 @@ async def get_positions(
         for row in page:
             row: Row
             row_data = dict(row.items())
-            row_data["datahora"] = pendulum.instance(row_data["datahora"], tz=config.TIMEZONE)
+            row_data["datahora"] = pendulum.instance(
+                row_data["datahora"], tz=config.TIMEZONE
+            )
             locations.append(row_data)
 
     return {"placa": placa, "locations": locations}
@@ -1517,8 +1547,12 @@ def register_tortoise(
     """Custom implementation of `register_tortoise` for lifespan support"""
 
     async def init_orm() -> None:  # pylint: disable=W0612
-        await Tortoise.init(config=config, config_file=config_file, db_url=db_url, modules=modules)
-        logger.info(f"Tortoise-ORM started, {connections._get_storage()}, {Tortoise.apps}")
+        await Tortoise.init(
+            config=config, config_file=config_file, db_url=db_url, modules=modules
+        )
+        logger.info(
+            f"Tortoise-ORM started, {connections._get_storage()}, {Tortoise.apps}"
+        )
         if generate_schemas:
             logger.info("Tortoise-ORM generating schema")
             await Tortoise.generate_schemas()
@@ -1542,10 +1576,14 @@ def register_tortoise(
             return JSONResponse(status_code=404, content={"detail": str(exc)})
 
         @app.exception_handler(IntegrityError)
-        async def integrityerror_exception_handler(request: Request, exc: IntegrityError):
+        async def integrityerror_exception_handler(
+            request: Request, exc: IntegrityError
+        ):
             return JSONResponse(
                 status_code=422,
-                content={"detail": [{"loc": [], "msg": str(exc), "type": "IntegrityError"}]},
+                content={
+                    "detail": [{"loc": [], "msg": str(exc), "type": "IntegrityError"}]
+                },
             )
 
     return Manager()
@@ -1556,7 +1594,9 @@ async def search_weaviate(
     order_by: ReportsOrderBy,
     search_mode: ReportsSearchMode,
 ) -> Tuple[List[dict], int]:
-    query = await build_graphql_query(filters=filters, order_by=order_by, search_mode=search_mode)
+    query = await build_graphql_query(
+        filters=filters, order_by=order_by, search_mode=search_mode
+    )
     async with aiohttp.ClientSession() as session:
         async with session.post(
             f"{config.WEAVIATE_BASE_URL}/v1/graphql",
@@ -1565,12 +1605,16 @@ async def search_weaviate(
             response.raise_for_status()
             data = await response.json()
             reports = []
-            count = data["data"]["Aggregate"][config.WEAVIATE_SCHEMA_CLASS][0]["meta"]["count"]
+            count = data["data"]["Aggregate"][config.WEAVIATE_SCHEMA_CLASS][0]["meta"][
+                "count"
+            ]
             for item in data["data"]["Get"][config.WEAVIATE_SCHEMA_CLASS]:
                 reports.append(
                     dict(
                         **item,
-                        additional_info=item["_additional"] if "_additional" in item else None,
+                        additional_info=item["_additional"]
+                        if "_additional" in item
+                        else None,
                     )
                 )
             return reports, count
@@ -1596,7 +1640,9 @@ async def update_resources_list(app: FastAPI):
     # Get list of current resources
     current_resources = sorted(list(set([route.path[1:] for route in app.routes])))
     current_resources = [
-        resource for resource in current_resources if resource not in config.RBAC_EXCLUDED_PATHS
+        resource
+        for resource in current_resources
+        if resource not in config.RBAC_EXCLUDED_PATHS
     ]
 
     # Create list of awaitables for database resources

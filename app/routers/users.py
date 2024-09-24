@@ -83,7 +83,9 @@ async def get_full_history(
         filtered = True
     if not filtered:
         history_query = history_query.all()
-    history_obj = await history_query.order_by("timestamp").limit(params.size).offset(offset)
+    history_obj = (
+        await history_query.order_by("timestamp").limit(params.size).offset(offset)
+    )
     history = [
         UserHistoryOut(
             id=history.id,
@@ -129,7 +131,9 @@ async def get_user_by_id(
     """
     user_obj = await User.get_or_none(id=user_id)
     if not user_obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     return UserOut.from_orm(user_obj)
 
 
@@ -150,14 +154,18 @@ async def get_user_cortex_remaining_credits(
     """
     user_obj = await User.get_or_none(id=user_id)
     if not user_obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     if not user_obj.cpf:
         raise HTTPException(
-            status_code=status.HTTP_451_UNAVAILABLE_FOR_LEGAL_REASONS, detail="User has no CPF"
+            status_code=status.HTTP_451_UNAVAILABLE_FOR_LEGAL_REASONS,
+            detail="User has no CPF",
         )
     if not validate_cpf(user_obj.cpf):
         raise HTTPException(
-            status_code=status.HTTP_451_UNAVAILABLE_FOR_LEGAL_REASONS, detail="User has invalid CPF"
+            status_code=status.HTTP_451_UNAVAILABLE_FOR_LEGAL_REASONS,
+            detail="User has invalid CPF",
         )
     return await cpf_limiter.get_remaining(user_obj.cpf)
 
@@ -187,7 +195,9 @@ async def get_user_history(
     """
     user_obj = await User.get_or_none(id=user_id)
     if not user_obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     offset = params.size * (params.page - 1)
     history_query = UserHistory.filter(user=user_obj)
     if method:
@@ -202,7 +212,9 @@ async def get_user_history(
         history_query = history_query.filter(timestamp__gte=start_time)
     if end_time:
         history_query = history_query.filter(timestamp__lte=end_time)
-    history_obj = await history_query.order_by("timestamp").limit(params.size).offset(offset)
+    history_obj = (
+        await history_query.order_by("timestamp").limit(params.size).offset(offset)
+    )
     history = [
         UserHistoryOut(
             id=history.id,

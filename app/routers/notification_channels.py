@@ -25,7 +25,9 @@ router = APIRouter(
 )
 
 
-@router_request(method="GET", router=router, path="", response_model=Page[NotificationChannelOut])
+@router_request(
+    method="GET", router=router, path="", response_model=Page[NotificationChannelOut]
+)
 async def get_notification_channels(
     user: Annotated[User, Depends(is_user)],
     request: Request,
@@ -36,18 +38,25 @@ async def get_notification_channels(
     """
     offset = params.size * (params.page - 1)
     notification_channels_obj = (
-        await NotificationChannel.all().order_by("title").limit(params.size).offset(offset)
+        await NotificationChannel.all()
+        .order_by("title")
+        .limit(params.size)
+        .offset(offset)
     )
     notification_channels = [
         NotificationChannelOut.from_orm(monitored_plate)
         for monitored_plate in notification_channels_obj
     ]
     return create_page(
-        notification_channels, params=params, total=await NotificationChannel.all().count()
+        notification_channels,
+        params=params,
+        total=await NotificationChannel.all().count(),
     )
 
 
-@router_request(method="POST", router=router, path="", response_model=NotificationChannelOut)
+@router_request(
+    method="POST", router=router, path="", response_model=NotificationChannelOut
+)
 async def create_notification_channel(
     notification_channel: NotificationChannelIn,
     user: Annotated[User, Depends(is_user)],
@@ -57,7 +66,9 @@ async def create_notification_channel(
     Creates a new notification channel.
     """
     try:
-        notification_channel_obj = await NotificationChannel.create(**notification_channel.dict())
+        notification_channel_obj = await NotificationChannel.create(
+            **notification_channel.dict()
+        )
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except ValueError as exc:
@@ -79,7 +90,9 @@ async def get_notification_channel(
     """
     Retrieves a notification channel by its ID.
     """
-    notification_channel_obj = await NotificationChannel.get_or_none(id=notification_channel_id)
+    notification_channel_obj = await NotificationChannel.get_or_none(
+        id=notification_channel_id
+    )
     if not notification_channel_obj:
         raise HTTPException(status_code=404, detail="Notification channel not found")
     return NotificationChannelOut.from_orm(notification_channel_obj)
@@ -100,7 +113,9 @@ async def update_notification_channel(
     """
     Updates a notification channel.
     """
-    notification_channel_obj = await NotificationChannel.get_or_none(id=notification_channel_id)
+    notification_channel_obj = await NotificationChannel.get_or_none(
+        id=notification_channel_id
+    )
     if not notification_channel_obj:
         raise HTTPException(status_code=404, detail="Notification channel not found")
     for key, value in notification_channel_data.dict().items():
@@ -125,7 +140,9 @@ async def delete_notification_channel(
     """
     Deletes a notification channel.
     """
-    notification_channel_obj = await NotificationChannel.get_or_none(id=notification_channel_id)
+    notification_channel_obj = await NotificationChannel.get_or_none(
+        id=notification_channel_id
+    )
     if not notification_channel_obj:
         raise HTTPException(status_code=404, detail="Notification channel not found")
     await notification_channel_obj.delete()

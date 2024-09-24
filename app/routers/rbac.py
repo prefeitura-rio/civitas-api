@@ -41,7 +41,9 @@ router = APIRouter(
 )
 
 
-@router_request(method="GET", router=router, path="/groups", response_model=Page[GroupOut])
+@router_request(
+    method="GET", router=router, path="/groups", response_model=Page[GroupOut]
+)
 async def list_groups(
     user: Annotated[User, Depends(is_admin)],
     request: Request,
@@ -219,7 +221,10 @@ async def list_group_permissions(
     return create_page(
         permissions,
         params=params,
-        total=await Permission.filter(group=group).prefetch_related("resource").all().count(),
+        total=await Permission.filter(group=group)
+        .prefetch_related("resource")
+        .all()
+        .count(),
     )
 
 
@@ -324,7 +329,10 @@ async def list_group_roles(
     return create_page(
         roles,
         params=params,
-        total=await Role.filter(group=group).prefetch_related("users", "permissions").all().count(),
+        total=await Role.filter(group=group)
+        .prefetch_related("users", "permissions")
+        .all()
+        .count(),
     )
 
 
@@ -617,9 +625,17 @@ async def list_group_role_users(
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
     offset = params.size * (params.page - 1)
-    role_users = await role.users.prefetch_related("user").all().limit(params.size).offset(offset)
+    role_users = (
+        await role.users.prefetch_related("user")
+        .all()
+        .limit(params.size)
+        .offset(offset)
+    )
     users = [
-        GroupUserOut(user=UserOut.from_orm(role_user.user), is_group_admin=role_user.is_group_admin)
+        GroupUserOut(
+            user=UserOut.from_orm(role_user.user),
+            is_group_admin=role_user.is_group_admin,
+        )
         for role_user in role_users
     ]
     return create_page(
@@ -739,14 +755,18 @@ async def list_group_users(
     )
     users = [
         GroupUserOut(
-            user=UserOut.from_orm(group_user.user), is_group_admin=group_user.is_group_admin
+            user=UserOut.from_orm(group_user.user),
+            is_group_admin=group_user.is_group_admin,
         )
         for group_user in group_users
     ]
     return create_page(
         users,
         params=params,
-        total=await GroupUser.filter(group=group).prefetch_related("user").all().count(),
+        total=await GroupUser.filter(group=group)
+        .prefetch_related("user")
+        .all()
+        .count(),
     )
 
 
@@ -819,7 +839,9 @@ async def get_group_user(
     group_user = await GroupUser.get_or_none(group=group, user=user_obj)
     if not group_user:
         raise HTTPException(status_code=404, detail="User not found in the group")
-    return GroupUserOut(user=UserOut.from_orm(user_obj), is_group_admin=group_user.is_group_admin)
+    return GroupUserOut(
+        user=UserOut.from_orm(user_obj), is_group_admin=group_user.is_group_admin
+    )
 
 
 @router_request(
@@ -860,7 +882,9 @@ async def update_group_user(
             continue
         setattr(group_user, key, value)
     await group_user.save()
-    return GroupUserOut(user=UserOut.from_orm(user_obj), is_group_admin=group_user.is_group_admin)
+    return GroupUserOut(
+        user=UserOut.from_orm(user_obj), is_group_admin=group_user.is_group_admin
+    )
 
 
 @router_request(
@@ -896,7 +920,9 @@ async def delete_group_user(
     if not group_user:
         raise HTTPException(status_code=404, detail="User not found in the group")
     await group_user.delete()
-    return GroupUserOut(user=UserOut.from_orm(user_obj), is_group_admin=group_user.is_group_admin)
+    return GroupUserOut(
+        user=UserOut.from_orm(user_obj), is_group_admin=group_user.is_group_admin
+    )
 
 
 @router_request(

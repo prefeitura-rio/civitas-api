@@ -45,7 +45,9 @@ router = APIRouter(
     path="/hint",
     response_model=list[str],
     responses={
-        400: {"description": "At least one of (placa, (start_time, end_time)) must be provided"}
+        400: {
+            "description": "At least one of (placa, (start_time, end_time)) must be provided"
+        }
     },
 )
 async def get_car_hint(
@@ -103,7 +105,10 @@ async def get_car_hint(
 
 
 @router_request(
-    method="GET", router=router, path="/monitored", response_model=Page[MonitoredPlateOut]
+    method="GET",
+    router=router,
+    path="/monitored",
+    response_model=Page[MonitoredPlateOut],
 )
 async def get_monitored_plates(
     user: Annotated[User, Depends(is_user)],
@@ -127,7 +132,9 @@ async def get_monitored_plates(
         operation = await Operation.get_or_none(id=operation_id)
         if not operation:
             raise HTTPException(status_code=404, detail="Operation not found")
-        monitored_plates_queryset = monitored_plates_queryset.filter(operation=operation)
+        monitored_plates_queryset = monitored_plates_queryset.filter(
+            operation=operation
+        )
     if operation_title:
         filtered = True
         monitored_plates_queryset = monitored_plates_queryset.filter(
@@ -138,9 +145,13 @@ async def get_monitored_plates(
         monitored_plates_queryset = monitored_plates_queryset.filter(active=active)
     if notification_channel_id:
         filtered = True
-        notification_channel = await NotificationChannel.get_or_none(id=notification_channel_id)
+        notification_channel = await NotificationChannel.get_or_none(
+            id=notification_channel_id
+        )
         if not notification_channel:
-            raise HTTPException(status_code=404, detail="Notification channel not found")
+            raise HTTPException(
+                status_code=404, detail="Notification channel not found"
+            )
         monitored_plates_queryset = monitored_plates_queryset.filter(
             notification_channels=notification_channel
         )
@@ -157,7 +168,9 @@ async def get_monitored_plates(
     if not filtered:
         monitored_plates_queryset = monitored_plates_queryset.all()
     monitored_plates_obj = (
-        await monitored_plates_queryset.order_by("plate").limit(params.size).offset(offset)
+        await monitored_plates_queryset.order_by("plate")
+        .limit(params.size)
+        .offset(offset)
     )
     monitored_plates_awaitables = [
         MonitoredPlateOut.from_monitored_plate(monitored_plate)
@@ -203,7 +216,9 @@ async def create_monitored_plate(
             for channel_id in plate_data.notification_channels:
                 channel = await NotificationChannel.get_or_none(id=channel_id)
                 if not channel:
-                    raise HTTPException(status_code=404, detail="Notification channel not found")
+                    raise HTTPException(
+                        status_code=404, detail="Notification channel not found"
+                    )
                 await monitored_plate.notification_channels.add(channel)
     return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
 
@@ -259,7 +274,9 @@ async def update_monitored_plate(
             if key == "additional_info":
                 # Additional info must be a Dict[str, str]
                 if not isinstance(value, dict):
-                    raise HTTPException(status_code=400, detail="additional_info must be a dict")
+                    raise HTTPException(
+                        status_code=400, detail="additional_info must be a dict"
+                    )
                 for k, v in value.items():
                     if not isinstance(k, str) or not isinstance(v, str):
                         raise HTTPException(
@@ -282,12 +299,14 @@ async def update_monitored_plate(
                 for channel_id in value:
                     if not isinstance(channel_id, UUID):
                         raise HTTPException(
-                            status_code=400, detail="notification_channels must be a list of UUIDs"
+                            status_code=400,
+                            detail="notification_channels must be a list of UUIDs",
                         )
                     channel = await NotificationChannel.get_or_none(id=channel_id)
                     if not channel:
                         raise HTTPException(
-                            status_code=404, detail=f"Notification channel '{channel_id}' not found"
+                            status_code=404,
+                            detail=f"Notification channel '{channel_id}' not found",
                         )
                     await monitored_plate.notification_channels.add(channel)
                 continue
@@ -393,7 +412,9 @@ async def get_multiple_plates_details(
     for plate in plates.plates:
         plate = plate.upper()
         if not validate_plate(plate):
-            raise HTTPException(status_code=400, detail=f"Invalid plate format: {plate}")
+            raise HTTPException(
+                status_code=400, detail=f"Invalid plate format: {plate}"
+            )
 
     # Get plates from our database
     plates_list = plates.plates
@@ -423,12 +444,16 @@ async def get_necessary_credits(
     request: Request,
 ):
     # Check, using the provided list of plates, how many aren't in our database
-    plates_data = await PlateData.filter(plate__in=plates.plates).values_list("plate", flat=True)
+    plates_data = await PlateData.filter(plate__in=plates.plates).values_list(
+        "plate", flat=True
+    )
     missing_plates = list(set(plates.plates) - set(plates_data))
     return CortexCreditsOut(credits=len(missing_plates))
 
 
-@router_request(method="GET", router=router, path="/radar", response_model=list[CarPassageOut])
+@router_request(
+    method="GET", router=router, path="/radar", response_model=list[CarPassageOut]
+)
 async def get_cars_by_radar(
     radar: str,
     start_time: datetime,

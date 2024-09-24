@@ -23,7 +23,9 @@ if not ALLOWED_ORIGINS and not ALLOWED_ORIGINS_REGEX:
     raise EnvironmentError("ALLOWED_ORIGINS or ALLOWED_ORIGINS_REGEX must be set.")
 ALLOWED_METHODS = getenv_list_or_action("ALLOWED_METHODS", action="raise")
 ALLOWED_HEADERS = getenv_list_or_action("ALLOWED_HEADERS", action="raise")
-ALLOW_CREDENTIALS = getenv_or_action("ALLOW_CREDENTIALS", action="raise").lower() == "true"
+ALLOW_CREDENTIALS = (
+    getenv_or_action("ALLOW_CREDENTIALS", action="raise").lower() == "true"
+)
 
 # Sentry
 SENTRY_ENABLE = getenv_or_action("SENTRY_ENABLE", action="ignore").lower() == "true"
@@ -46,7 +48,9 @@ GCP_SERVICE_ACCOUNT_CREDENTIALS = getenv_or_action(
 )
 
 # Embeddings API configuration
-EMBEDDING_API_BASE_URL = getenv_or_action("EMBEDDING_API_BASE_URL", action="raise").rstrip("/")
+EMBEDDING_API_BASE_URL = getenv_or_action(
+    "EMBEDDING_API_BASE_URL", action="raise"
+).rstrip("/")
 
 # Weaviate configuration
 WEAVIATE_BASE_URL = getenv_or_action("WEAVIATE_BASE_URL", action="raise").rstrip("/")
