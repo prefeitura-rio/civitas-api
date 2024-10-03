@@ -586,7 +586,11 @@ async def get_company_details(cnpj: str, cpf: str) -> CortexCompanyOut:
     # If we do, return it
     if company_data:
         logger.debug(f"Found CNPJ {cnpj} in our database. Returning cached data.")
-        return CortexCompanyOut(**company_data.data)
+        return CortexCompanyOut(
+            **company_data.data,
+            created_at=company_data.created_at,
+            updated_at=company_data.updated_at,
+        )
 
     # If we don't, try to fetch it from Cortex
     logger.debug(f"CNPJ {cnpj} not found in our database. Fetching data from Cortex.")
@@ -616,8 +620,10 @@ async def get_company_details(cnpj: str, cpf: str) -> CortexCompanyOut:
             )
 
     # Save the data to our database
-    await CompanyData.create(cnpj=cnpj, data=data)
-    return CortexCompanyOut(**data)
+    company_data = await CompanyData.create(cnpj=cnpj, data=data)
+    return CortexCompanyOut(
+        **data, created_at=company_data.created_at, updated_at=company_data.updated_at
+    )
 
 
 async def get_person_details(lookup_cpf: str, cpf: str) -> CortexPersonOut:
@@ -627,7 +633,11 @@ async def get_person_details(lookup_cpf: str, cpf: str) -> CortexPersonOut:
     # If we do, return it
     if person_data:
         logger.debug(f"Found CPF {lookup_cpf} in our database. Returning cached data.")
-        return CortexPersonOut(**person_data.data)
+        return CortexPersonOut(
+            **person_data.data,
+            created_at=person_data.created_at,
+            updated_at=person_data.updated_at,
+        )
 
     # If we don't, try to fetch it from Cortex
     logger.debug(
@@ -659,8 +669,10 @@ async def get_person_details(lookup_cpf: str, cpf: str) -> CortexPersonOut:
             )
 
     # Save the data to our database
-    await PersonData.create(cpf=lookup_cpf, data=data)
-    return CortexPersonOut(**data)
+    person_data = await PersonData.create(cpf=lookup_cpf, data=data)
+    return CortexPersonOut(
+        **data, created_at=person_data.created_at, updated_at=person_data.updated_at
+    )
 
 
 async def get_plate_details(plate: str, cpf: str) -> CortexPlacaOut:
@@ -670,7 +682,11 @@ async def get_plate_details(plate: str, cpf: str) -> CortexPlacaOut:
     # If we do, return it
     if plate_data:
         logger.debug(f"Found plate {plate} in our database. Returning cached data.")
-        return CortexPlacaOut(**plate_data.data)
+        return CortexPlacaOut(
+            **plate_data.data,
+            created_at=plate_data.created_at,
+            updated_at=plate_data.updated_at,
+        )
 
     # If we don't, try to fetch it from Cortex
     logger.debug(f"Plate {plate} not found in our database. Fetching data from Cortex.")
@@ -698,8 +714,10 @@ async def get_plate_details(plate: str, cpf: str) -> CortexPlacaOut:
             )
 
     # Save the data to our database
-    await PlateData.create(plate=plate, data=data)
-    return CortexPlacaOut(**data)
+    plate_data = await PlateData.create(plate=plate, data=data)
+    return CortexPlacaOut(
+        **data, created_at=plate_data.created_at, updated_at=plate_data.updated_at
+    )
 
 
 def get_bigquery_client() -> bigquery.Client:
