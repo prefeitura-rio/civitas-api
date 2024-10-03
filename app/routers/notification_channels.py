@@ -44,8 +44,8 @@ async def get_notification_channels(
         .offset(offset)
     )
     notification_channels = [
-        NotificationChannelOut.from_orm(monitored_plate)
-        for monitored_plate in notification_channels_obj
+        NotificationChannelOut.from_orm(notification_channel)
+        for notification_channel in notification_channels_obj
     ]
     return create_page(
         notification_channels,

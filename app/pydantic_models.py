@@ -153,6 +153,8 @@ class CortexPlacaOut(BaseModel):
     ufFatura: Optional[str]
     ufJurisdicaoVeiculo: Optional[str]
     valorIPVA: Optional[int]
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
 
 
 class CortexPlacasIn(BaseModel):
@@ -201,6 +203,8 @@ class CortexPersonOut(BaseModel):
     tituloEleitor: Optional[str]
     uf: Optional[str]
     ufNaturalidade: Optional[str]
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
 
 
 class CortexPeopleIn(BaseModel):
@@ -282,6 +286,8 @@ class CortexCompanyOut(BaseModel):
     telefone2: Optional[str]
     tipoLogradouro: Optional[str]
     uf: Optional[str]
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
 
 
 class CortexCompaniesIn(BaseModel):
@@ -440,6 +446,8 @@ class MonitoredPlateOut(BaseModel):
     notes: Optional[str] = None
     additional_info: Optional[dict] = None
     notification_channels: Optional[List["NotificationChannelOut"]] = []
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True
@@ -461,6 +469,8 @@ class MonitoredPlateOut(BaseModel):
                 NotificationChannelOut.from_orm(channel)
                 for channel in await monitored_plate.notification_channels.all()
             ],
+            created_at=monitored_plate.created_at,
+            updated_at=monitored_plate.updated_at,
         )
 
 
@@ -502,6 +512,8 @@ class NotificationChannelOut(BaseModel):
     channel_type: NotificationChannelTypeEnum
     parameters: dict
     active: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True
@@ -521,6 +533,8 @@ class OperationOut(BaseModel):
     id: UUID
     title: str
     description: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True
