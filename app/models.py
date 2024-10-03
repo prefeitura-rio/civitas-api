@@ -16,6 +16,7 @@ class CompanyData(Model):
     data = fields.JSONField()
     # TODO (future): Expire this data after a certain amount of time?
     created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
 
 
 @pre_save(CompanyData)
@@ -52,6 +53,8 @@ class MonitoredPlate(Model):
         related_name="monitored_plates",
         through="monitoredplate_notificationchannel",
     )
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
 
     async def to_dict(self):
         base_dict = dict(self)
@@ -67,6 +70,8 @@ class NotificationChannel(Model):
     channel_type = fields.CharEnumField(enum_type=NotificationChannelTypeEnum)
     parameters = fields.JSONField()
     active = fields.BooleanField(default=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
 
     @classmethod
     def get_params_model(cls, channel_type: str) -> Type[BaseModel]:
@@ -96,6 +101,8 @@ class Operation(Model):
     id = fields.UUIDField(pk=True)
     title = fields.CharField(max_length=100)
     description = fields.TextField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
 
 
 class PersonData(Model):
@@ -104,6 +111,7 @@ class PersonData(Model):
     data = fields.JSONField()
     # TODO (future): Expire this data after a certain amount of time?
     created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
 
 
 @pre_save(PersonData)
@@ -132,6 +140,7 @@ class PlateData(Model):
     data = fields.JSONField()
     # TODO (future): Expire this data after a certain amount of time?
     created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
 
 
 @pre_save(PlateData)
