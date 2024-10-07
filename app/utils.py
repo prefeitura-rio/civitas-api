@@ -423,7 +423,8 @@ def build_hint_query(
         str: The SQL query.
     """
 
-    placa = placa.upper().replace("*", "%")
+    # Treat * as a single character wildcard by converting it to _
+    placa = placa.upper().replace("*", "_")
 
     query = """
         SELECT
