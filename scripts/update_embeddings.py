@@ -185,7 +185,7 @@ def get_reports_since_last_update(
     if last_update:
         query += f"""
         AND {config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN} >
-            DATETIME(TIMESTAMP('{last_update}'))
+            TIMESTAMP('{last_update}')
         """
     query += f"""
         ORDER BY {config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN} ASC
