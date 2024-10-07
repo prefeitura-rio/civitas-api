@@ -124,11 +124,16 @@ async def get_me(request: Request, user: User = Depends(get_user)) -> UserOut:
     },
 )
 async def get_user_by_id(
-    request: Request, user_id: UUID, user: Annotated[User, Depends(is_admin)]
+    request: Request, user_id: UUID, user: Annotated[User, Depends(get_user)]
 ) -> UserOut:
     """
     Get user by ID
     """
+    if user_id != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This operation requires admin privileges.",
+        )
     user_obj = await User.get_or_none(id=user_id)
     if not user_obj:
         raise HTTPException(
@@ -147,11 +152,16 @@ async def get_user_by_id(
     },
 )
 async def get_user_cortex_remaining_credits(
-    request: Request, user_id: UUID, user: Annotated[User, Depends(is_admin)]
+    request: Request, user_id: UUID, user: Annotated[User, Depends(get_user)]
 ) -> UserCortexRemainingCreditOut:
     """
     Get user cortex remaining credits by ID
     """
+    if user_id != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This operation requires admin privileges.",
+        )
     user_obj = await User.get_or_none(id=user_id)
     if not user_obj:
         raise HTTPException(
@@ -182,7 +192,7 @@ async def get_user_cortex_remaining_credits(
 async def get_user_history(
     request: Request,
     user_id: UUID,
-    user: Annotated[User, Depends(is_admin)],
+    user: Annotated[User, Depends(get_user)],
     params: Params = Depends(),
     method: Optional[str] = None,
     path: Optional[str] = None,
@@ -193,6 +203,11 @@ async def get_user_history(
     """
     Get user history by ID
     """
+    if user_id != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This operation requires admin privileges.",
+        )
     user_obj = await User.get_or_none(id=user_id)
     if not user_obj:
         raise HTTPException(
