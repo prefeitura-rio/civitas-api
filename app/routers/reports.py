@@ -81,10 +81,10 @@ async def get_reports(
         categoria_contains=categoria_contains,
         descricao_contains=descricao_contains,
         keywords=keywords,
-        latitude_min=latitude_min if latitude_min else -90,
-        latitude_max=latitude_max if latitude_max else 90,
-        longitude_min=longitude_min if longitude_min else -180,
-        longitude_max=longitude_max if longitude_max else 180,
+        latitude_min=latitude_min,
+        latitude_max=latitude_max,
+        longitude_min=longitude_min,
+        longitude_max=longitude_max,
     )
 
     reports, total = await search_weaviate(
@@ -147,10 +147,10 @@ async def get_reports_dashboard_map(
             categoria_contains=categoria_contains,
             descricao_contains=descricao_contains,
             keywords=keywords,
-            latitude_min=latitude_min if latitude_min else -90,
-            latitude_max=latitude_max if latitude_max else 90,
-            longitude_min=longitude_min if longitude_min else -180,
-            longitude_max=longitude_max if longitude_max else 180,
+            latitude_min=latitude_min,
+            latitude_max=latitude_max,
+            longitude_min=longitude_min,
+            longitude_max=longitude_max,
         )
 
     # TODO: re-enable semantically similar search someday
@@ -229,10 +229,10 @@ async def get_reports_dashboard_timeline(
             categoria_contains=categoria_contains,
             descricao_contains=descricao_contains,
             keywords=keywords,
-            latitude_min=latitude_min if latitude_min else -90,
-            latitude_max=latitude_max if latitude_max else 90,
-            longitude_min=longitude_min if longitude_min else -180,
-            longitude_max=longitude_max if longitude_max else 180,
+            latitude_min=latitude_min,
+            latitude_max=latitude_max,
+            longitude_min=longitude_min,
+            longitude_max=longitude_max,
         )
 
     # TODO: re-enable semantically similar search someday
@@ -334,10 +334,10 @@ async def get_reports_dashboard_top_subtypes(
             categoria_contains=categoria_contains,
             descricao_contains=descricao_contains,
             keywords=keywords,
-            latitude_min=latitude_min if latitude_min else -90,
-            latitude_max=latitude_max if latitude_max else 90,
-            longitude_min=longitude_min if longitude_min else -180,
-            longitude_max=longitude_max if longitude_max else 180,
+            latitude_min=latitude_min,
+            latitude_max=latitude_max,
+            longitude_min=longitude_min,
+            longitude_max=longitude_max,
         )
 
     # TODO: re-enable semantically similar search someday
