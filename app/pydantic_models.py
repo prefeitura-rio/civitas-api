@@ -159,6 +159,7 @@ class CortexPlacaOut(BaseModel):
 
 class CortexPlacasIn(BaseModel):
     plates: List[str]
+    raise_for_errors: Optional[bool] = True
 
 
 class CortexIndiceNacionalPessoa(BaseModel):

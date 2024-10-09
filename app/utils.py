@@ -804,7 +804,9 @@ async def get_person_details(lookup_cpf: str, cpf: str) -> CortexPersonOut:
     )
 
 
-async def get_plate_details(plate: str, cpf: str) -> CortexPlacaOut:
+async def get_plate_details(
+    plate: str, cpf: str, raise_for_errors: bool = True
+) -> CortexPlacaOut | None:
     # Check if we already have this plate in our database
     plate_data = await PlateData.get_or_none(plate=plate)
 
@@ -828,19 +830,26 @@ async def get_plate_details(plate: str, cpf: str) -> CortexPlacaOut:
     if not success:
         if isinstance(data, aiohttp.ClientResponse):
             if data.status == 451:
-                raise HTTPException(
-                    status_code=451,
-                    detail="Unavailable for legal reasons. CPF might be blocked.",
-                )
+                if raise_for_errors:
+                    raise HTTPException(
+                        status_code=451,
+                        detail="Unavailable for legal reasons. CPF might be blocked.",
+                    )
+                return None
             else:
+                if raise_for_errors:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Something unexpected happened to Cortex API",
+                    )
+                return None
+        else:
+            if raise_for_errors:
                 raise HTTPException(
                     status_code=500,
                     detail="Something unexpected happened to Cortex API",
                 )
-        else:
-            raise HTTPException(
-                status_code=500, detail="Something unexpected happened to Cortex API"
-            )
+            return None
 
     # Save the data to our database
     plate_data = await PlateData.create(plate=plate, data=data)

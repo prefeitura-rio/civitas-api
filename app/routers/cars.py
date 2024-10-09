@@ -412,7 +412,7 @@ async def get_car_path(
     method="GET",
     router=router,
     path="/plate/{plate}",
-    response_model=CortexPlacaOut,
+    response_model=CortexPlacaOut | None,
     responses={
         400: {"detail": "Invalid plate format"},
         451: {"detail": "Unavailable for legal reasons. CPF might be blocked."},
@@ -436,7 +436,7 @@ async def get_plate_details(
     method="POST",
     router=router,
     path="/plates",
-    response_model=List[CortexPlacaOut],
+    response_model=List[CortexPlacaOut | None],
 )
 async def get_multiple_plates_details(
     plates: CortexPlacasIn,
@@ -459,7 +459,9 @@ async def get_multiple_plates_details(
     for i in range(0, len(plates_list), 10):
         plates_details += await asyncio.gather(
             *[
-                utils_get_plate_details(plate=plate, cpf=user.cpf)
+                utils_get_plate_details(
+                    plate=plate, cpf=user.cpf, raise_for_errors=plates.raise_for_errors
+                )
                 for plate in plates_list[i : i + 10]
             ]
         )
