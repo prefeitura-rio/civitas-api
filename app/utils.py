@@ -32,6 +32,7 @@ from app.pydantic_models import (
     CortexCompanyOut,
     CortexPersonOut,
     CortexPlacaOut,
+    NPlatesBeforeAfterOut,
     RadarOut,
     ReportFilters,
     ReportsMetadata,
@@ -457,6 +458,133 @@ def build_hint_query(
     )
 
     return query
+
+
+def build_n_plates_query(
+    placa: str,
+    min_datetime: pendulum.DateTime,
+    max_datetime: pendulum.DateTime,
+    n: int,
+) -> Tuple[str, List[bigquery.ScalarQueryParameter]]:
+    """
+    Build a SQL query to fetch N plates before and after a plate within a time range.
+
+    Args:
+        placa (str): The vehicle license plate.
+        min_datetime (pendulum.DateTime): The minimum datetime of the range.
+        max_datetime (pendulum.DateTime): The maximum datetime of the range.
+        n (int): The number of plates before and after.
+
+    Returns:
+        Tuple[str, List[bigquery.ScalarQueryParameter]]: The SQL query and the query parameters.
+    """
+    try:
+        min_datetime = min_datetime.in_tz(config.TIMEZONE)
+        max_datetime = max_datetime.in_tz(config.TIMEZONE)
+    except ValueError:
+        raise ValueError("Invalid datetime range")
+    query = """
+    WITH all_readings AS (
+        SELECT
+            placa,
+            tipoveiculo,
+            velocidade,
+            DATETIME(datahora, 'America/Sao_Paulo') AS datahora_local,
+            camera_numero,
+            empresa,
+            camera_latitude AS latitude,
+            camera_longitude AS longitude,
+            DATETIME(datahora_captura, 'America/Sao_Paulo') AS datahora_captura,
+            ROW_NUMBER() OVER (PARTITION BY placa, datahora ORDER BY datahora) AS row_num_duplicate
+        FROM `rj-cetrio.ocr_radar.readings_*`
+        WHERE
+            DATETIME(datahora, "America/Sao_Paulo")
+            BETWEEN DATETIME_SUB(@start_datetime, INTERVAL 1 DAY)
+            AND DATETIME_ADD(@end_datetime, INTERVAL 1 DAY)
+        ORDER BY datahora
+    ),
+
+    clean_reading AS (
+        SELECT
+            placa,
+            tipoveiculo,
+            velocidade,
+            datahora_local,
+            camera_numero,
+            empresa,
+            latitude,
+            longitude,
+            datahora_captura,
+            ROW_NUMBER() OVER (PARTITION BY camera_numero ORDER BY datahora_local) AS row_num
+        FROM all_readings
+        WHERE row_num_duplicate = 1
+    ),
+
+    selected AS (
+        SELECT
+            placa,
+            tipoveiculo,
+            velocidade,
+            datahora_local,
+            camera_numero,
+            empresa,
+            latitude,
+            longitude,
+            datahora_captura,
+            row_num AS selected_row_num,
+        FROM clean_reading
+        WHERE placa = @plate
+            AND datahora_local
+            BETWEEN @start_datetime
+            AND @end_datetime
+    ),
+
+    before_and_after AS (
+        SELECT
+            a.*
+        FROM clean_reading a
+        JOIN selected s
+            ON a.camera_numero = s.camera_numero
+            AND (a.row_num BETWEEN s.selected_row_num - @N AND s.selected_row_num + @N)
+    ),
+
+    loc AS (
+        SELECT
+            t2.camera_numero,
+            t1.locequip,
+            t1.bairro,
+            CAST(t1.latitude AS FLOAT64) AS latitude,
+            CAST(t1.longitude AS FLOAT64) AS longitude
+        FROM `rj-cetrio.ocr_radar.equipamento` t1
+        JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
+            ON t1.codcet = t2.codcet
+    )
+
+    SELECT
+        b.placa,
+        b.tipoveiculo,
+        b.velocidade,
+        b.datahora_local,
+        b.camera_numero,
+        b.empresa,
+        COALESCE(b.latitude, l.latitude) AS latitude,
+        COALESCE(b.longitude, l.longitude) AS longitude,
+        b.datahora_captura,
+        b.row_num,
+        l.locequip,
+        l.bairro,
+    FROM before_and_after b
+    LEFT JOIN loc l
+        ON b.camera_numero = l.camera_numero
+    ORDER BY b.camera_numero, b.datahora_local;
+    """
+    query_params = [
+        bigquery.ScalarQueryParameter("plate", "STRING", placa),
+        bigquery.ScalarQueryParameter("start_datetime", "DATETIME", min_datetime),
+        bigquery.ScalarQueryParameter("end_datetime", "DATETIME", max_datetime),
+        bigquery.ScalarQueryParameter("N", "INT64", n),
+    ]
+    return query, query_params
 
 
 def build_positions_query(
@@ -1100,6 +1228,55 @@ async def get_hints(
     data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
     hints = sorted(list(set([row["placa"] for row in data])))
     return hints
+
+
+def get_n_plates_before_and_after(
+    placa: str,
+    min_datetime: pendulum.DateTime,
+    max_datetime: pendulum.DateTime,
+    n: int,
+) -> List[NPlatesBeforeAfterOut]:
+    """
+    Fetch N plates before and after a plate within a time range.
+
+    Args:
+        placa (str): The vehicle license plate.
+        min_datetime (pendulum.DateTime): The minimum datetime of the range.
+        max_datetime (pendulum.DateTime): The maximum datetime of the range.
+        n (int): The number of plates.
+
+    Returns:
+        List[NPlatesBeforeAfterOut]: The plates.
+    """
+    query, query_params = build_n_plates_query(
+        placa=placa,
+        min_datetime=min_datetime,
+        max_datetime=max_datetime,
+        n=n,
+    )
+    bq_client = get_bigquery_client()
+    job_config = bigquery.QueryJobConfig(query_parameters=query_params)
+    query_job = bq_client.query(query, job_config=job_config)
+    data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
+    n_before_after = []
+    for page in data.pages:
+        for row in page:
+            row: Row
+            row_data = dict(row.items())
+            n_before_after.append(
+                NPlatesBeforeAfterOut(
+                    placa=row_data["placa"],
+                    velocidade=row_data["velocidade"],
+                    timestamp=pendulum.instance(
+                        row_data["datahora_local"], tz=config.TIMEZONE
+                    ),
+                    camera_numero=row_data["camera_numero"],
+                    latitude=row_data["latitude"],
+                    longitude=row_data["longitude"],
+                )
+            )
+            n_before_after.append(row_data)
+    return n_before_after
 
 
 async def get_positions(

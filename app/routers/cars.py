@@ -23,9 +23,15 @@ from app.pydantic_models import (
     MonitoredPlateIn,
     MonitoredPlateOut,
     MonitoredPlateUpdate,
+    NPlatesBeforeAfterOut,
     Path,
 )
-from app.utils import get_car_by_radar, get_hints, get_path
+from app.utils import (
+    get_car_by_radar,
+    get_hints,
+    get_path,
+    get_n_plates_before_and_after as utils_get_n_plates_before_and_after,
+)
 from app.utils import get_plate_details as utils_get_plate_details
 from app.utils import validate_plate
 
@@ -337,6 +343,35 @@ async def delete_monitored_plate(
         raise HTTPException(status_code=404, detail="Plate not found")
     await monitored_plate.delete()
     return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
+
+
+@router_request(
+    method="GET",
+    router=router,
+    path="/n_before_after",
+    response_model=list[NPlatesBeforeAfterOut],
+)
+async def get_n_plates_before_and_after(
+    placa: str,
+    start_time: datetime,
+    end_time: datetime,
+    n: int,
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+):
+    # Parse start_time and end_time to pendulum.DateTime
+    start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
+    start_time = start_time.in_tz(config.TIMEZONE)
+    end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
+    end_time = end_time.in_tz(config.TIMEZONE)
+
+    logger.debug(f"Date range: {start_time} - {end_time}")
+
+    # Get n plates before and after
+    placa = placa.upper()
+    return utils_get_n_plates_before_and_after(
+        placa=placa, min_datetime=start_time, max_datetime=end_time, n=n
+    )
 
 
 @router_request(method="GET", router=router, path="/path", response_model=list[Path])

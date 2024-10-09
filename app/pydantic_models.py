@@ -524,6 +524,15 @@ class NotificationChannelUpdate(BaseModel):
     active: Optional[bool] = None
 
 
+class NPlatesBeforeAfterOut(BaseModel):
+    placa: str
+    velocidade: float
+    timestamp: Optional[datetime]
+    camera_numero: str
+    latitude: float
+    longitude: float
+
+
 class OperationIn(BaseModel):
     title: str
     description: Optional[str] = None
