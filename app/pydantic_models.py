@@ -527,7 +527,7 @@ class NotificationChannelUpdate(BaseModel):
 class NPlatesBeforeAfterOut(BaseModel):
     placa: str
     velocidade: float
-    timestamp: Optional[datetime]
+    timestamp: datetime
     camera_numero: str
     latitude: float
     longitude: float

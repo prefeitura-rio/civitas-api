@@ -1263,17 +1263,8 @@ def get_n_plates_before_and_after(
         for row in page:
             row: Row
             row_data = dict(row.items())
-            n_before_after.append(
-                NPlatesBeforeAfterOut(
-                    placa=row_data["placa"],
-                    velocidade=row_data["velocidade"],
-                    timestamp=pendulum.instance(
-                        row_data["datahora_local"], tz=config.TIMEZONE
-                    ),
-                    camera_numero=row_data["camera_numero"],
-                    latitude=row_data["latitude"],
-                    longitude=row_data["longitude"],
-                )
+            row_data["timestamp"] = pendulum.instance(
+                row_data["datahora_local"], tz=config.TIMEZONE
             )
             n_before_after.append(row_data)
     return n_before_after
