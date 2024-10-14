@@ -2,7 +2,6 @@
 import sys
 from contextlib import asynccontextmanager
 
-import orjson as json
 import sentry_sdk
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -151,22 +150,22 @@ async def healthcheck(request: Request):
         logger.error(f"Failed to ping Redis: {exc}")
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content=json.dumps({"status": "Service Unavailable"}),
+            content={"status": "Service Unavailable"},
         )
     # Check if authentik is available
     try:
         async with AsyncClient(timeout=None) as client:
             response = await client.get(f"{config.OIDC_BASE_URL}/-/health/live/")
             response.raise_for_status()
-            assert response.status_code == 204
+            assert response.status_code >= 200 and response.status_code < 300
             response = await client.get(f"{config.OIDC_BASE_URL}/-/health/ready/")
             response.raise_for_status()
-            assert response.status_code == 204
+            assert response.status_code >= 200 and response.status_code < 300
     except Exception as exc:
         logger.warning(f"Failed to ping authentik: {exc}")
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content=json.dumps({"status": "Service Unavailable"}),
+            content={"status": "Service Unavailable"},
         )
     return {"status": "OK"}
 
