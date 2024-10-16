@@ -512,7 +512,7 @@ def build_n_plates_query(
             CAST(t1.longitude AS FLOAT64) AS longitude,
             TRIM(
             REGEXP_REPLACE(
-                REGEXP_REPLACE(t1.locequip, r'^(.*?) -.*', r'\1'), -- Remove the part after " -"
+                REGEXP_REPLACE(t1.locequip, r'^(.*?) -.*', r'\\1'), -- Remove the part after " -"
                 r'\s+', ' ') -- Remove extra spaces
             ) AS locequip,
             COALESCE(CONCAT(' - SENTIDO ', sentido), '') AS sentido,
