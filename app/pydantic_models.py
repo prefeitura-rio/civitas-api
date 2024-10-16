@@ -525,13 +525,24 @@ class NotificationChannelUpdate(BaseModel):
     active: Optional[bool] = None
 
 
+class NPlatesBeforeAfterDetection(BaseModel):
+    timestamp: Optional[datetime] = None
+    plate: str
+    camera_numero: Optional[str] = None
+    lane: Optional[str] = None
+    speed: Optional[float] = None
+    count: Optional[int] = None
+
+
 class NPlatesBeforeAfterOut(BaseModel):
-    placa: str
-    velocidade: float
-    timestamp: datetime
-    camera_numero: str
-    latitude: float
-    longitude: float
+    radars: List[str] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    location: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    total_detections: Optional[int] = None
+    detections: List[NPlatesBeforeAfterDetection] = None
 
 
 class OperationIn(BaseModel):
