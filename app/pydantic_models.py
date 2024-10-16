@@ -536,12 +536,12 @@ class NPlatesBeforeAfterDetection(BaseModel):
 
 class NPlatesBeforeAfterOut(BaseModel):
     radars: List[str] = None
-    startTime: Optional[datetime] = None
-    endTime: Optional[datetime] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
     location: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    totalDetections: Optional[int] = None
+    total_detections: Optional[int] = None
     detections: List[NPlatesBeforeAfterDetection] = None
 
 
