@@ -498,8 +498,8 @@ def build_n_plates_query(
         FROM `rj-cetrio.ocr_radar.readings_*`
         WHERE
             DATETIME(datahora, "America/Sao_Paulo")
-            BETWEEN DATETIME_SUB(@start_datetime, INTERVAL 1 DAY)
-            AND DATETIME_ADD(@end_datetime, INTERVAL 1 DAY)
+            BETWEEN DATETIME(DATETIME_SUB(@start_datetime, INTERVAL 1 DAY), "America/Sao_Paulo")
+            AND DATETIME(DATETIME_ADD(@end_datetime, INTERVAL 1 DAY), "America/Sao_Paulo")
         QUALIFY(row_num_duplicate) = 1
     ),
 
@@ -578,8 +578,8 @@ def build_n_plates_query(
         WHERE
             placa = @plate
             AND datahora_local
-            BETWEEN @start_datetime
-            AND @end_datetime
+            BETWEEN DATETIME(@start_datetime, "America/Sao_Paulo")
+            AND DATETIME(@end_datetime, "America/Sao_Paulo")
     ),
     -- Look for records before and after the selected reading time
     before_and_after AS (
@@ -659,8 +659,8 @@ def build_n_plates_query(
     """
     query_params = [
         bigquery.ScalarQueryParameter("plate", "STRING", placa),
-        bigquery.ScalarQueryParameter("start_datetime", "DATETIME", min_datetime),
-        bigquery.ScalarQueryParameter("end_datetime", "DATETIME", max_datetime),
+        bigquery.ScalarQueryParameter("start_datetime", "TIMESTAMP", min_datetime),
+        bigquery.ScalarQueryParameter("end_datetime", "TIMESTAMP", max_datetime),
         bigquery.ScalarQueryParameter("N", "INT64", n),
     ]
     return query, query_params
@@ -1351,9 +1351,6 @@ def get_n_plates_before_and_after(
         for row in page:
             row: Row
             row_data = dict(row.items())
-            row_data["timestamp"] = pendulum.instance(
-                row_data["datahora_local"], tz=config.TIMEZONE
-            )
             n_before_after.append(row_data)
     logger.debug(f"Raw data: {n_before_after}")
     return n_before_after
