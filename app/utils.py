@@ -464,7 +464,8 @@ def build_n_plates_query(
     placa: str,
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-    n: int,
+    n_minutes: int,
+    n_plates: int,
 ) -> Tuple[str, List[bigquery.ScalarQueryParameter]]:
     """
     Build a SQL query to fetch N plates before and after a plate within a time range.
@@ -473,7 +474,8 @@ def build_n_plates_query(
         placa (str): The vehicle license plate.
         min_datetime (pendulum.DateTime): The minimum datetime of the range.
         max_datetime (pendulum.DateTime): The maximum datetime of the range.
-        n (int): The number of plates before and after.
+        n_minutes (int): The number of minutes before and after.
+        n_plates (int): The number of plates before and after.
 
     Returns:
         Tuple[str, List[bigquery.ScalarQueryParameter]]: The SQL query and the query parameters.
@@ -484,6 +486,7 @@ def build_n_plates_query(
     except ValueError:
         raise ValueError("Invalid datetime range")
     query = """
+    -- Select all radar readings
     WITH all_readings AS (
         SELECT
             placa,
@@ -503,7 +506,8 @@ def build_n_plates_query(
         QUALIFY(row_num_duplicate) = 1
     ),
 
-    all_loc AS (
+    -- Get all unique locations and associated information
+    unique_locations AS (
         SELECT
             t1.codcet,
             t2.camera_numero,
@@ -528,17 +532,19 @@ def build_n_plates_query(
         JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
             ON t1.codcet = t2.codcet
     ),
+
     -- Select unique coordinates for each location
-    loc AS (
+    unique_location_coordinates  AS (
         SELECT
             hashed_coordinates,
             locequip,
             ROW_NUMBER() OVER(PARTITION BY hashed_coordinates) rn
-        FROM all_loc
+        FROM unique_locations
         QUALIFY(rn) = 1
     ),
+
     -- Group radar information with readings
-    group_radars AS (
+    radar_group AS (
         SELECT
             l.camera_numero,
             l.codcet,
@@ -549,8 +555,8 @@ def build_n_plates_query(
             l.sentido,
             l.hashed_coordinates
         FROM
-            all_loc l
-            JOIN loc b ON l.hashed_coordinates = b.hashed_coordinates
+            unique_locations l
+            JOIN unique_location_coordinates  b ON l.hashed_coordinates = b.hashed_coordinates
         WHERE
             -- Ensure there is at least one reading for each radar
             EXISTS (
@@ -561,8 +567,9 @@ def build_n_plates_query(
                 WHERE l.camera_numero = c.camera_numero
             )
     ),
+
     -- Select specific readings for the desired license plate
-    selected AS (
+    selected_readings AS (
         SELECT
             b.hashed_coordinates,
             a.placa,
@@ -573,15 +580,19 @@ def build_n_plates_query(
             a.latitude,
             a.longitude,
             a.datahora_captura,
+            ROW_NUMBER() OVER(PARTITION BY a.placa ORDER BY a.datahora_local) n_deteccao,
+            DATETIME_SUB(a.datahora_local, INTERVAL @N_minutes MINUTE) AS datahora_inicio,
+            DATETIME_ADD(a.datahora_local, INTERVAL @N_minutes MINUTE) AS datahora_fim
         FROM all_readings a
-        JOIN group_radars b ON a.camera_numero = b.camera_numero
+        JOIN radar_group b ON a.camera_numero = b.camera_numero
         WHERE
-            placa = @plate
+            a.placa = @plate
             AND datahora_local
             BETWEEN DATETIME(@start_datetime, "America/Sao_Paulo")
             AND DATETIME(@end_datetime, "America/Sao_Paulo")
     ),
-    -- Look for records before and after the selected reading time
+
+    -- Look for records before and after the selected_readings reading time
     before_and_after AS (
         SELECT
             l.codcet,
@@ -589,79 +600,170 @@ def build_n_plates_query(
             l.locequip,
             l.bairro,
             l.sentido,
-            a.*
+            a.*,
+            s.n_deteccao
         FROM
             all_readings a
-        JOIN group_radars l ON a.camera_numero = l.camera_numero
-        JOIN selected s ON l.hashed_coordinates = s.hashed_coordinates
+        JOIN radar_group l ON a.camera_numero = l.camera_numero
+        JOIN selected_readings s ON l.hashed_coordinates = s.hashed_coordinates
             AND (
                 a.datahora_local BETWEEN
-                    DATETIME_SUB(s.datahora_local, INTERVAL @N MINUTE)
-                    AND DATETIME_ADD(s.datahora_local, INTERVAL @N MINUTE)
+                    s.datahora_inicio AND s.datahora_fim
             )
     ),
-    -- Count occurrences of plates in 'before_and_after'
-    qty_occurrences AS (
-        SELECT
-            placa,
-            COUNT(placa) `count`
-        FROM
-            before_and_after
-        GROUP BY ALL
-    ),
+
     -- Aggregate final results
     aggregations AS (
         SELECT
+            b.n_deteccao AS id_detection,
+            s.datahora_local AS detection_time, -- group by each plate detection
             b.hashed_coordinates AS id_camera_groups,
             ARRAY(
                 SELECT
                     g.camera_numero
                 FROM
-                    group_radars g
+                    radar_group g
                 WHERE g.hashed_coordinates = b.hashed_coordinates
             ) AS radars,
-            DATETIME_SUB(s.datahora_local, INTERVAL @N MINUTE) AS start_time,
-            DATETIME_ADD(s.datahora_local, INTERVAL @N MINUTE) AS end_time,
             CONCAT(b.locequip, b.sentido, ' - ', b.bairro) AS location,
             b.latitude AS latitude,
             b.longitude AS longitude,
             ARRAY_AGG(
                 STRUCT(
                     b.datahora_local AS `timestamp`,
-                    b.placa AS plate,
+                    b.placa,
                     b.camera_numero,
                     RIGHT(b.codcet, 1) AS lane,
-                    b.velocidade AS speed,
-                    o.`count`
+                    b.velocidade AS speed
                 )
                 ORDER BY
                     b.datahora_local) as detections -- Organize detections by date/time
         FROM before_and_after b
-        JOIN qty_occurrences o ON b.placa = o.placa
-        JOIN selected s ON b.hashed_coordinates = s.hashed_coordinates
+        JOIN selected_readings s ON b.hashed_coordinates = s.hashed_coordinates AND b.n_deteccao = s.n_deteccao
         GROUP BY all
+    ),
+
+    -- Order detection results
+    detection_orders AS (
+        SELECT
+            a.id_detection,
+            a.id_camera_groups,
+            a.radars,
+            a.detection_time,
+            a.location,
+            a.latitude,
+            a.longitude,
+            d.*,
+            ROW_NUMBER() OVER(PARTITION BY a.id_detection ORDER BY d.timestamp) AS detection_order
+        FROM
+            aggregations a
+            JOIN UNNEST(a.detections) d
+    ),
+
+    -- Select the specific detection orders for the target plate
+    selected_orders AS (
+        SELECT
+            id_detection,
+            detection_order
+        FROM
+        -- Order detection results
+            detection_orders
+        WHERE
+            placa = @plate
+    ),
+
+    -- Final query to aggregate results
+    final_results AS (
+        SELECT
+            a.id_detection,
+            a.id_camera_groups,
+            a.radars,
+            a.detection_time,
+            DATETIME_SUB(a.detection_time, INTERVAL @N_minutes MINUTE) AS start_time,
+            DATETIME_ADD(a.detection_time, INTERVAL @N_minutes MINUTE) AS end_time,
+            a.location,
+            a.latitude,
+            a.longitude,
+            a.timestamp,
+            a.placa AS plate,
+            a.camera_numero,
+            a.lane,
+            a.speed,
+            COUNT(a.placa) AS `count`
+        FROM
+        -- Order detection results
+            detection_orders a
+        JOIN
+            selected_orders b
+        ON
+            a.id_detection = b.id_detection
+        WHERE
+            a.detection_order BETWEEN b.detection_order - @N_plates AND b.detection_order + @N_plates
+        GROUP BY ALL
+    ),
+
+    -- Count plates in the final results
+    plates_count AS  (
+        SELECT
+            plate,
+            COUNT(plate) AS `count`
+        FROM
+            final_results
+        GROUP BY ALL
+    ),
+
+    -- Final aggregation of results into an array
+    final_array_agg AS (
+        SELECT
+            a.id_detection,
+            a.id_camera_groups,
+            a.radars,
+            a.detection_time,
+            a.start_time,
+            a.end_time,
+            a.location,
+            a.latitude,
+            a.longitude,
+            ARRAY_AGG(
+            STRUCT(
+                a.timestamp,
+                a.plate,
+                a.camera_numero,
+                a.lane,
+                a.speed,
+                b.count
+            )
+            ORDER BY a.timestamp
+            ) AS detections
+        FROM
+            final_results a
+        JOIN
+            plates_count b
+        ON a.plate = b.plate
+        GROUP BY ALL
     )
-    -- Select the final results from the aggregation
+
+    -- Final selection to retrieve results
     SELECT
         id_camera_groups,
         radars,
+        detection_time,
         start_time,
         end_time,
         location,
         latitude,
         longitude,
-        ARRAY_LENGTH(detections) AS total_detections,
-        detections,
+        ARRAY_LENGTH(detections) AS total_detection,
+        detections
     FROM
-        aggregations
-    ORDER BY
-        start_time
+        final_array_agg
     """
     query_params = [
         bigquery.ScalarQueryParameter("plate", "STRING", placa),
         bigquery.ScalarQueryParameter("start_datetime", "TIMESTAMP", min_datetime),
         bigquery.ScalarQueryParameter("end_datetime", "TIMESTAMP", max_datetime),
-        bigquery.ScalarQueryParameter("N", "INT64", n),
+        bigquery.ScalarQueryParameter("N_minutes", "INT64", n_minutes),
+        bigquery.ScalarQueryParameter("N_plates", "INT64", n_plates),
     ]
     return query, query_params
 
@@ -1322,7 +1424,8 @@ def get_n_plates_before_and_after(
     placa: str,
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-    n: int,
+    n_minutes: int,
+    n_plates: int,
 ) -> List[NPlatesBeforeAfterOut]:
     """
     Fetch N plates before and after a plate within a time range.
@@ -1331,7 +1434,8 @@ def get_n_plates_before_and_after(
         placa (str): The vehicle license plate.
         min_datetime (pendulum.DateTime): The minimum datetime of the range.
         max_datetime (pendulum.DateTime): The maximum datetime of the range.
-        n (int): The number of plates.
+        n_minutes (int): The number of minutes.
+        n_plates (int): The number of plates.
 
     Returns:
         List[NPlatesBeforeAfterOut]: The plates.
@@ -1340,7 +1444,8 @@ def get_n_plates_before_and_after(
         placa=placa,
         min_datetime=min_datetime,
         max_datetime=max_datetime,
-        n=n,
+        n_minutes=n_minutes,
+        n_plates=n_plates,
     )
     bq_client = get_bigquery_client()
     job_config = bigquery.QueryJobConfig(query_parameters=query_params)

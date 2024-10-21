@@ -525,9 +525,10 @@ async def get_n_plates_before_and_after(
     placa: str,
     start_time: datetime,
     end_time: datetime,
-    n: int,
+    n_minutes: int,
     user: Annotated[User, Depends(is_user)],
     request: Request,
+    n_plates: int = 10,
 ):
     # Parse start_time and end_time to pendulum.DateTime
     start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
@@ -540,7 +541,11 @@ async def get_n_plates_before_and_after(
     # Get n plates before and after
     placa = placa.upper()
     return utils_get_n_plates_before_and_after(
-        placa=placa, min_datetime=start_time, max_datetime=end_time, n=n
+        placa=placa,
+        min_datetime=start_time,
+        max_datetime=end_time,
+        n_minutes=n_minutes,
+        n_plates=n_plates,
     )
 
 
