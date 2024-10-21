@@ -14,12 +14,20 @@ from tortoise.transactions import in_transaction
 from app import config
 from app.decorators import router_request
 from app.dependencies import has_cpf, is_user
-from app.models import MonitoredPlate, NotificationChannel, Operation, PlateData, User
+from app.models import (
+    MonitoredPlate,
+    NotificationChannel,
+    Operation,
+    PlateData,
+    User,
+    UserHistory,
+)
 from app.pydantic_models import (
     CarPassageOut,
     CortexCreditsOut,
     CortexPlacaOut,
     CortexPlacasIn,
+    MonitoredPlateHistory,
     MonitoredPlateIn,
     MonitoredPlateOut,
     MonitoredPlateUpdate,
@@ -227,6 +235,168 @@ async def create_monitored_plate(
                     )
                 await monitored_plate.notification_channels.add(channel)
     return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
+
+
+@router_request(
+    method="GET",
+    router=router,
+    path="/monitored/history",
+    response_model=Page[MonitoredPlateHistory],
+)
+async def get_monitored_plates_history(
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+    params: Params = Depends(),
+    plate: str = None,
+    start_time_create: datetime = None,
+    end_time_create: datetime = None,
+    start_time_delete: datetime = None,
+    end_time_delete: datetime = None,
+):
+    # Parse start_time and end_time to pendulum.DateTime
+    if start_time_create:
+        start_time_create = DateTime.instance(start_time_create, tz=config.TIMEZONE)
+        start_time_create = start_time_create.in_tz(config.TIMEZONE)
+    if end_time_create:
+        end_time_create = DateTime.instance(end_time_create, tz=config.TIMEZONE)
+        end_time_create = end_time_create.in_tz(config.TIMEZONE)
+    if start_time_delete:
+        start_time_delete = DateTime.instance(start_time_delete, tz=config.TIMEZONE)
+        start_time_delete = start_time_delete.in_tz(config.TIMEZONE)
+    if end_time_delete:
+        end_time_delete = DateTime.instance(end_time_delete, tz=config.TIMEZONE)
+        end_time_delete = end_time_delete.in_tz(config.TIMEZONE)
+
+    # Get minimum datetime
+    min_datetime = None
+    if all([start_time_create, start_time_delete]):
+        min_datetime = min(start_time_create, start_time_delete)
+    elif start_time_create:
+        min_datetime = start_time_create
+    elif start_time_delete:
+        min_datetime = start_time_delete
+
+    # Get maximum datetime
+    max_datetime = None
+    if all([end_time_create, end_time_delete]):
+        max_datetime = max(end_time_create, end_time_delete)
+    elif end_time_create:
+        max_datetime = end_time_create
+    elif end_time_delete:
+        max_datetime = end_time_delete
+
+    # Filter history
+    history = UserHistory.filter(
+        path__contains="/cars/monitored",
+        status_code__gte=200,
+        status_code__lt=300,
+        method__in=["POST", "DELETE"],
+    )
+    if min_datetime:
+        history = history.filter(timestamp__gte=min_datetime)
+    if max_datetime:
+        history = history.filter(timestamp__lte=max_datetime)
+
+    # Get history
+    history_objs = await history.order_by("-timestamp").all()
+
+    # Filter by plate
+    if plate:
+        history_objs = [
+            history_obj
+            for history_obj in history_objs
+            if plate in history_obj.path
+            or (
+                plate in history_obj.body.get("plate", "")
+                if history_obj.body
+                else False
+            )
+        ]
+
+    # Filter by start_time_create and end_time_create
+    if start_time_create:
+        history_objs = [
+            history_obj
+            for history_obj in history_objs
+            if history_obj.timestamp >= start_time_create
+        ]
+    if end_time_create:
+        history_objs = [
+            history_obj
+            for history_obj in history_objs
+            if history_obj.timestamp <= end_time_create
+        ]
+
+    # Filter by start_time_delete and end_time_delete
+    if start_time_delete:
+        history_objs = [
+            history_obj
+            for history_obj in history_objs
+            if history_obj.timestamp >= start_time_delete
+        ]
+    if end_time_delete:
+        history_objs = [
+            history_obj
+            for history_obj in history_objs
+            if history_obj.timestamp <= end_time_delete
+        ]
+
+    # Parse into plate history
+    plates = {}
+    for history_obj in history_objs:
+        if history_obj.method == "POST":
+            if history_obj.body:
+                plate = history_obj.body.get("plate")
+                if plate:
+                    if plate not in plates:
+                        plates[plate] = {
+                            "plate": plate,
+                            "created_timestamp": history_obj.timestamp,
+                            "created_by": await history_obj.user,
+                            "deleted_timestamp": None,
+                            "deleted_by": None,
+                            "notes": history_obj.body.get("notes")
+                            if history_obj.body.get("notes")
+                            else None,
+                        }
+                    else:
+                        plates[plate]["created_timestamp"] = history_obj.timestamp
+                        plates[plate]["created_by"] = await history_obj.user
+                        plates[plate]["notes"] = (
+                            history_obj.body.get("notes")
+                            if history_obj.body.get("notes")
+                            else None
+                        )
+        elif history_obj.method == "DELETE":
+            plate = history_obj.path.split("/")[-1]
+            if plate:
+                if plate not in plates:
+                    plates[plate] = {
+                        "plate": plate,
+                        "created_timestamp": None,
+                        "created_by": None,
+                        "deleted_timestamp": history_obj.timestamp,
+                        "deleted_by": await history_obj.user,
+                        "notes": None,
+                    }
+                else:
+                    plates[plate]["deleted_timestamp"] = history_obj.timestamp
+                    plates[plate]["deleted_by"] = await history_obj.user
+
+    # Generate results
+    plates = list(plates.values())
+    plates.sort(key=lambda plate: plate["plate"])
+
+    # Paginate
+    offset = params.size * (params.page - 1)
+    total = len(plates)
+    plates = plates[offset : offset + params.size]
+
+    return create_page(
+        [MonitoredPlateHistory(**plate) for plate in plates],
+        params=params,
+        total=total,
+    )
 
 
 @router_request(

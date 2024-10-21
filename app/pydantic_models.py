@@ -475,6 +475,15 @@ class MonitoredPlateOut(BaseModel):
         )
 
 
+class MonitoredPlateHistory(BaseModel):
+    plate: str
+    notes: Optional[str] = None
+    created_timestamp: datetime
+    created_by: "UserOut"
+    deleted_timestamp: Optional[datetime] = None
+    deleted_by: Optional["UserOut"] = None
+
+
 class MonitoredPlateUpdate(BaseModel):
     plate: Optional[str] = Field(default=None)
     operation_id: Optional[UUID] = None
@@ -706,3 +715,4 @@ class WazeAlertOut(BaseModel):
 
 
 MonitoredPlateOut.update_forward_refs()
+MonitoredPlateHistory.update_forward_refs()
