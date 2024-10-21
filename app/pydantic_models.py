@@ -550,6 +550,7 @@ class NPlatesBeforeAfterOut(BaseModel):
     location: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    detection_time: Optional[datetime] = None
     total_detections: Optional[int] = None
     detections: List[NPlatesBeforeAfterDetection] = None
 

@@ -753,7 +753,7 @@ def build_n_plates_query(
         location,
         latitude,
         longitude,
-        ARRAY_LENGTH(detections) AS total_detection,
+        ARRAY_LENGTH(detections) AS total_detections,
         detections
     FROM
         final_array_agg
