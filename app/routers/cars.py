@@ -296,7 +296,7 @@ async def get_monitored_plates_history(
     ),
     plate_deleting_history AS (
         SELECT
-            split_part(path, '/', -1) AS plate,
+            reverse(split_part(reverse(path), '/'::text, 1)) AS plate,
             timestamp AS deleted_timestamp,
             user_id::text AS deleted_by
         FROM userhistory
