@@ -37,7 +37,6 @@ from app.utils import (
     get_car_by_radar,
     get_hints,
     get_path,
-    get_monitored_plates_history as utils_get_monitored_plates_history,
     get_n_plates_before_and_after as utils_get_n_plates_before_and_after,
 )
 from app.utils import get_plate_details as utils_get_plate_details
@@ -257,29 +256,121 @@ async def get_monitored_plates_history(
     if start_time_create:
         start_time_create = DateTime.instance(start_time_create, tz=config.TIMEZONE)
         start_time_create = start_time_create.in_tz(config.TIMEZONE)
+    else:
+        start_time_create = DateTime(1970, 1, 1)
     if end_time_create:
         end_time_create = DateTime.instance(end_time_create, tz=config.TIMEZONE)
         end_time_create = end_time_create.in_tz(config.TIMEZONE)
+    else:
+        end_time_create = DateTime.now(tz=config.TIMEZONE)
     if start_time_delete:
         start_time_delete = DateTime.instance(start_time_delete, tz=config.TIMEZONE)
         start_time_delete = start_time_delete.in_tz(config.TIMEZONE)
+    else:
+        start_time_delete = DateTime(1970, 1, 1)
     if end_time_delete:
         end_time_delete = DateTime.instance(end_time_delete, tz=config.TIMEZONE)
         end_time_delete = end_time_delete.in_tz(config.TIMEZONE)
+    else:
+        end_time_delete = DateTime.now(tz=config.TIMEZONE)
 
-    # Get monitored plates history
-    plates = await utils_get_monitored_plates_history(
-        start_time_create=start_time_create,
-        end_time_create=end_time_create,
-        start_time_delete=start_time_delete,
-        end_time_delete=end_time_delete,
-        plate=plate,
+    plate_filter = ""
+    if plate:
+        plate_filter = " AND (add_history.plate = $7 OR del_history.plate = $7)"
+
+    offset = (params.page - 1) * params.size
+    query = f"""
+    WITH plate_adding_history AS (
+        SELECT
+            body->>'plate' AS plate,
+            body->>'notes' AS notes,
+            timestamp AS created_timestamp,
+            user_id::text AS created_by
+        FROM userhistory
+        WHERE path = '/cars/monitored'
+            AND status_code >= 200
+            AND status_code < 300
+            AND method = 'POST'
+            AND timestamp >= $1
+            AND timestamp <= $2
+    ),
+    plate_deleting_history AS (
+        SELECT
+            split_part(path, '/', -1) AS plate,
+            timestamp AS deleted_timestamp,
+            user_id::text AS deleted_by
+        FROM userhistory
+        WHERE path LIKE '/cars/monitored/%'
+            AND status_code >= 200
+            AND status_code < 300
+            AND method = 'DELETE'
+            AND timestamp >= $3
+            AND timestamp <= $4
+    ),
+    final_history AS (
+        SELECT
+            COALESCE(add_history.plate, del_history.plate) AS plate,
+            add_history.created_timestamp,
+            add_history.created_by,
+            del_history.deleted_timestamp,
+            del_history.deleted_by,
+            add_history.notes
+        FROM plate_adding_history add_history
+        FULL OUTER JOIN plate_deleting_history del_history
+        ON add_history.plate = del_history.plate
+        WHERE TRUE {plate_filter}  -- Dynamic plate filter if needed
+        ORDER BY COALESCE(add_history.created_timestamp, del_history.deleted_timestamp) DESC
     )
+    SELECT
+        *,
+        COUNT(*) OVER() AS total
+    FROM final_history
+    OFFSET $5
+    LIMIT $6;
+    """
+    # Execute raw SQL query using Tortoise-ORM
+    async with in_transaction() as conn:
+        logger.debug(f"Connection: {conn}")
+        args = [
+            start_time_create,
+            end_time_create,
+            start_time_delete,
+            end_time_delete,
+            offset,
+            params.size,
+        ]
+        if plate:
+            args.append(plate)
+        _, results = await conn.execute_query(query, args)
+        total = results[0]["total"]
+        logger.debug(f"Results: {results}")
 
-    # Paginate
-    offset = params.size * (params.page - 1)
-    total = len(plates)
-    plates = plates[offset : offset + params.size]
+    # Format results into dict
+    user_ids = set()
+    for result in results:
+        if result["created_by"]:
+            user_ids.add(result["created_by"])
+        if result["deleted_by"]:
+            user_ids.add(result["deleted_by"])
+    user_ids = list(user_ids)
+    user_awaitables = [User.get_or_none(id=user_id) for user_id in user_ids]
+    users = await asyncio.gather(*user_awaitables)
+    users_dict = {str(user.id): user for user in users}
+    plates = [
+        {
+            "plate": result["plate"],
+            "created_timestamp": result["created_timestamp"],
+            "created_by": users_dict[result["created_by"]]
+            if result["created_by"]
+            else None,
+            "deleted_timestamp": result["deleted_timestamp"],
+            "deleted_by": users_dict[result["deleted_by"]]
+            if result["deleted_by"]
+            else None,
+            "notes": result["notes"],
+        }
+        for result in results
+    ]
 
     return create_page(
         [MonitoredPlateHistory(**plate) for plate in plates],
