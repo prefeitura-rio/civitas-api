@@ -478,8 +478,8 @@ class MonitoredPlateOut(BaseModel):
 class MonitoredPlateHistory(BaseModel):
     plate: str
     notes: Optional[str] = None
-    created_timestamp: datetime
-    created_by: "UserOut"
+    created_timestamp: Optional[datetime] = None
+    created_by: Optional["UserOut"] = None
     deleted_timestamp: Optional[datetime] = None
     deleted_by: Optional["UserOut"] = None
 
