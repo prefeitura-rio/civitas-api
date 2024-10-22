@@ -20,7 +20,6 @@ from app.models import (
     Operation,
     PlateData,
     User,
-    UserHistory,
 )
 from app.pydantic_models import (
     CarPassageOut,
@@ -38,6 +37,7 @@ from app.utils import (
     get_car_by_radar,
     get_hints,
     get_path,
+    get_monitored_plates_history as utils_get_monitored_plates_history,
     get_n_plates_before_and_after as utils_get_n_plates_before_and_after,
 )
 from app.utils import get_plate_details as utils_get_plate_details
@@ -267,125 +267,14 @@ async def get_monitored_plates_history(
         end_time_delete = DateTime.instance(end_time_delete, tz=config.TIMEZONE)
         end_time_delete = end_time_delete.in_tz(config.TIMEZONE)
 
-    # Get minimum datetime
-    min_datetime = None
-    if all([start_time_create, start_time_delete]):
-        min_datetime = min(start_time_create, start_time_delete)
-    elif start_time_create:
-        min_datetime = start_time_create
-    elif start_time_delete:
-        min_datetime = start_time_delete
-
-    # Get maximum datetime
-    max_datetime = None
-    if all([end_time_create, end_time_delete]):
-        max_datetime = max(end_time_create, end_time_delete)
-    elif end_time_create:
-        max_datetime = end_time_create
-    elif end_time_delete:
-        max_datetime = end_time_delete
-
-    # Filter history
-    history = UserHistory.filter(
-        path__contains="/cars/monitored",
-        status_code__gte=200,
-        status_code__lt=300,
-        method__in=["POST", "DELETE"],
+    # Get monitored plates history
+    plates = await utils_get_monitored_plates_history(
+        start_time_create=start_time_create,
+        end_time_create=end_time_create,
+        start_time_delete=start_time_delete,
+        end_time_delete=end_time_delete,
+        plate=plate,
     )
-    if min_datetime:
-        history = history.filter(timestamp__gte=min_datetime)
-    if max_datetime:
-        history = history.filter(timestamp__lte=max_datetime)
-
-    # Get history
-    history_objs = await history.order_by("-timestamp").all()
-
-    # Filter by plate
-    if plate:
-        history_objs = [
-            history_obj
-            for history_obj in history_objs
-            if plate in history_obj.path
-            or (
-                plate in history_obj.body.get("plate", "")
-                if history_obj.body
-                else False
-            )
-        ]
-
-    # Filter by start_time_create and end_time_create
-    if start_time_create:
-        history_objs = [
-            history_obj
-            for history_obj in history_objs
-            if history_obj.timestamp >= start_time_create
-        ]
-    if end_time_create:
-        history_objs = [
-            history_obj
-            for history_obj in history_objs
-            if history_obj.timestamp <= end_time_create
-        ]
-
-    # Filter by start_time_delete and end_time_delete
-    if start_time_delete:
-        history_objs = [
-            history_obj
-            for history_obj in history_objs
-            if history_obj.timestamp >= start_time_delete
-        ]
-    if end_time_delete:
-        history_objs = [
-            history_obj
-            for history_obj in history_objs
-            if history_obj.timestamp <= end_time_delete
-        ]
-
-    # Parse into plate history
-    plates = {}
-    for history_obj in history_objs:
-        if history_obj.method == "POST":
-            if history_obj.body:
-                plate = history_obj.body.get("plate")
-                if plate:
-                    if plate not in plates:
-                        plates[plate] = {
-                            "plate": plate,
-                            "created_timestamp": history_obj.timestamp,
-                            "created_by": await history_obj.user,
-                            "deleted_timestamp": None,
-                            "deleted_by": None,
-                            "notes": history_obj.body.get("notes")
-                            if history_obj.body.get("notes")
-                            else None,
-                        }
-                    else:
-                        plates[plate]["created_timestamp"] = history_obj.timestamp
-                        plates[plate]["created_by"] = await history_obj.user
-                        plates[plate]["notes"] = (
-                            history_obj.body.get("notes")
-                            if history_obj.body.get("notes")
-                            else None
-                        )
-        elif history_obj.method == "DELETE":
-            plate = history_obj.path.split("/")[-1]
-            if plate:
-                if plate not in plates:
-                    plates[plate] = {
-                        "plate": plate,
-                        "created_timestamp": None,
-                        "created_by": None,
-                        "deleted_timestamp": history_obj.timestamp,
-                        "deleted_by": await history_obj.user,
-                        "notes": None,
-                    }
-                else:
-                    plates[plate]["deleted_timestamp"] = history_obj.timestamp
-                    plates[plate]["deleted_by"] = await history_obj.user
-
-    # Generate results
-    plates = list(plates.values())
-    plates.sort(key=lambda plate: plate["plate"])
 
     # Paginate
     offset = params.size * (params.page - 1)

@@ -66,6 +66,9 @@ CACHE_WAZE_ALERTS_TTL = int(getenv_or_action("CACHE_WAZE_ALERTS_TTL", default=60
 CACHE_CAR_BY_RADAR_TTL = int(getenv_or_action("CACHE_CAR_BY_RADAR_TTL", default=60 * 5))
 CACHE_CAMERAS_COR_TTL = int(getenv_or_action("CACHE_CAMERAS_COR_TTL", default=60 * 5))
 CACHE_FOGOCRUZADO_TTL = int(getenv_or_action("CACHE_FOGOCRUZADO_TTL", default=60 * 5))
+CACHE_MONITORED_PLATES_HISTORY_TTL = int(
+    getenv_or_action("CACHE_MONITORED_PLATES_HISTORY_TTL", default=60 * 5)
+)
 CACHE_REPORTS_METADATA_TTL = int(
     getenv_or_action("CACHE_REPORTS_METADATA_TTL", default=60 * 15)
 )
