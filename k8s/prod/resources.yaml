@@ -6,7 +6,7 @@ metadata:
   name: update-embeddings-prod
   namespace: civitas
 spec:
-  schedule: "*/15 * * * *" # Every 15 minutes
+  schedule: "*/5 * * * *" # Every 5 minutes
   jobTemplate:
     spec:
       template:
