@@ -79,7 +79,8 @@ def build_get_car_by_radar_query(
     Returns:
         str: The SQL query.
     """
-    plate_hint = plate_hint.upper().replace("*", "%") if plate_hint else None
+    # Treat * as a single character wildcard by converting it to _
+    plate_hint = plate_hint.upper().replace("*", "_") if plate_hint else None
 
     query = """
         SELECT
