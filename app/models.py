@@ -46,6 +46,7 @@ class MonitoredPlate(Model):
     )
     plate = fields.CharField(max_length=7)
     active = fields.BooleanField(default=True)
+    contact_info = fields.TextField(null=True)
     notes = fields.TextField(null=True)
     additional_info = fields.JSONField(null=True)
     notification_channels = fields.ManyToManyField(

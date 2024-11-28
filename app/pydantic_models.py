@@ -418,6 +418,7 @@ class MonitoredPlateIn(BaseModel):
     plate: str = Field(...)
     operation_id: UUID
     active: Optional[bool] = True
+    contact_info: Optional[str] = None
     notes: Optional[str] = None
     additional_info: Optional[dict] = None
     notification_channels: Optional[List[UUID]] = None
@@ -444,6 +445,7 @@ class MonitoredPlateOut(BaseModel):
     plate: str
     operation: Optional["OperationOut"] = None
     active: bool
+    contact_info: Optional[str] = None
     notes: Optional[str] = None
     additional_info: Optional[dict] = None
     notification_channels: Optional[List["NotificationChannelOut"]] = []
@@ -464,6 +466,7 @@ class MonitoredPlateOut(BaseModel):
                 else None
             ),
             active=monitored_plate.active,
+            contact_info=monitored_plate.contact_info,
             notes=monitored_plate.notes,
             additional_info=monitored_plate.additional_info,
             notification_channels=[
@@ -477,6 +480,7 @@ class MonitoredPlateOut(BaseModel):
 
 class MonitoredPlateHistory(BaseModel):
     plate: str
+    contact_info: Optional[str] = None
     notes: Optional[str] = None
     created_timestamp: Optional[datetime] = None
     created_by: Optional["UserOut"] = None
@@ -488,6 +492,7 @@ class MonitoredPlateUpdate(BaseModel):
     plate: Optional[str] = Field(default=None)
     operation_id: Optional[UUID] = None
     active: Optional[bool] = None
+    contact_info: Optional[str] = None
     notes: Optional[str] = None
     additional_info: Optional[dict] = None
     notification_channels: Optional[List[UUID]] = None
