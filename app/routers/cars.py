@@ -222,6 +222,7 @@ async def create_monitored_plate(
             operation=operation,
             plate=plate_data.plate,
             active=plate_data.active,
+            contact_info=plate_data.contact_info,
             notes=plate_data.notes,
             additional_info=plate_data.additional_info,
         )
@@ -367,6 +368,7 @@ async def get_monitored_plates_history(
             "deleted_by": users_dict[result["deleted_by"]]
             if result["deleted_by"]
             else None,
+            "contact_info": result["contact_info"],
             "notes": result["notes"],
         }
         for result in results
