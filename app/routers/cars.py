@@ -368,7 +368,6 @@ async def get_monitored_plates_history(
             "deleted_by": users_dict[result["deleted_by"]]
             if result["deleted_by"]
             else None,
-            "contact_info": result["contact_info"],
             "notes": result["notes"],
         }
         for result in results
