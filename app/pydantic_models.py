@@ -720,5 +720,45 @@ class WazeAlertOut(BaseModel):
     longitude: float
 
 
+class PdfReportCorrelatedPlatesDataDetection(BaseModel):
+    timestamp: datetime
+    plate: str
+    camera_numero: str
+    lane: str
+    speed: float
+    count: int
+
+
+class PdfReportCorrelatedPlatesData(BaseModel):
+    radars: List[str]
+    start_time: datetime
+    end_time: datetime
+    location: str
+    latitude: float
+    longitude: float
+    detection_time: datetime
+    total_detections: int
+    detections: List[PdfReportCorrelatedPlatesDataDetection]
+
+
+class PdfReportCorrelatedPlatesParams(BaseModel):
+    plate: str
+    start_time: datetime
+    end_time: datetime
+    n_minutes: int
+    n_plates: int
+
+
+class PdfReportCorrelatedPlatesRanking(BaseModel):
+    plate: str
+    count: int
+
+
+class PdfReportCorrelatedPlatesIn(BaseModel):
+    report_data: List[PdfReportCorrelatedPlatesData] = []
+    params: PdfReportCorrelatedPlatesParams
+    ranking: List[PdfReportCorrelatedPlatesRanking] = []
+
+
 MonitoredPlateOut.update_forward_refs()
 MonitoredPlateHistory.update_forward_refs()
