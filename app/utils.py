@@ -83,14 +83,14 @@ def build_get_car_by_radar_query(
     plate_hint = plate_hint.upper().replace("*", "_") if plate_hint else None
 
     query = """
-        SELECT
+        SELECT DISTINCT
             placa,
             DATETIME(datahora, "America/Sao_Paulo") AS datahora,
             velocidade
         FROM `rj-cetrio.ocr_radar.readings_*`
         WHERE
-            DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
-            AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
+            datahora >= TIMESTAMP("{{min_datetime}}", "America/Sao_Paulo")
+            AND datahora <= TIMESTAMP("{{max_datetime}}", "America/Sao_Paulo")
     """.replace("{{min_datetime}}", min_datetime.to_datetime_string()).replace(
         "{{max_datetime}}", max_datetime.to_datetime_string()
     )

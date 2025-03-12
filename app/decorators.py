@@ -15,7 +15,7 @@ def router_request(
     method: str,
     router: APIRouter,
     path: str,
-    response_model: Any,
+    response_model: Optional[Any] = None,
     responses: Optional[Dict[Union[int, str], Dict[str, Any]]] = None,
 ):
     def decorator(f):

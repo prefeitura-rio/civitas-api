@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import traceback
+from pathlib import Path
 from typing import Dict
 from urllib.request import urlopen
 
@@ -166,3 +167,6 @@ UPDATE_EMBEDDINGS_BATCH_SIZE = int(
 UPDATE_EMBEDDINGS_DEBUG_DISCORD_WEBHOOK = getenv_or_action(
     "UPDATE_EMBEDDINGS_DEBUG_DISCORD_WEBHOOK", action="raise"
 )
+
+# Assets directory
+ASSETS_DIR = Path(__file__).parent.parent / "assets"
