@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ styles_base_path }}">
+    
+    <!-- Emulates pagination in browser -->
+    <script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"></script>
+        
+    {% block extra_styles %}
+    <!-- Specific styles for each report can be added here -->
+    {% endblock %}
+</head>
+<body>
+    <!-- Header that will appear on all pages -->
+    <div id="header">
+        <table class="header-table">
+            <tr>
+                <td style="width: 30%; text-align: center; vertical-align: middle;">
+                    <div class="logo-container">
+                        <img src="{{ logo_prefeitura_path }}" alt="CIVITAS logo" style="width: 70px; vertical-align: middle;">
+                        <img src="{{ logo_civitas_path }}" alt="CIVITAS logo" style="width: 120px; vertical-align: middle;">
+                    </div>
+                </td>
+                <td style="width: 70%; text-align: center; font-size: 20px; font-weight: bold;">
+                    {{ report_title }}
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">ID: {{ report_id }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="report">
+        {% block content %}
+        <!-- Here is where each specific report will put its content -->
+        {% endblock %}
+    </div>
+
+    <!-- Button to toggle between paginated and continuous mode -->
+    <button class="toggle-pagination" id="togglePagination">Toggle Pagination</button>
+    
+    <script>
+        document.getElementById('togglePagination').addEventListener('click', function() {
+            // Check if Paged.js is already active
+            const isPaged = document.querySelector('.pagedjs_pages');
+            
+            if (isPaged) {
+                // Reload the page to disable Paged.js
+                location.reload();
+            } else {
+                // Manually start Paged.js
+                window.PagedPolyfill.preview();
+            }
+        });
+    </script>
+</body>
+</html>
