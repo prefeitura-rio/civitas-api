@@ -548,6 +548,6 @@ async def generate_report_multiple_correlated_plates(
     return StreamingResponse(
         iterfile(file_path),
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={template_context["report_id"]}.pdf"},
+        headers={"Content-Disposition": f"attachment; filename={template_context['report_id']}.pdf"},
     )
     
