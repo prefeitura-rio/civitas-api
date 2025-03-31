@@ -170,3 +170,22 @@ UPDATE_EMBEDDINGS_DEBUG_DISCORD_WEBHOOK = getenv_or_action(
 
 # Assets directory
 ASSETS_DIR = Path(__file__).parent.parent / "assets"
+
+# Vehicle types mapping
+VEHICLE_TYPES_MAPPING = {
+        "automovel": "automovel",
+        "AUTOMÓVEL": "automovel",
+        "ciclomotor": "ciclomotor",
+        "indefinido": "indefinido",
+        "INDEFINIDO": "indefinido",
+        "onibus": "onibus",
+        "ÔNIBUS": "onibus",
+        "caminhao": "caminhao",
+        "CAMINHÃO": "caminhao",
+        "MOTO": "moto",
+        "CAMINHÃO / ÔNIBUS": "caminhao_onibus",
+    }
+
+# PDF report paths
+HTML_TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
+STYLES_BASE_PATH = HTML_TEMPLATES_DIR / "styles_base.css"

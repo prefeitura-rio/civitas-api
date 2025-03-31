@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, root_validator, validator
@@ -759,6 +759,42 @@ class PdfReportCorrelatedPlatesIn(BaseModel):
     params: PdfReportCorrelatedPlatesParams
     ranking: List[PdfReportCorrelatedPlatesRanking] = []
 
+
+class RequestedPlateData(BaseModel):
+    plate: str
+    start: datetime
+    end: datetime
+    n_minutes: Optional[int] = None
+    n_plates: Optional[int] = None
+    target_id: Optional[int] = None
+
+
+class PdfReportMultipleCorrelatedPlatesIn(BaseModel):
+    requested_plates_data: List[RequestedPlateData]
+    n_minutes: int = Field(gt=0, le=20, description="Must be between 1 and 20")
+    n_plates: Optional[int] = Field(gt=0, description="Must be greater than 0")
+    min_different_targets: int = Field(gt=0, description="Must be greater than 0")
+    vehicle_types: List[str] = Field(description="Must be a list of vehicle types")
+    before_after: Optional[Literal["before", "after"]]
+    report_title: str = "Relatório de Identificação de Veículos"
+    
+    
+class DetectionWindow(BaseModel):
+    plate: str
+    camera_number: str
+    detection_index: int
+    target_id: int
+    n_minutes: int
+    n_plates: Optional[int] = None
+    start_time: datetime
+    end_time: datetime
+    local_detection_datetime: datetime
+    start_window: datetime
+    end_window: datetime
+    
+class DetectionWindowList(BaseModel):
+    detection_window_list: List[DetectionWindow]
+    
 
 MonitoredPlateOut.update_forward_refs()
 MonitoredPlateHistory.update_forward_refs()

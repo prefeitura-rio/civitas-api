@@ -64,6 +64,7 @@ db.sqlite3-journal
 # Flask stuff:
 instance/
 .webassets-cache
+app/assets/grafo.png
 
 # Scrapy stuff:
 .scrapy
@@ -133,4 +134,7 @@ dmypy.json
 
 # Sandbox scripts
 /sandbox*.py
+
+# User files
+tmp/
 
