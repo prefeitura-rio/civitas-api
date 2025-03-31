@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import asyncio
 from typing import Annotated, Optional
 from uuid import uuid4
 
@@ -11,8 +12,11 @@ from app import config
 from app.decorators import router_request
 from app.dependencies import is_user
 from app.models import User
-from app.pydantic_models import PdfReportCorrelatedPlatesIn
+from app.pydantic_models import PdfReportCorrelatedPlatesIn, PdfReportMultipleCorrelatedPlatesIn
+from app.services.pdf.multiple_correlated_plates import DataService, GraphService, PdfService
+from app.utils import generate_report_id, generate_pdf_report_from_html_template
 
+from loguru import logger # TODO: remove import and all logger calls on this file
 
 class CustomPDF(FPDF):
     def __init__(self, report_id: Optional[str] = None, *args, **kwargs):
@@ -73,12 +77,6 @@ class CustomPDF(FPDF):
         self.ln(5)
 
 
-def generate_report_id():
-    now_dt = now(tz=config.TIMEZONE)
-    code = f"{now_dt.year}{str(now_dt.month).zfill(2)}{str(now_dt.day).zfill(2)}.{str(now_dt.hour).zfill(2)}{str(now_dt.minute).zfill(2)}{str(now_dt.second).zfill(2)}{str(now_dt.microsecond // 1000).zfill(3)}"  # noqa
-    return code
-
-
 router = APIRouter(
     prefix="/pdf",
     tags=["PDF reports"],
@@ -96,7 +94,7 @@ async def generate_report_correlated_plates(
     data: PdfReportCorrelatedPlatesIn,
 ) -> StreamingResponse:
     # Setup PDF
-    report_id = generate_report_id()
+    report_id = await generate_report_id()
     pdf = CustomPDF(report_id=report_id)
     pdf.add_page()
     pdf.set_font("Times", size=11)
@@ -507,3 +505,49 @@ async def generate_report_correlated_plates(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={report_id}.pdf"},
     )
+
+
+@router_request(method="POST", router=router, path="/multiple-correlated-plates")
+async def generate_report_multiple_correlated_plates(
+    request: Request,
+    user: Annotated[User, Depends(is_user)],
+    data: PdfReportMultipleCorrelatedPlatesIn,
+) -> str:
+    
+    data_service = DataService()
+    
+    correlated_detections = await data_service.get_correlations(
+        data=data,
+    )
+    
+    graph_service = GraphService()
+    pdf_service = PdfService()
+    await pdf_service.initialize(data=data)
+    
+    await asyncio.gather(
+        graph_service.create_graph(dataframe=correlated_detections, limit_nodes=20),
+        pdf_service.set_detections(correlated_detections=correlated_detections),
+        pdf_service.set_detailed_detections(correlated_detections=correlated_detections)
+    )
+    await graph_service.to_png()
+    
+    template_context = await pdf_service.get_template_context()
+    
+    file_path = await generate_pdf_report_from_html_template(
+        context=template_context,
+        template_relative_path="pdf/multiple_correlated_plates.html",
+    )
+    
+    def iterfile(path: str):
+        logger.info(f"Streaming PDF file.")
+        with open(path, mode="rb") as f:
+            yield from f
+            
+        logger.info(f"PDF file streamed.")
+
+    return StreamingResponse(
+        iterfile(file_path),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={template_context["report_id"]}.pdf"},
+    )
+    
