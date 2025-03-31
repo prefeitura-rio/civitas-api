@@ -2,6 +2,7 @@
 from datetime import datetime
 from typing import Dict, List, Literal, Optional
 from uuid import UUID
+from enum import Enum
 
 from pydantic import BaseModel, Field, root_validator, validator
 
@@ -769,12 +770,25 @@ class RequestedPlateData(BaseModel):
     target_id: Optional[int] = None
 
 
+class VehicleType(str, Enum):
+    AUTOMOVEL = 'automovel'
+    CAMINHAO = 'caminhao'
+    CAMINHAO_ONIBUS = 'caminhao_onibus'
+    CICLOMOTOR = 'ciclomotor'
+    INDEFINIDO = 'indefinido'
+    MOTO = 'moto'
+    ONIBUS = 'onibus'
+    
+    
 class PdfReportMultipleCorrelatedPlatesIn(BaseModel):
     requested_plates_data: List[RequestedPlateData]
     n_minutes: int = Field(gt=0, le=20, description="Must be between 1 and 20")
     n_plates: Optional[int] = Field(gt=0, description="Must be greater than 0")
     min_different_targets: int = Field(gt=0, description="Must be greater than 0")
-    vehicle_types: List[str] = Field(description="Must be a list of vehicle types")
+    vehicle_types: List[VehicleType] = Field(
+        default=[VehicleType.AUTOMOVEL, VehicleType.INDEFINIDO],
+        description="Must be a list of vehicle types."
+    )
     before_after: Optional[Literal["before", "after"]]
     report_title: str = "Relatório de Identificação de Veículos"
     
