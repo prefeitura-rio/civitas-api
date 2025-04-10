@@ -1,0 +1,227 @@
+{% extends "pdf/template_base.html" %}
+
+{% block content %}
+
+<div class="disclaimer">
+    <div class="estrutura-relatorio">
+        <h3><b>Estrutura do Relatório</b></h3>
+        <p>Este relatório utiliza dados provenientes de radares para identificar veículos que passaram nas proximidades
+            de múltiplas placas demandadas pelas autoridades de segurança.</p>
+        <p>O processo ocorre em quatro etapas:</p>
+
+        <ol>
+            <li>A autoridade policial fornece a lista de placas demandadas</li>
+            <li>Para cada placa demandada, são identificados veículos que passaram nos mesmos radares nos mesmos
+                períodos</li>
+            <li>Compara-se se algum desses veículos também esteve próximo de outra placa demandada em outro momento</li>
+            <li>Gera-se um ranking dos veículos que mais passaram perto de múltiplas placas demandadas</li>
+        </ol>
+    </div>
+
+    <div class="parametros-busca">
+        <h3><b>Parâmetros de Busca</b></h3>
+        <ul>
+            <li><b>Placas demandadas</b></li>
+                <p>Lista de placas demandadas pelas autoridades de segurança.</p>
+
+            <li><b>Data inicial e final</b></li>
+                <p>Intervalo de tempo para a busca de detecções de passagem das placas demandadas.</p>
+
+            <li><b>Intervalo de tempo</b></li>
+                <p>As buscas por placas conjuntas podem ser feitas até cinco minutos antes e cinco minutos depois da passagem da placa principal
+                    monitorada.
+                <p>A escolha dos parâmetros é feita pelo solicitante da informação.</p>
+                <p>Quando não há informação sobre o período de busca na solicitação, o operador da Civitas utiliza o intervalo padrão definido nas diretrizes operacionais internas (três minutos antes e três minutos depois).</p>
+
+            <li><b>Detecções anteriores, posteriores ou ambas</b></li>
+                <p>Define se o intervalo de tempo para a busca por placas conjuntas é anterior, posterior ou ambos à passagem das placas demandadas.</p>
+                <p>O padrão é buscar ambas as detecções.</p>
+
+            <li><b>Quantidade mínima de placas de interesse diferentes</b></li>
+                <p>Define a quantidade mínima de placas de interesse diferentes que devem ser encontradas para que seja gerado um ranking de veículos.</p>
+
+            <li><b>Tipos de veículos</b></li>
+                <p>Tipos de veículos a serem considerados para o relatório.</p>
+                <p>Os tipos de veículos são:</p>
+                <ul>
+                    <li>Automóvel</li>
+                    <li>Caminhão</li>
+                    <li>Caminhão / Ônibus</li>
+                    <li>Ciclomotor</li>
+                    <li>Indefinido</li>
+                    <li>Moto</li>
+                    <li>Ônibus</li>
+                </ul>
+                <p>A definição de cada tipo de veículo é feita utilizando visão computacional através dos radares.</p>
+                <p>O tipo de veículo é definido como "indefinido" caso não seja possível classificar o veículo.</p>
+        </ul>
+    </div>
+
+    <div class="instrucoes-relatorio">
+        <h3><b>Como Ler o Relatório</b></h3>
+        <p style="color: red;">DESENVOLVER</p>
+    </div>
+
+    <div class="limitacoes-relatorio">
+        <h3><b>Limitações do Relatório</b></h3>
+        <ul>
+            <li><b>Período disponível</b></li>
+                <p>A base de dados dos Sistema conta com um histórico de detecções a partir da data de 01/06/2024. Não é possível realizar buscas a
+                    períodos anteriores.</p>
+
+            <li><b>Ausência de detecção</b></li>
+                <p>A falta de registro de uma placa não significa, necessariamente, que o veículo não passou pelo local. A leitura de OCR pode ser
+                    inviabilizada em algumas circunstâncias, tais como: mau estado de conservação das placas, objetos obstruindo as câmeras de leitura,
+                    condições climáticas, período de inatividade do equipamento entre outros.</p>
+                <p>O relatório não é exaustivo e a falta de registro de uma determinada placa não é determinante para comprovar que não houve a
+                    passagem naquela localidade.</p>
+
+            <li><b>Distância entre radares</b></li>
+                <p>O relatório não indica trajetos percorridos entre as detecções.</p>
+        </ul>
+    </div>
+</div>
+
+<div class="parametros-gerais page-break">
+    <h3><b>Parâmetros Gerais</b></h3>
+
+    <div class="parametros-gerais-text" style="padding-left: 20px;">
+        <p><b>Quantidade de placas demandadas:</b> {{ requested_vehicles | length }}</p>
+        <p><b>Intervalo de tempo:</b> {{ time_interval_str }} {{ before_after_str }}</p>
+        <p><b>Quantidade mínima de placas de interesse diferentes:</b> {{ min_different_targets }}</p>
+        <p><b>Tipos de veículos:</b> {{ vehicle_types_str }}</p>
+    </div>
+
+    <h3>Detalhes das Placas Demandadas</h3>
+    <table class="report-table">
+        <tr>
+            <th>Placa Demandada</th>
+            <th>Data Inicial</th>
+            <th>Data Final</th>
+        </tr>
+        {% for vehicle in requested_vehicles %}
+        <tr>
+            <td>{{ vehicle.plate }}</td>
+            <td>{{ vehicle.start }}</td>
+            <td>{{ vehicle.end }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<div class="deteccoes-placas-demandadas page-break">
+    <div class="deteccoes-placas-demandadas-text">
+        <h3><b>Detecções das Placas Demandadas</b></h3>
+        <p>A tabela apresentada mostra informações sobre veículos que passaram perto de múltiplas placas demandadas, com base nos dados de detecção de radares. Cada linha representa um veículo identificado e o número de vezes que ele foi detectado, além das placas demandadas próximas a ele.</p>
+        <p>A tabela contém as seguintes colunas:</p>
+        
+        <ul>
+            <li><b>Placa Simultânea</b>: Número de identificação do veículo analisado.</li>
+            <li><b>Tipo Veículo</b>: Tipo de veículo identificado.</li>
+            <li><b>Número de Placas Demandadas</b>: Quantidade de placas demandadas próximas ao veículo durante as detecções.</li>
+            <li><b>Número de Detecções Conjuntas</b>: Quantidade de vezes que o veículo foi detectado nos radares junto a outras placas demandadas.</li>
+            <li><b>Placas Demandadas</b>: Lista das placas demandadas que o veículo passou perto, com base nos dados fornecidos pelas autoridades policiais.</li>
+        </ul>
+
+        <p>As linhas destacadas em amarelo representam passagens de placas de interesse próximas a outras placas de interesse.</p>
+        <p>A tabela está classificada de forma decrescente pelo número de placas de interesse.</p>
+
+        <p><b>Total de detecções das placas monitoradas:</b> {{ total_monitored_plates }} </p>
+    </div>
+
+    <div class="deteccoes-placas-demandadas-table">
+        <table class="report-table">
+            <tr>
+                <th>Placa Simultânea</th>
+                <th>Tipo Veículo</th>
+                <th>Número de Placas Demandadas</th>
+                <th>Número de Detecções Conjuntas</th>
+                <th>Placas Demandadas</th>
+            </tr>
+            {% for detection in detections %}
+                <tr>
+                    <td>{{ detection.plate }}</td>
+                    <td>{{ detection.vehicle_type }}</td>
+                    <td>{{ detection.count_different_targets }}</td>
+                    <td>{{ detection.count_plate_total }}</td>
+                    <td>{{ detection.target_plates }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+
+<div class="grafo page-break">
+    <div class="grafo-text">
+        <h3><b>Visualização do Grafo de Relacionamentos</b></h3>
+        <p>O grafo gerado a partir dessa tabela representa as conexões entre as placas demandadas e as placas de interesse, com
+            base nas detecções de radares.</p>
+        <p>Cada nó no grafo pode representar uma placa demandada ou uma placa de interesse, e as arestas (linhas que conectam os
+            nós) indicam que a placa de interesse passou perto da placa demandada.</p>
+        <p>Abaixo do grafo, encontra-se uma explicação técnica de como interpretar as conexões e os dados apresentados.</p>
+    </div>
+
+    <div class="grafo-container">
+        <img src="{{ grafo_path }}" alt="Grafo de Relacionamentos">
+    </div>
+
+    <div class="grafo-explanation">
+        <p><b>Nós vermelhos </b>: <span style="color: red; font-size: 20px;">●</span> Representam as placas demandadas.</p>
+        <p><b>Nós azuis</b>: <span style="color: blue; font-size: 20px;">●</span> Representam as placas de interesse.</p>
+        <p><b>Arestas (setas entre os nós)</b>: <span style="color: black;">━</span> Indicam a relação entre duas placas,
+            ou seja, que elas foram detectadas juntas em uma ou mais passagens pelos radares.</p>
+        <p><b>Espessura das arestas</b>: <span
+                style="display: inline-block; height: 3px; width: 20px; background-color: black;"></span> <span
+                style="display: inline-block; height: 9px; width: 20px; background-color: black;"></span> Quanto mais grossa
+            a aresta, maior a frequência de detecção conjunta entre as placas conectadas.</p>
+        <p><b>Direção das setas</b>: 
+            <span style="display: inline-block; font-size: 20px;">←</span> 
+            <span style="display: inline-block; font-size: 20px;">→</span> 
+            A seta aponta da placa de interesse para as placas demandadas, indicando que a placa de interesse passou perto das placas demandadas.</p>
+    </div>
+</div>
+
+<div class="detection-details page-break">
+    <div class="detection-details-text">
+        <h3><b>Detalhamento das Detecções do Relatório</b></h3>
+    </div>
+    {% for loc, detection in detailed_detections.items() %}
+    <div class="detection-detail">
+        <div class="detection-detail-text">
+            <p><b>Radares:</b> {{ ', '.join(detection.codcet_list) }}</p>
+            <p><b>Localização:</b> {{ detection.locequip }} {{ detection.sentido }}</p>
+            <p><b>Bairro:</b> {{ detection.bairro }}</p>
+            <p><b>Latitude, Longitude:</b> {{ detection.latitude }}, {{ detection.longitude }}</p>
+            <p><b>Total de Detecções:</b> {{ detection.data|length }}</p>
+        </div>
+
+        <div class="detection-detail-table">
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Placa Simultânea</th>
+                        <th>Placa Demandada</th>
+                        <th>Velocidade [Km/h]</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in detection.data %}
+                    <tr>
+                        <td>{{ item.datahora_captura }}</td>
+                        <td>{{ item.placa }}</td>
+                        <td>{{ item.placa_target }}</td>
+                        <td>{{ item.velocidade }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if not loop.last %}
+    <hr style="border: 1px solid #ddd; margin: 30px 0;">
+    {% endif %}
+    {% endfor %}
+</div>
+
+{% endblock %}
