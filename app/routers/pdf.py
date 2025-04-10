@@ -82,6 +82,7 @@ router = APIRouter(
     tags=["PDF reports"],
     responses={
         401: {"description": "You don't have permission to do this."},
+        404: {"description": "Not found."},
         429: {"error": "Rate limit exceeded"},
     },
 )
@@ -515,29 +516,46 @@ async def generate_report_multiple_correlated_plates(
 ) -> str:
     
     data_service = DataService()
+    pdf_service = PdfService()
+    graph_service = GraphService()
+
+    await pdf_service.initialize(data=data)
     
     correlated_detections = await data_service.get_correlations(
         data=data,
     )
-    
-    graph_service = GraphService()
-    pdf_service = PdfService()
-    await pdf_service.initialize(data=data)
-    
-    await asyncio.gather(
-        graph_service.create_graph(dataframe=correlated_detections, limit_nodes=20),
-        pdf_service.set_detections(correlated_detections=correlated_detections),
-        pdf_service.set_detailed_detections(correlated_detections=correlated_detections)
-    )
-    await graph_service.to_png()
-    
-    template_context = await pdf_service.get_template_context()
-    
-    file_path = await generate_pdf_report_from_html_template(
-        context=template_context,
-        template_relative_path="pdf/multiple_correlated_plates.html",
-    )
-    
+    if correlated_detections.empty:
+        template_context = await pdf_service.get_template_context()
+        
+        template_context["no_detections"] = True
+        template_context["search_parameters"] = {
+            "plates": [p.plate for p in data.requested_plates_data],
+            "start_time": min(p.start for p in data.requested_plates_data).strftime("%d/%m/%Y %H:%M:%S"),
+            "end_time": max(p.end for p in data.requested_plates_data).strftime("%d/%m/%Y %H:%M:%S"),
+            "n_minutes": data.n_minutes,
+            "n_plates": data.n_plates
+        }
+        
+        file_path = await generate_pdf_report_from_html_template(
+            context=template_context,
+            template_relative_path="pdf/multiple_correlated_plates_no_data.html",
+        )
+        
+    else:
+        await asyncio.gather(
+            graph_service.create_graph(dataframe=correlated_detections, limit_nodes=20),
+            pdf_service.set_detections(correlated_detections=correlated_detections),
+            pdf_service.set_detailed_detections(correlated_detections=correlated_detections)
+        )
+        await graph_service.to_png()
+        
+        template_context = await pdf_service.get_template_context()
+        
+        file_path = await generate_pdf_report_from_html_template(
+            context=template_context,
+            template_relative_path="pdf/multiple_correlated_plates.html",
+        )
+        
     def iterfile(path: str):
         logger.info(f"Streaming PDF file.")
         with open(path, mode="rb") as f:

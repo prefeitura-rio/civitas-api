@@ -673,15 +673,21 @@ class DataService():
         
         # logger.debug(f"Query: {query_detections}") # TODO: remove
         
-        query_job = self.bq_client.query(query_detections)
-        data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
+        try:
+            query_job = self.bq_client.query(query_detections)
+            data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
+            
+            detections = []
+            for page in data.pages:
+                for row in page:
+                    row: Row
+                    row_data = dict(row.items())
+                    detections.append(row_data)
+            
+        except Exception as e:
+            logger.error(f"Error getting detections: {e}")
+            raise e
         
-        detections = []
-        for page in data.pages:
-            for row in page:
-                row: Row
-                row_data = dict(row.items())
-                detections.append(row_data)
         # logger.debug(f"Raw data: {detections}") # TODO: import logger
         # logger.debug(f"Detections raw data: {detections}") # TODO: remove
 
@@ -706,8 +712,8 @@ class DataService():
             filter_plates (list[str], optional): Optional list of plates to filter. Defaults to None.
             
         Returns:
-            list[dict]: List of correlated detection dictionaries containing information about plates
-                that were detected near the monitored plates within the specified time windows.
+            pd.DataFrame: DataFrame containing information about plates that were detected near the monitored plates 
+            within the specified time windows.
         """
         query = await self.__build_correlation_table_query(
             monitored=monitored,
@@ -715,7 +721,6 @@ class DataService():
             filter_plates=filter_plates
         )
         logger.info("Getting correlated detections.")
-        # logger.info(f"Getting correlated detections for {[data.plate for data in monitored.requested_plates_data]}.") # TODO: change data logged for len(data)
         query_job = self.bq_client.query(query)
         data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
         
@@ -745,9 +750,16 @@ class DataService():
         Returns:
             pd.DataFrame: DataFrame containing the correlations for the monitored plates.
         """
-    
+        
         detections = await self.__get_detections(data, filter_plates=filter_plates)
+        if not detections:
+            logger.warning("No detections found.")
+            return pd.DataFrame()
+        
         correlated_detections = await self.__get_correlated_detections(data, detections, filter_plates=filter_plates)
+        if correlated_detections.shape[0] <= 1:
+            logger.warning("No correlated detections found.")
+            return pd.DataFrame()
     
         logger.info(f"Detections: {len(detections)}")
         logger.info(f"Correlated detections: {correlated_detections.shape}")
@@ -759,6 +771,12 @@ class DataService():
             before_after=data.before_after,
             vehicle_types=data.vehicle_types
         )
+
+        if filtered_detections.shape[0] <= 1:
+            logger.warning(
+                "No correlated detections remaining after filtering."
+                "Try to change 'min_different_targets', 'vehicle_types' or 'before_after' parameters.")
+            return pd.DataFrame()
         
         return filtered_detections
 

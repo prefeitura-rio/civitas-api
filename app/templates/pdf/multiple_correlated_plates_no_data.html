@@ -1,0 +1,33 @@
+{% extends "pdf/template_base.html" %}
+
+{% block content %}
+
+<div class="parametros-gerais page-break">
+    <h3 style="text-align: center;">Não foram encontradas multiplas correlações para os parâmetros de busca fornecidos.</h3>
+    <br>
+    <h3><b>Parâmetros Gerais</b></h3>
+
+    <div class="parametros-gerais-text" style="padding-left: 20px;">
+        <p><b>Quantidade de placas demandadas:</b> {{ requested_vehicles | length }}</p>
+        <p><b>Intervalo de tempo:</b> {{ time_interval_str }} {{ before_after_str }}</p>
+        <p><b>Quantidade mínima de placas de interesse diferentes:</b> {{ min_different_targets }}</p>
+        <p><b>Tipos de veículos:</b> {{ vehicle_types_str }}</p>
+    </div>
+
+    <h3>Detalhes das Placas Demandadas</h3>
+    <table class="report-table">
+        <tr>
+            <th>Placa Demandada</th>
+            <th>Data Inicial</th>
+            <th>Data Final</th>
+        </tr>
+        {% for vehicle in requested_vehicles %}
+        <tr>
+            <td>{{ vehicle.plate }}</td>
+            <td>{{ vehicle.start }}</td>
+            <td>{{ vehicle.end }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}
