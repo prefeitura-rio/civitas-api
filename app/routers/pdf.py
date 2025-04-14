@@ -4,14 +4,14 @@ from typing import Annotated, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fpdf import FPDF
 from pendulum import now
 
 from app import config
 from app.decorators import router_request
 from app.dependencies import is_user
-from app.models import User
+from app.models import ReportHistory, User
 from app.pydantic_models import PdfReportCorrelatedPlatesIn, PdfReportMultipleCorrelatedPlatesIn
 from app.services.pdf.multiple_correlated_plates import DataService, GraphService, PdfService
 from app.utils import generate_report_id, generate_pdf_report_from_html_template
@@ -568,4 +568,47 @@ async def generate_report_multiple_correlated_plates(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={template_context['report_id']}.pdf"},
     )
+
+
+@router_request(method="GET", router=router, path="/multiple-correlated-plates/history")
+async def get_report_multiple_correlated_plates_history(
+    request: Request,
+    user: Annotated[User, Depends(is_user)],
+    report_id: str,
+) -> str:
+    
+    for route in router.routes:
+        if route.endpoint == generate_report_multiple_correlated_plates:
+            path = f"{route.path}"
+            break
+    else:
+        path = "/pdf/multiple-correlated-plates"
+
+    report_history = await ReportHistory.filter(
+        path=path,
+        id_report=report_id
+    ).first()
+    
+    if not report_history:
+        return JSONResponse(
+            status_code=404,
+            content={"status_code": 404, "detail": "Report not found"}
+        )
+    
+    report_dict = {
+        "id_report": report_history.id_report,
+        "timestamp": report_history.timestamp.isoformat(),
+        "query_params": report_history.query_params,
+        "body": report_history.body
+    }
+    
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status_code": 200,
+            "detail": "Report found",
+            "report_history": report_dict
+        }
+    )
+    
     

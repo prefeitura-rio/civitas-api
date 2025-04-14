@@ -343,7 +343,7 @@ class DataService():
 
     async def __build_filters(
         self,
-        monitored: PdfReportMultipleCorrelatedPlatesIn | DetectionWindowList,  # todo: chage sql detections names to match the pydantic model
+        monitored: PdfReportMultipleCorrelatedPlatesIn | DetectionWindowList,
         is_detection: bool = False, 
         filter_plates: list[str] = None
     ) -> tuple[str, str]:
@@ -440,11 +440,9 @@ class DataService():
         Returns:
             A complete SQL query.
         """
-        # logger.debug(f"DETECTIONS DICT STRUCTURE: {detections_dict[0]}")
         detection_window_list = DetectionWindowList(detection_window_list=detections_dict)
         
         logger.info("Building correlation table query.")
-        # logger.info(f"Building correlation table query for {[data.plate for data in monitored.requested_plates_data]}.") # TODO: change data logged for len(data)
         __filter_all_readings__, _ = await self.__build_filters(
             monitored=detection_window_list, filter_plates=filter_plates, is_detection=True
         )
@@ -457,7 +455,6 @@ class DataService():
         )
         
         logger.info(f"Correlation table query built.")
-        # logger.debug(f"Correlation table query: {query}") # TODO: remove
         
         
         return query
@@ -611,7 +608,6 @@ class DataService():
             list[dict]: A list of detection data for the monitored plates.
         """
         logger.info("Getting detections.")
-        # logger.info(f"Getting detections for {[data.plate for data in monitored.requested_plates_data]}.") # TODO: change data logged for len(data)
         monitored.n_plates = 1_000_000_000 if monitored.n_plates is None else monitored.n_plates
         
         query_detections = """
@@ -671,7 +667,6 @@ class DataService():
             "__filter_all_readings__", __filter_all_readings__
         ).replace("__filter_monitored_plates__", __filter_monitored_plates__)
         
-        # logger.debug(f"Query: {query_detections}") # TODO: remove
         
         try:
             query_job = self.bq_client.query(query_detections)
@@ -688,12 +683,7 @@ class DataService():
             logger.error(f"Error getting detections: {e}")
             raise e
         
-        # logger.debug(f"Raw data: {detections}") # TODO: import logger
-        # logger.debug(f"Detections raw data: {detections}") # TODO: remove
-
         logger.info("Detections retrieved.")
-        # logger.info(f"Detections for {[data.plate for data in monitored.requested_plates_data]} retrieved.") # TODO: change data logged for len(data)
-        
         return detections
     
     
@@ -732,7 +722,6 @@ class DataService():
                 correlated_detections.append(row_data)
                 
         logger.info("Correlated detections retrieved.")
-        # logger.info(f"Correlated detections for {[data.plate for data in monitored.requested_plates_data]} retrieved.") # TODO: change data logged for len(data)
         return pd.DataFrame(correlated_detections)
     
     async def get_correlations(
