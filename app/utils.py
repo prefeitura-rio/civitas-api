@@ -836,7 +836,7 @@ def build_positions_query(
             l.localidade,
             p.velocidade
         FROM ordered_positions p
-        JOIN loc l ON p.camera_numero = l.camera_numero
+        LEFT JOIN loc l ON p.camera_numero = l.camera_numero
         ORDER BY p.datahora ASC
         """.replace("{{placa}}", placa)
         .replace("{{min_datetime}}", min_datetime.to_datetime_string())
