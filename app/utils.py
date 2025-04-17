@@ -832,8 +832,8 @@ def build_positions_query(
             p.camera_numero,
             COALESCE(l.latitude, p.camera_latitude) AS latitude,
             COALESCE(l.longitude, p.camera_longitude) AS longitude,
-            l.bairro,
-            l.localidade,
+            COALESCE(l.bairro, '') AS bairro,
+            COALESCE(l.localidade, '') AS localidade,
             p.velocidade
         FROM ordered_positions p
         LEFT JOIN loc l ON p.camera_numero = l.camera_numero
