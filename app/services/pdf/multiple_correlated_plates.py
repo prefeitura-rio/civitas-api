@@ -11,6 +11,7 @@ from app.utils import get_bigquery_client, generate_report_id
 from app import config
 from loguru import logger
 from fastapi_cache.decorator import cache as cache_decorator
+from concurrent.futures import ThreadPoolExecutor
 
 
 class DataService():
@@ -676,7 +677,7 @@ class DataService():
         
         try:
             query_job = self.bq_client.query(query_detections)
-            data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
+            data = query_job.result(page_size=10000)
             
             detections = []
             for page in data.pages:
@@ -718,7 +719,7 @@ class DataService():
         )
         logger.info("Getting correlated detections.")
         query_job = self.bq_client.query(query)
-        data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
+        data = query_job.result(page_size=10000)
         
         correlated_detections = []
         for page in data.pages:
@@ -748,7 +749,7 @@ class DataService():
         
         try:
             query_job = self.bq_client.query(buses_plates_query)
-            data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
+            data = query_job.result(page_size=10000)
             
             buses_plates = []
             for page in data.pages:
