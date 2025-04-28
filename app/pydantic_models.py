@@ -785,10 +785,11 @@ class PdfReportMultipleCorrelatedPlatesIn(BaseModel):
     n_minutes: int = Field(gt=0, le=20, description="Must be between 1 and 20")
     n_plates: Optional[int] = Field(gt=0, description="Must be greater than 0")
     min_different_targets: int = Field(gt=0, description="Must be greater than 0")
-    vehicle_types: List[VehicleType] = Field(
-        default=[VehicleType.AUTOMOVEL, VehicleType.INDEFINIDO],
-        description="Must be a list of vehicle types."
-    )
+    # vehicle_types: List[VehicleType] = Field(
+    #     default=[VehicleType.AUTOMOVEL, VehicleType.INDEFINIDO],
+    #     description="Must be a list of vehicle types."
+    # )
+    keep_buses: bool = Field(default=False, description="Must be a boolean")
     before_after: Optional[Literal["before", "after"]]
     report_title: str = "Relatório de Identificação de Veículos"
     

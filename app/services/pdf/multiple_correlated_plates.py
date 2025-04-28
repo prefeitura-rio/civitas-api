@@ -542,6 +542,7 @@ class DataService():
         data: pd.DataFrame,
         min_different_targets: int = 2,
         before_after: str = None,
+        keep_buses: bool = False,
         vehicle_types: list[str] = None,
     ) -> pd.DataFrame:
         """
@@ -578,6 +579,11 @@ class DataService():
         if vehicle_types:
             logger.debug(f"Filtering data for vehicle types.")
             msk &= data["tipoveiculo"].isin(vehicle_types)
+
+        if not keep_buses:
+            logger.debug(f"Filtering data for remove buses.")
+            buses_plates = await self.__get_buses_plates()
+            msk &= ~data["placa"].isin(buses_plates)
 
         sort_columns = [
             "count_different_targets" +
@@ -724,6 +730,41 @@ class DataService():
         logger.info("Correlated detections retrieved.")
         return pd.DataFrame(correlated_detections)
     
+    
+    async def __get_buses_plates(
+        self
+    ) -> list[str]:
+        """
+        Fetch buses plates from the database.
+        
+        Returns:
+            list[str]: A list of buses plates.
+        """
+        logger.info("Getting buses plates.")
+        
+        buses_plates_query = """
+        SELECT DISTINCT placa FROM `rj-civitas.cerco_digital.licenciamento_veiculos`;
+        """
+        
+        try:
+            query_job = self.bq_client.query(buses_plates_query)
+            data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
+            
+            buses_plates = []
+            for page in data.pages:
+                for row in page:
+                    row: Row
+                    row_data = dict(row.items())
+                    buses_plates.append(row_data["placa"])
+            
+        except Exception as e:
+            logger.error(f"Error getting buses plates: {e}")
+            raise e
+        
+        logger.info("Buses plates retrieved.")
+        return buses_plates
+    
+    
     async def get_correlations(
         self, 
         data: PdfReportMultipleCorrelatedPlatesIn, 
@@ -758,7 +799,8 @@ class DataService():
             data=normalized_detections,
             min_different_targets=data.min_different_targets,
             before_after=data.before_after,
-            vehicle_types=data.vehicle_types
+            keep_buses=data.keep_buses,
+            # vehicle_types=data.vehicle_types
         )
 
         if filtered_detections.shape[0] <= 1:
@@ -1108,7 +1150,7 @@ class PdfService():
         self.report_title = data.report_title
         self.time_interval_str = f"{data.n_minutes} minutos"
         self.min_different_targets = data.min_different_targets
-        self.vehicle_types_str = ", ".join(data.vehicle_types)
+        # self.vehicle_types_str = ", ".join(data.vehicle_types)
         self.requested_vehicles = data.requested_plates_data
         self.before_after = data.before_after
         
