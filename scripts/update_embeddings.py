@@ -273,13 +273,17 @@ def upload_batch_to_weaviate(items: List[Dict[str, Any]]):
     """
     data_objects = []
     for item in items:
-        timestamp: datetime = item[config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN]
-        timestamp_formatted = timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
-        timestamp_seconds = int(timestamp.timestamp())
-        item[config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN] = timestamp_formatted
-        item[f"{config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN}_seconds"] = (
-            timestamp_seconds
-        )
+        # Create a copy of the keys to avoid modifying the dictionary during iteration
+        keys = list(item.keys())
+        for key in keys:
+            value = item[key]
+            if isinstance(value, datetime):
+                timestamp: datetime = item[key]
+                timestamp_formatted = timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+                timestamp_seconds = int(timestamp.timestamp())
+                item[key] = timestamp_formatted
+                item[f"{key}_seconds"] = timestamp_seconds
+        
         item_properties = {k: v for k, v in item.items() if k != "embedding"}
         latitude = item_properties.get("latitude")
         if latitude and isnan(latitude):
