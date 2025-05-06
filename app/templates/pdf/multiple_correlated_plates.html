@@ -5,91 +5,105 @@
 <div class="disclaimer">
     <div class="estrutura-relatorio">
         <h3><b>Estrutura do Relatório</b></h3>
-        <p>Este relatório utiliza dados provenientes de radares para identificar veículos que passaram nas proximidades
-            de múltiplas placas demandadas pelas autoridades de segurança.</p>
-        <p>O processo ocorre em quatro etapas:</p>
+        <p>Este relatório tem como objetivo mapear possíveis vínculos entre ocorrências criminais com base na identificação de veículos que circularam repetidamente nas proximidades de diferentes placas de interesses dos órgãos investigativos (placas monitoradas). A análise parte de uma lista enviada pelo solicitante e utiliza dados de radares da cidade do Rio de Janeiro. A análise busca destacar veículos potencialmente suspeitos por aparecerem com frequência nas imediações de duas ou mais placas monitoradas, em momentos distintos, conforme os critérios definidos pelas autoridades. O objetivo é reconhecer padrões de circulação que possam indicar dinâmicas criminosas ou ligações relevantes entre casos distintos. O processo é dividido em quatro etapas:</p>
 
         <ol>
-            <li>A autoridade policial fornece a lista de placas demandadas</li>
-            <li>Para cada placa demandada, são identificados veículos que passaram nos mesmos radares nos mesmos
-                períodos</li>
-            <li>Compara-se se algum desses veículos também esteve próximo de outra placa demandada em outro momento</li>
-            <li>Gera-se um ranking dos veículos que mais passaram perto de múltiplas placas demandadas</li>
+            <li><b>Recebimento da Demanda</b>
+                <p>A autoridade solicitante fornece uma lista de placas de veículos para monitoramento.</p>
+            </li>
+            <li><b>Identificação de Veículos Próximos</b>
+                <p>Para cada placa monitorada, são identificadas outras placas de  veículos que passaram nos mesmos radares no mesmo período.</p>
+            </li>
+            <li><b>Verificação de Proximidade com Outras Placas</b>
+                <p>Compara-se se alguma dessas placas de veículos também esteve próximo de outra placa monitorada, em outra ocorrência.</p>
+            </li>
+            <li><b>Geração de Ranking</b>
+                <p>Gera-se um ranking das placas de veículos que mais passaram perto de múltiplas placas demandadas, com base na recorrência e nos cruzamentos registrados.</p>
+            </li>
         </ol>
     </div>
 
     <div class="parametros-busca">
         <h3><b>Parâmetros de Busca</b></h3>
-        <ul>
-            <li><b>Placas demandadas</b></li>
+        <p>Abaixo estão os parâmetros utilizados para a geração do relatório. Eles são definidos pelo solicitante ou assumem valores padrão quando não especificados.</p>
+        <ol>
+            <li><b>Placas Demandadas</b>
                 <p>Lista de placas demandadas pelas autoridades de segurança.</p>
+            </li>
 
-            <li><b>Data inicial e final</b></li>
-                <p>Intervalo de tempo para a busca de detecções de passagem das placas demandadas.</p>
+            <li><b>Data Inicial e Final</b>
+                <p>Intervalo de tempo para a busca de detecções por placa monitorada.</p>
+            </li>
 
-            <li><b>Intervalo de tempo</b></li>
-                <p>As buscas por placas conjuntas podem ser feitas até cinco minutos antes e cinco minutos depois da passagem da placa principal
-                    monitorada.
-                <p>A escolha dos parâmetros é feita pelo solicitante da informação.</p>
-                <p>Quando não há informação sobre o período de busca na solicitação, o operador da Civitas utiliza o intervalo padrão definido nas diretrizes operacionais internas (três minutos antes e três minutos depois).</p>
+            <li><b>Intervalo de Tempo Relativo</b>
+                <p>As buscas por veículos próximos da placa monitorada podem ser realizadas no intervalo de até <b>vinte minutos antes e vinte minutos depois</b> da passagem da placa monitorada. Os parâmetros são definidos pelo solicitante ou assumem valores padrão quando não especificados.</p>
+                
+                <p><b>Padrão:</b> 3 minutos antes e 3 minutos depois, conforme diretrizes operacionais internas, quando não especificado na solicitação.</p>
+            </li>
 
-            <li><b>Detecções anteriores, posteriores ou ambas</b></li>
-                <p>Define se o intervalo de tempo para a busca por placas conjuntas é anterior, posterior ou ambos à passagem das placas demandadas.</p>
-                <p>O padrão é buscar ambas as detecções.</p>
+            <li><b>Detecções Antes, Depois ou Antes e Depois</b>
+                <p>O demandante pode solicitar que o intervalo de tempo para a busca por outros veículos que circularam nas proximidades das placas monitoradas seja anterior, posterior ou abranja ambos os períodos em relação à passagem das placas monitoradas. Os parâmetros são definidos pelo solicitante ou assumem valores padrão quando não especificados.</p>
 
-            <li><b>Quantidade mínima de placas de interesse diferentes</b></li>
-                <p>Define a quantidade mínima de placas de interesse diferentes que devem ser encontradas para que seja gerado um ranking de veículos.</p>
-
-            <li><b>Tipos de veículos</b></li>
-                <p>Tipos de veículos a serem considerados para o relatório.</p>
-                <p>Os tipos de veículos são:</p>
-                <ul>
-                    <li>Automóvel</li>
-                    <li>Caminhão</li>
-                    <li>Caminhão / Ônibus</li>
-                    <li>Ciclomotor</li>
-                    <li>Indefinido</li>
-                    <li>Moto</li>
-                    <li>Ônibus</li>
+                <ul style="margin-top: 0px;">
+                    <li><b>Detecções antes:</b> Buscar veículos que passaram até <b>x</b> minutos antes da passagem da placa monitorada.</li>
+                    <li><b>Detecções depois:</b> Buscar veículos que passaram até <b>x</b> minutos depois da passagem da placa monitorada.</li>
+                    <li><b>Detecções antes e depois:</b> Buscar veículos que passaram até <b>x</b> minutos antes e até <b>x</b> minutos depois da passagem da placa monitorada.</li>
                 </ul>
-                <p>A definição de cada tipo de veículo é feita utilizando visão computacional através dos radares.</p>
-                <p>O tipo de veículo é definido como "indefinido" caso não seja possível classificar o veículo.</p>
-        </ul>
-    </div>
 
-    <div class="instrucoes-relatorio">
-        <h3><b>Como Ler o Relatório</b></h3>
-        <p style="color: red;">DESENVOLVER</p>
+                <p><b>Padrão:</b> detecções antes e depois da passagem da placa monitorada.</p>
+            </li>
+
+            <li><b>Quantidade Mínima de Placas Monitoradas Diferentes</b>
+                <p>Esse parâmetro estabelece a quantidade mínima de placas monitoradas diferentes com as quais um mesmo veículo deve ter sido identificado nas proximidades, em eventos distintos, para ser incluído no ranking. Por exemplo, se o parâmetro estiver definido como 2, um carro só aparecerá no ranking se tiver sido flagrado nas proximidades de duas placas monitoradas distintas, em momentos diferentes. Os parâmetros são definidos pelo solicitante ou assumem valores padrão quando não especificados.</p>
+
+                <p><b>Padrão:</b> 2 placas monitoradas.</p>
+            </li>
+
+            <li><b>Filtragem de Veículos</b>
+                <p>A análise pode considerar dois modos de filtragem em relação ao tipo de veículo:</p>
+                <ul style="margin-top: -10px;">
+                    <li style="margin-bottom: -10px;">Todas as leituras de placas (sem restrição).</li>
+                    <li>Todas as leituras, exceto placas cadastradas de ônibus municipais.</li>
+                </ul>
+
+                <p><b>Padrão:</b> Todas as leituras, exceto placas cadastradas de ônibus municipais.</p>
+            </li>
+        </ol>
     </div>
 
     <div class="limitacoes-relatorio">
-        <h3><b>Limitações do Relatório</b></h3>
-        <ul>
-            <li><b>Período disponível</b></li>
-                <p>A base de dados dos Sistema conta com um histórico de detecções a partir da data de 01/06/2024. Não é possível realizar buscas a
-                    períodos anteriores.</p>
+        <h3 style="margin-bottom: -10px;"><b>Limitações do Relatório</b></h3>
+        <ol>
+            <li><b>Período de disponibilidade dos dados</b>
+                <p>Os dados de detecções estão disponíveis desde a data <b>01/06/2024</b> em diante. Não é possível consultar períodos anteriores.</p></li>
 
-            <li><b>Ausência de detecção</b></li>
-                <p>A falta de registro de uma placa não significa, necessariamente, que o veículo não passou pelo local. A leitura de OCR pode ser
-                    inviabilizada em algumas circunstâncias, tais como: mau estado de conservação das placas, objetos obstruindo as câmeras de leitura,
-                    condições climáticas, período de inatividade do equipamento entre outros.</p>
-                <p>O relatório não é exaustivo e a falta de registro de uma determinada placa não é determinante para comprovar que não houve a
-                    passagem naquela localidade.</p>
+            <li><b>Ausência de detecção</b>
+                <p>A ausência de registro <b>não implica necessariamente</b> que o veículo não tenha passado pelo local. A leitura por OCR pode falhar devido a fatores como:</p>
+                <ul style="margin-top: 0px;">
+                    <li style="margin-bottom: -10px;">Placas danificadas ou sujas;</li>
+                    <li style="margin-bottom: -10px;">Obstruções visuais na câmera;</li>
+                    <li style="margin-bottom: -10px;">Condições climáticas adversas;</li>
+                    <li style="margin-bottom: -10px;">Período de inatividade do equipamento;</li>
+                    <li>Falhas técnicas.</li>
+                </ul>
+                <p>Isto significa que os dados apresentados neste relatório <b>não são exaustivos</b> e a ausência de uma placa não é determinante para comprovar que não houve a passagem naquela localidade.</p>
+            </li>
 
-            <li><b>Distância entre radares</b></li>
+            <li><b>Distância entre radares</b>
                 <p>O relatório não indica trajetos percorridos entre as detecções.</p>
-        </ul>
+            </li>
+        </ol>
     </div>
 </div>
 
 <div class="parametros-gerais page-break">
     <h3><b>Parâmetros Gerais</b></h3>
 
-    <div class="parametros-gerais-text" style="padding-left: 20px;">
+    <div class="parametros-gerais-text" style="padding-left: 20px; margin-bottom: 20px;">
         <p><b>Quantidade de placas demandadas:</b> {{ requested_vehicles | length }}</p>
         <p><b>Intervalo de tempo:</b> {{ time_interval_str }} {{ before_after_str }}</p>
-        <p><b>Quantidade mínima de placas de interesse diferentes:</b> {{ min_different_targets }}</p>
-        <p><b>Tipos de veículos:</b> {{ vehicle_types_str }}</p>
+        <p><b>Quantidade mínima de placas monitoradas diferentes:</b> {{ min_different_targets }}</p>
+        <p><b>Filtragem de veículos:</b> {{ vehicle_filter_str }}</p>
     </div>
 
     <h3>Detalhes das Placas Demandadas</h3>
@@ -111,37 +125,40 @@
 
 <div class="deteccoes-placas-demandadas page-break">
     <div class="deteccoes-placas-demandadas-text">
-        <h3><b>Detecções das Placas Demandadas</b></h3>
-        <p>A tabela apresentada mostra informações sobre veículos que passaram perto de múltiplas placas demandadas, com base nos dados de detecção de radares. Cada linha representa um veículo identificado e o número de vezes que ele foi detectado, além das placas demandadas próximas a ele.</p>
-        <p>A tabela contém as seguintes colunas:</p>
+        <h3><b>Tabela de Veículos Correlatos com Detecção Próxima a Múltiplas placas Monitoradas</b></h3>
+        <p>A tabela a seguir apresenta os veículos identificados em proximidade com duas ou mais placas demandadas (monitoradas), com base nas detecções realizadas por radares. Cada linha representa um veículo identificado e o número de vezes que ele foi registrado por um radar, além das placas demandadas que passaram próximo a ele, de acordo com os parâmetros definidos na busca.</p>
+        <p>Abaixo, a descrição das colunas apresentadas:</p>
         
-        <ul>
-            <li><b>Placa Simultânea</b>: Número de identificação do veículo analisado.</li>
-            <li><b>Tipo Veículo</b>: Tipo de veículo identificado.</li>
-            <li><b>Número de Placas Demandadas</b>: Quantidade de placas demandadas próximas ao veículo durante as detecções.</li>
-            <li><b>Número de Detecções Conjuntas</b>: Quantidade de vezes que o veículo foi detectado nos radares junto a outras placas demandadas.</li>
-            <li><b>Placas Demandadas</b>: Lista das placas demandadas que o veículo passou perto, com base nos dados fornecidos pelas autoridades policiais.</li>
+        <ul style="margin-top: 0px;">
+            <li><b>Placa Correlata</b>: Placa do veículo identificada na análise por ter múltiplas passagens perto de placas monitoradas.
+            <ul style="margin-top: 0px;"><b>Exemplo:</b> ABC1D23 — Trata-se de um veículo que, durante o período analisado, foi detectado diversas vezes próximo a diferentes placas monitoradas.</ul></li>
+
+            <li><b>Número de Placas Monitoradas</b>: Quantidade de placas monitoradas diferentes com as quais a placa correlata foi identificada.
+            <ul style="margin-top: 0px;"><b>Exemplo:</b> 3 — A placa ABC1D23 foi identificada em proximidade com três placas monitoradas distintas — por exemplo: XXX1234, YYY1234 e ZZZ1234.</ul></li>
+            
+            <li><b>Número de Detecções Conjuntas</b>: quantidade de vezes em que a placa correlata foi detectado próximo às placas monitoradas.
+            <ul style="margin-top: 0px;"><b>Exemplo:</b> 12 — O veículo com placa ABC1D23 foi detectado 12 vezes próximo às  placas monitoradas com as quais teve detecção conjuntas. Essas detecções podem ter ocorrido em horários e locais diferentes.</ul></li>
+
+            <li><b>Detalhamento</b>: Lista das placas monitoradas com as quais cada placa correlata teve detecção conjunta
+            <ul style="margin-top: 0px;"><b>Exemplo:</b> XXX1234, YYY1234 e ZZZ1234.</ul></li>
         </ul>
 
-        <p>As linhas destacadas em amarelo representam passagens de placas de interesse próximas a outras placas de interesse.</p>
-        <p>A tabela está classificada de forma decrescente pelo número de placas de interesse.</p>
+        <p>A tabela está ordenada de forma <b>decrescente pela quantidade de placas monitoradas relacionadas a veículos</b>, priorizando os veículos com maior número de correlação.</p>
 
-        <p><b>Total de detecções das placas monitoradas:</b> {{ total_monitored_plates }} </p>
+        <p><b>Total de detecções das placas correlatas:</b> {{ total_monitored_plates }} </p>
     </div>
 
     <div class="deteccoes-placas-demandadas-table">
         <table class="report-table">
             <tr>
-                <th>Placa Simultânea</th>
-                <th>Tipo Veículo</th>
-                <th>Número de Placas Demandadas</th>
+                <th>Placa Correlata</th>
+                <th>Número de Placas Monitoradas</th>
                 <th>Número de Detecções Conjuntas</th>
-                <th>Placas Demandadas</th>
+                <th>Detalhamento</th>
             </tr>
             {% for detection in detections %}
                 <tr>
                     <td>{{ detection.plate }}</td>
-                    <td>{{ detection.vehicle_type }}</td>
                     <td>{{ detection.count_different_targets }}</td>
                     <td>{{ detection.count_plate_total }}</td>
                     <td>{{ detection.target_plates }}</td>
@@ -154,31 +171,30 @@
 <div class="grafo page-break">
     <div class="grafo-text">
         <h3><b>Visualização do Grafo de Relacionamentos</b></h3>
-        <p>O grafo gerado a partir dessa tabela representa as conexões entre as placas demandadas e as placas de interesse, com
-            base nas detecções de radares.</p>
-        <p>Cada nó no grafo pode representar uma placa demandada ou uma placa de interesse, e as arestas (linhas que conectam os
-            nós) indicam que a placa de interesse passou perto da placa demandada.</p>
-        <p>Abaixo do grafo, encontra-se uma explicação técnica de como interpretar as conexões e os dados apresentados.</p>
+        <p>O grafo gerado a partir dos dados do relatório permite visualizar as conexões entre as <b>placas monitoradas</b> (demandadas) e as <b>placas correlatas</b> (veículos identificados em proximidade com múltiplas placas de interesse).</p>
+        <p>Cada <b>nó (ponto)</b> do grafo representa uma <b>placa:</b></p>
+
+        <div class="grafo-explanation" style="margin-top: 10px;">
+            <p><b>Nós vermelhos </b>: <span style="color: red; font-size: 20px;">●</span> Representam as placas monitoradas, demandadas pelas autoridades.</p>
+            <p><b>Nós azuis</b>: <span style="color: blue; font-size: 20px;">●</span> Representam as placas que se deslocaram em conjunto (placas correlatas) com as placas monitoradas.</p>
+            <p><b>Arestas</b>: <span style="color: black;">━</span> Indicam a relação entre duas placas,
+                ou seja, que elas foram detectadas juntas em uma ou mais passagens pelos radares.</p>
+            <p><b>Espessura das arestas</b>: <span
+                    style="display: inline-block; height: 3px; width: 20px; background-color: black;"></span> <span
+                    style="display: inline-block; height: 9px; width: 20px; background-color: black;"></span> Quanto mais grossa
+                a aresta, maior a frequência de detecção conjunta entre as placas conectadas.</p>
+            <p><b>Direção das setas</b>: 
+                <span style="display: inline-block; font-size: 20px;">←</span> 
+                <span style="display: inline-block; font-size: 20px;">→</span> 
+                A seta aponta do veículo correlato para as placas demandadas, indicando que esse veículo passou perto das placas monitoradas (demandadas).</p>
+        </div>
+        
     </div>
 
     <div class="grafo-container">
         <img src="{{ grafo_path }}" alt="Grafo de Relacionamentos">
     </div>
 
-    <div class="grafo-explanation">
-        <p><b>Nós vermelhos </b>: <span style="color: red; font-size: 20px;">●</span> Representam as placas demandadas.</p>
-        <p><b>Nós azuis</b>: <span style="color: blue; font-size: 20px;">●</span> Representam as placas de interesse.</p>
-        <p><b>Arestas (setas entre os nós)</b>: <span style="color: black;">━</span> Indicam a relação entre duas placas,
-            ou seja, que elas foram detectadas juntas em uma ou mais passagens pelos radares.</p>
-        <p><b>Espessura das arestas</b>: <span
-                style="display: inline-block; height: 3px; width: 20px; background-color: black;"></span> <span
-                style="display: inline-block; height: 9px; width: 20px; background-color: black;"></span> Quanto mais grossa
-            a aresta, maior a frequência de detecção conjunta entre as placas conectadas.</p>
-        <p><b>Direção das setas</b>: 
-            <span style="display: inline-block; font-size: 20px;">←</span> 
-            <span style="display: inline-block; font-size: 20px;">→</span> 
-            A seta aponta da placa de interesse para as placas demandadas, indicando que a placa de interesse passou perto das placas demandadas.</p>
-    </div>
 </div>
 
 <div class="detection-details page-break">

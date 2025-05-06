@@ -54,12 +54,6 @@
     }
 }
 
-/* Special settings for first page only */
-/* @page :first {
-    margin: 2cm;
-    margin-top: 2.5cm; 
-} */
-
 /* Estilo para o elemento de cabeçalho */
 #header {
     position: running(pageHeader);
@@ -72,7 +66,6 @@
     width: 100%;
     border-collapse: collapse;
     margin-top: 30px;
-    /* margin-bottom: 30px; */
 }
 
 .header-table th, .header-table td {
@@ -96,10 +89,11 @@
 
 /* Adicionando espaço para o conteúdo principal */
 body {
-    font-family: Arial, sans-serif;
+    font-family: Nunito, Arial, sans-serif;
     line-height: 1.6;
     color: #333;
     padding-top: 50px; /* Espaçamento entre o cabeçalho e o conteúdo principal */
+    font-size: 12px;
 }
 
 h1 {
@@ -114,31 +108,21 @@ li {
 
 h3 {
     color: #000000;
-    /* text-align: center; */
     margin-top: 0px;
     margin-bottom: 0px;
     padding-bottom: 0px;
+    font-size: 14px;
 }
 
-ul, ol {
-    margin-top: 5px;
-    padding-top: 5px;
-    font-size: 16px;
-}
-
-/* Add this to control paragraph spacing */
 p {
     color: #000000;
     margin-top: 5px;
     margin-bottom: 5px;
-    font-size: 16px;
 }
 
 .grafo-explanation p {
     margin-bottom: -2px;
     margin-top: -2px;
-    /* padding-bottom: 0px; */
-    /* padding-top: 0px; */
 }
 
 .grafo-container {
@@ -160,29 +144,20 @@ p {
 }
 
 .report-table th, .report-table td {
-    /* border: 1px solid #ddd; */
     border: 1px solid #313131;
     padding: 8px;
 }
 
 .report-table th {
-    /* background-color: #4CAF50; */
     background-color: #888888;
     color: rgb(255, 255, 255);
-    font-size: 16px;
+    font-size: 14px;
     font-weight: bold;
 }
 
 td {
-    font-size: 16px;    
+    font-size: 12px;    
 }
-/* .report-table tr:nth-child(even) {
-    background-color: #ffffff00;
-}
-
-.report-table tr:nth-child(odd) {
-    background-color: #ffffff00;
-} */
 
 .footer {
     text-align: center;
@@ -193,4 +168,9 @@ td {
 
 .detection-detail {
     margin-bottom: 60px;
+}
+
+ul, li {
+    margin-top: 20px;
+    margin-bottom: 20px;
 }

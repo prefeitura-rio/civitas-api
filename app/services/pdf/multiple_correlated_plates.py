@@ -1119,6 +1119,7 @@ class PdfService():
         before_after_portuguese_str: Portuguese string of the before and after.
         min_different_targets: Minimum number of different targets.
         vehicle_types_str: String of the vehicle types.
+        vehicle_filter_str: String of the vehicle filter.
         requested_vehicles: List of requested vehicles data (plate, start, end).
         total_monitored_plates: Total number of monitored plates.
         detections: List of detections.
@@ -1133,6 +1134,7 @@ class PdfService():
         self.before_after_portuguese_str: str = ""
         self.min_different_targets: int = 0
         self.vehicle_types_str: str = ""
+        self.vehicle_filter_str: str = ""
         self.requested_vehicles: list[RequestedPlateData] = []
         
         self.total_monitored_plates: int = 0
@@ -1152,18 +1154,24 @@ class PdfService():
         self.time_interval_str = f"{data.n_minutes} minutos"
         self.min_different_targets = data.min_different_targets
         # self.vehicle_types_str = ", ".join(data.vehicle_types)
+        self.vehicle_filter: bool = data.keep_buses
         self.requested_vehicles = data.requested_plates_data
-        self.before_after = data.before_after
+        self.before_after: str = data.before_after
         
         if self.before_after == "after":
             self.before_after_portuguese_str = "depois"
             
         elif self.before_after == "before":
             self.before_after_portuguese_str = "antes"
-            
+
         else:
             self.before_after_portuguese_str = "antes e depois"
-            
+        
+        if self.vehicle_filter:
+            self.vehicle_filter_str = "todas as leituras"
+        else:
+            self.vehicle_filter_str = "todas as leituras com exceção de ônibus municipais"
+        
         logger.info("Initialized PDF service.")
 
 
@@ -1351,6 +1359,7 @@ class PdfService():
             "before_after_str": self.before_after_portuguese_str,
             "min_different_targets": self.min_different_targets,
             "vehicle_types_str": self.vehicle_types_str,
+            "vehicle_filter_str": self.vehicle_filter_str,
             "detections": self.detections,
             "total_monitored_plates": self.total_monitored_plates,
             "detailed_detections": self.detailed_detections,
