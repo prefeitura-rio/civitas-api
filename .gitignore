@@ -137,4 +137,4 @@ dmypy.json
 
 # User files
 tmp/
-
+.cursor/
