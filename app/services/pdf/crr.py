@@ -498,7 +498,6 @@ class GraphService:
         plt.tight_layout(pad=0.4)
 
         # Adicionar título informativo
-        plt.title("Rede de Placas - Investigação", fontsize=16, pad=20)
 
         logger.info(f"Salvando imagem do grafo em {file_path}")
         try:
