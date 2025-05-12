@@ -5,13 +5,10 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
 from app.pydantic_models import DetectionWindowList, PdfReportMultipleCorrelatedPlatesIn, RequestedPlateData
-from google.cloud import bigquery
 from google.cloud.bigquery.table import Row
 from app.utils import get_bigquery_client, generate_report_id
 from app import config
 from loguru import logger
-from fastapi_cache.decorator import cache as cache_decorator
-from concurrent.futures import ThreadPoolExecutor
 from selenium import webdriver
 import tempfile
 import os

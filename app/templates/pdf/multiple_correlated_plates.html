@@ -149,6 +149,9 @@
     <div class="grafo-container">
         <img src="{{ grafo_limited_nodes_path }}" alt="Grafo de Relacionamentos">
     </div>
+    <div class="graph-page-footer">
+        <p>Além deste grafo, que destaca apenas as conexões mais relevantes entre as placas monitoradas e seus vínculos diretos, este documento inclui, em anexo, um grafo complementar que contém os mesmos dados, contudo apresenta todas as conexões entre as placas monitoradas e a placas correlatas identificadas.</p>
+    </div>
 
 </div>
 
@@ -243,7 +246,25 @@
 <div class="anexos page-break">
     <div class="grafo-text">
         <h3><b>Visualização do Grafo de Relacionamentos com Todas as Leituras Correlatas</b></h3>
+        <p>O grafo gerado a partir dos dados do relatório permite visualizar as conexões entre as <b>placas monitoradas</b> (demandadas) e as <b>placas correlatas</b> (veículos identificados em proximidade com múltiplas placas de interesse).</p>
+        <p>Cada <b>nó (ponto)</b> do grafo representa uma <b>placa:</b></p>
 
+        <div class="grafo-explanation" style="margin-top: 10px;">
+            <p><b>Nós azuis </b>: <span style="color: blue; font-size: 20px;">●</span> Representam as placas monitoradas, demandadas pelas autoridades.</p>
+            <p><b>Nós vermelhos</b>: <span style="color: red; font-size: 20px;">●</span> Representam as placas que se deslocaram em conjunto (placas correlatas) com as placas monitoradas.</p>
+            <p><b>Arestas</b>: <span style="color: black;">━</span> Indicam a relação entre duas placas,
+                ou seja, que elas foram detectadas juntas em uma ou mais passagens pelos radares.</p>
+            <p><b>Espessura das arestas</b>: <span
+                    style="display: inline-block; height: 3px; width: 20px; background-color: black;"></span> <span
+                    style="display: inline-block; height: 9px; width: 20px; background-color: black;"></span> Quanto mais grossa
+                a aresta, maior a frequência de detecção conjunta entre as placas conectadas.</p>
+            <p><b>Direção das setas</b>: 
+                <span style="display: inline-block; font-size: 20px;">←</span> 
+                <span style="display: inline-block; font-size: 20px;">→</span> 
+                A seta aponta do veículo correlato para as placas demandadas, indicando que esse veículo passou perto das placas monitoradas (demandadas).</p>
+        </div>
+        
+    </div>
     <div class="grafo-container">
         <img src="{{ grafo_path }}" alt="Grafo de Relacionamentos sem Limite de Nós">
     </div>

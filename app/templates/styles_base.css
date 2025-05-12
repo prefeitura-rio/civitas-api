@@ -125,20 +125,7 @@ p {
     margin-top: -2px;
 }
 
-/* .grafo-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.grafo-container img {
-    width: 90%;
-} */
-
 .grafo-container {
-    /* display: flex; */
-    /* justify-content: center; */
-    /* align-items: center; */
     width: 100%;
     margin: 0;
     padding: 0;
@@ -190,4 +177,13 @@ td {
 ul, li {
     margin-top: 20px;
     margin-bottom: 20px;
+}
+
+.graph-page-footer {
+    position: absolute;
+    bottom: 0px;
+    width: 100%;
+    color: #666;
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
 }
