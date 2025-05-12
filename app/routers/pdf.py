@@ -565,7 +565,7 @@ async def generate_report_multiple_correlated_plates(
         
         # generate graph without limiting nodes
         await graph_service.create_graph(dataframe=correlated_detections)
-        html_path_full, png_path_full = await graph_service._save_graph(png_file_name="grafo.png", html_file_name="grafo.html")
+        html_path_full, png_path_full = await graph_service._save_graph(png_file_name="grafo.png", html_file_name="grafo.html", delay=15)
         
         template_context = await pdf_service.get_template_context()
         
