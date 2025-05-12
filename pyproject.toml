@@ -34,6 +34,7 @@ networkx = "3.4.2"
 matplotlib = "3.10.1"
 weasyprint = "^65.0"
 selenium = "^4.32.0"
+pyvis = "^0.3.2"
 
 
 [tool.poetry.group.dev.dependencies]
