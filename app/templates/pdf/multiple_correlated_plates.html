@@ -130,8 +130,8 @@
         <p>Cada <b>nó (ponto)</b> do grafo representa uma <b>placa:</b></p>
 
         <div class="grafo-explanation" style="margin-top: 10px;">
-            <p><b>Nós vermelhos </b>: <span style="color: red; font-size: 20px;">●</span> Representam as placas monitoradas, demandadas pelas autoridades.</p>
-            <p><b>Nós azuis</b>: <span style="color: blue; font-size: 20px;">●</span> Representam as placas que se deslocaram em conjunto (placas correlatas) com as placas monitoradas.</p>
+            <p><b>Nós azuis </b>: <span style="color: blue; font-size: 20px;">●</span> Representam as placas monitoradas, demandadas pelas autoridades.</p>
+            <p><b>Nós vermelhos</b>: <span style="color: red; font-size: 20px;">●</span> Representam as placas que se deslocaram em conjunto (placas correlatas) com as placas monitoradas.</p>
             <p><b>Arestas</b>: <span style="color: black;">━</span> Indicam a relação entre duas placas,
                 ou seja, que elas foram detectadas juntas em uma ou mais passagens pelos radares.</p>
             <p><b>Espessura das arestas</b>: <span
@@ -147,7 +147,7 @@
     </div>
 
     <div class="grafo-container">
-        <img src="{{ grafo_path }}" alt="Grafo de Relacionamentos">
+        <img src="{{ grafo_limited_nodes_path }}" alt="Grafo de Relacionamentos">
     </div>
 
 </div>
@@ -238,6 +238,15 @@
     <hr style="border: 1px solid #ddd; margin: 30px 0;">
     {% endif %}
     {% endfor %}
+</div>
+
+<div class="anexos page-break">
+    <div class="grafo-text">
+        <h3><b>Visualização do Grafo de Relacionamentos com Todas as Leituras Correlatas</b></h3>
+
+    <div class="grafo-container">
+        <img src="{{ grafo_path }}" alt="Grafo de Relacionamentos sem Limite de Nós">
+    </div>
 </div>
 
 {% endblock %}

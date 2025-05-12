@@ -33,6 +33,7 @@ fpdf2 = "^2.8.2"
 networkx = "3.4.2"
 matplotlib = "3.10.1"
 weasyprint = "^65.0"
+selenium = "^4.32.0"
 
 
 [tool.poetry.group.dev.dependencies]

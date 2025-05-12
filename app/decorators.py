@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from functools import wraps
+import os
 from typing import Any, Dict, Optional, Union
 import requests
 import orjson as json
@@ -74,7 +75,7 @@ def router_request(
 
                         if "filename=" in content_disposition:
                             filename = content_disposition.split("filename=")[1].strip('"').strip()
-                            report_id = filename.strip(".pdf")  # Remove file extension
+                            report_id = os.path.splitext(filename)[0] # Remove file extension
                      
                     if report_id:
                         await ReportHistory.create(

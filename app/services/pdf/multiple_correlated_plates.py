@@ -12,6 +12,15 @@ from app import config
 from loguru import logger
 from fastapi_cache.decorator import cache as cache_decorator
 from concurrent.futures import ThreadPoolExecutor
+from selenium import webdriver
+import tempfile
+import os
+import time
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+from pyvis.network import Network
 
 
 class DataService():
@@ -827,7 +836,7 @@ class GraphService():
         logger.info("Initialized Graph service.")
         
     
-    async def __limit_nodes_in_graph(self, G: nx.DiGraph, max_nodes: int = 30) -> nx.DiGraph:
+    async def __limit_nodes_in_graph(self, G: nx.DiGraph, max_nodes: int = 20) -> nx.DiGraph:
         """
         Limits the number of nodes in the graph to improve visualization and avoid overlapping.
 
@@ -896,7 +905,7 @@ class GraphService():
         return G
 
 
-    async def create_graph(self, dataframe: pd.DataFrame, limit_nodes: int = 30) -> None:
+    async def create_graph(self, dataframe: pd.DataFrame, limit_nodes: int | None = None) -> None:
         """
         Creates and displays an interactive graph from a DataFrame,
         with colored nodes, detailed tooltips, and visualization options.
@@ -935,8 +944,9 @@ class GraphService():
         isolated_nodes = list(nx.isolates(G))
         G.remove_nodes_from(isolated_nodes)
 
-        logger.info("Limiting nodes in graph.")
-        G = await self.__limit_nodes_in_graph(G, max_nodes=limit_nodes)
+        if limit_nodes:
+            logger.info("Limiting nodes in graph.")
+            G = await self.__limit_nodes_in_graph(G, max_nodes=limit_nodes)
 
         # net.show_buttons(filter_=['physics'])  # Optional: show physics controls
         self.G = G
@@ -1107,6 +1117,197 @@ class GraphService():
         
         return file_path
 
+    async def to_html(self):
+        """
+        Cria e exibe um grafo interativo a partir de um DataFrame,
+        com nós coloridos, tooltips detalhados e opções de visualização.
+
+        Args:
+            df: DataFrame pandas com os dados das placas.  Deve conter, no mínimo,
+                as colunas 'placa_target', 'placa', 'count_different_targets' e 'target'.
+                Idealmente, deve conter também colunas como 'datahora_local', 'bairro', etc.
+                para informações mais detalhadas nos tooltips.
+            filename: Nome do arquivo HTML onde o grafo será salvo.
+        """
+
+        net = Network(
+            height="800px",
+            width="100%",
+            notebook=True,
+            directed=True,
+            cdn_resources="remote",
+        )
+
+        for node, data in self.G.nodes(data=True):
+            # Cor do nó
+            if data.get("type") == "target":
+                color = "blue"
+                size = 20
+            else:
+                color = "red"
+                size = 20
+
+            net.add_node(node, label=node, color=color, size=size)
+
+        for source, target, data in self.G.edges(data=True):
+            weight = data.get("weight", 1)  # Peso padrão 1 se não houver
+            net.add_edge(
+                source, target, value=weight, color="black", title=f"Peso: {weight}"
+            )
+
+        net.set_options(
+            """
+            {
+                "configure": {
+                "enabled": false,
+                "filter": ["physics"]
+                },
+                "physics": {
+                "forceAtlas2Based": {
+                    "theta": 0.5,
+                    "gravitationalConstant": -50,
+                    "centralGravity": 0.01,
+                    "springLength": 100,
+                    "springConstant": 0.08,
+                    "damping": 0.4,
+                    "avoidOverlap": 1
+                },
+                "maxVelocity": 50,
+                "minVelocity": 0.75,
+                "solver": "forceAtlas2Based",
+                "timestep": 0.5
+                },
+                "wind":{
+                "x":0,
+                "y":0
+                },
+                "edges": {
+                "smooth": {
+                    "type": "dynamic"
+                }
+                },
+                "interaction": {
+                "hover": true  
+                }
+            }
+            """
+        )
+        net
+        return net
+    
+    # async def _to_png(self, file_path='grafo.png', delay=5, driver=None):
+    async def _save_graph(
+        self, 
+        file_dir: Path | str = config.ASSETS_DIR, 
+        png_file_name: str = "grafo.png", 
+        html_file_name: str = "grafo.html",
+        delay: int = 5, 
+        driver: webdriver.Firefox | None = None
+    ) -> tuple[Path, Path]:
+        """
+        Saves the graph to a PNG and HTML file.
+        
+        Args:
+            file_dir: Directory to save the files.
+            png_file_name: Name of the PNG file.
+            html_file_name: Name of the HTML file.
+            delay: Delay to wait for the graph to be rendered.
+            driver: Driver to use to save the graph.
+            
+        Returns:
+            tuple[Path, Path]: Path to the HTML and PNG files respectively.
+        """
+        # Create the file paths
+        png_file_path = file_dir / png_file_name
+        html_file_path = file_dir / html_file_name
+        
+        temp_html = tempfile.NamedTemporaryFile(delete=False, suffix='.html')
+        temp_html_path = temp_html.name
+        net = await self.to_html()
+        net.save_graph(temp_html_path)
+        
+        logger.debug(f"Graph saved to {temp_html_path}")
+        
+        # Modify the HTML to improve the visualization
+        with open(temp_html_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        # Insert CSS for white background, better visualization and JS to center the graph
+        insert_content = """
+        <style>
+            body, html {
+                margin: 0;
+                padding: 10px;
+                background-color: white !important;
+            }
+            #mynetwork {
+                width: 95%;
+                height: 95vh;
+                margin: 0 auto;
+                background-color: white !important;
+                border: none !important;
+            }
+        </style>
+        <script>
+            window.onload = function() {
+                // Small delay to load completely
+                setTimeout(function() {
+                    try {
+                        // Access the network instance and center
+                        if (typeof network !== 'undefined') {
+                            network.fit({animation: false});
+                            network.redraw();
+                            network.once('stabilizationIterationsDone', function () {
+                                network.setOptions({ physics: false });
+                            });
+                        }
+                    } catch(e) {
+                        console.error("Erro ao ajustar o grafo:", e);
+                    }
+                    // Signal to Selenium that it is ready
+                    document.body.setAttribute('data-ready', 'true');
+                }, 1000);
+            };
+        </script>
+        """
+        
+        # Insert the content after the <head> tag
+        html_content = html_content.replace("<head>", "<head>" + insert_content)
+        
+        logger.debug(f"Saving graph to {html_file_path}")
+        # Rewrite the file
+        with open(html_file_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        try:
+            # Configure the driver with a larger size
+            if driver is None:
+                options = webdriver.firefox.options.Options()
+                options.add_argument("--headless")
+                options.add_argument("--window-size=1800,1400")
+                driver = webdriver.Firefox(options=options)
+            
+            # Open the HTML file
+            driver.get(f"file://{os.path.abspath(html_file_path)}")
+            
+            # Wait until the page signals that it is ready
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "body[data-ready='true']"))
+            )
+            
+            # Wait a little more to ensure the rendering
+            time.sleep(delay)
+            
+            # Capture the graph element
+            network_div = driver.find_element(By.ID, "mynetwork")
+            absolute_png_path = os.path.abspath(png_file_path)
+            network_div.screenshot(absolute_png_path)
+
+            return html_file_path, png_file_path
+        finally:
+            if driver:
+                driver.quit()
+                
 
 class PdfService():
     """
@@ -1363,6 +1564,7 @@ class PdfService():
             "detections": self.detections,
             "total_monitored_plates": self.total_monitored_plates,
             "detailed_detections": self.detailed_detections,
+            "grafo_limited_nodes_path": config.ASSETS_DIR / "grafo_limited_nodes.png",
             "grafo_path": config.ASSETS_DIR / "grafo.png"
         }
         

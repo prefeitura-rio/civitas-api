@@ -16,7 +16,7 @@ from app.pydantic_models import PdfReportCorrelatedPlatesIn, PdfReportMultipleCo
 from app.services.pdf.multiple_correlated_plates import DataService, GraphService, PdfService
 from app.utils import generate_report_id, generate_pdf_report_from_html_template
 
-from loguru import logger # TODO: remove import and all logger calls on this file
+from loguru import logger
 
 class CustomPDF(FPDF):
     def __init__(self, report_id: Optional[str] = None, *args, **kwargs):
@@ -524,6 +524,7 @@ async def generate_report_multiple_correlated_plates(
     correlated_detections = await data_service.get_correlations(
         data=data,
     )
+
     if correlated_detections.empty:
         template_context = await pdf_service.get_template_context()
         
@@ -541,33 +542,61 @@ async def generate_report_multiple_correlated_plates(
             template_relative_path="pdf/multiple_correlated_plates_no_data.html",
         )
         
+        def iterfile(path: str):
+            logger.info(f"Streaming PDF file.")
+            with open(path, mode="rb") as f:
+                yield from f
+                
+            logger.info(f"PDF file streamed.")
+
+        return StreamingResponse(
+            iterfile(file_path),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={template_context['report_id']}.pdf"},
+        )
+        
     else:
         await asyncio.gather(
             graph_service.create_graph(dataframe=correlated_detections, limit_nodes=20),
             pdf_service.set_detections(correlated_detections=correlated_detections),
             pdf_service.set_detailed_detections(correlated_detections=correlated_detections)
         )
-        await graph_service.to_png()
+        await graph_service._save_graph(png_file_name="grafo_limited_nodes.png", html_file_name="grafo_limited_nodes.html")
+        
+        # generate graph without limiting nodes
+        await graph_service.create_graph(dataframe=correlated_detections)
+        html_path_full, png_path_full = await graph_service._save_graph(png_file_name="grafo.png", html_file_name="grafo.html")
         
         template_context = await pdf_service.get_template_context()
         
-        file_path = await generate_pdf_report_from_html_template(
+        pdf_path = await generate_pdf_report_from_html_template(
             context=template_context,
             template_relative_path="pdf/multiple_correlated_plates.html",
         )
         
-    def iterfile(path: str):
-        logger.info(f"Streaming PDF file.")
-        with open(path, mode="rb") as f:
-            yield from f
+        # Create ZIP file with both PDF and HTML
+        import zipfile
+        import io
+        
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            # Add PDF file
+            with open(pdf_path, 'rb') as f:
+                pdf_data = f.read()
+                zip_file.writestr(f"{template_context['report_id']}.pdf", pdf_data)
             
-        logger.info(f"PDF file streamed.")
-
-    return StreamingResponse(
-        iterfile(file_path),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={template_context['report_id']}.pdf"},
-    )
+            # Add HTML file
+            with open(html_path_full, 'rb') as f:
+                html_data = f.read()
+                zip_file.writestr(f"{template_context['report_id']}_grafo.html", html_data)
+        
+        zip_buffer.seek(0)
+        
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename={template_context['report_id']}.zip"},
+        )
 
 
 @router_request(method="GET", router=router, path="/multiple-correlated-plates/history")

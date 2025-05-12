@@ -15,7 +15,9 @@ RUN pip install "poetry<1.8.0" && \
     libcairo2 \
     libharfbuzz0b \
     libffi-dev \
-    shared-mime-info && \
+    shared-mime-info \
+    git \
+    firefox-esr && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

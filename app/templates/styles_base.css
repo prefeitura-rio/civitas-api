@@ -125,7 +125,7 @@ p {
     margin-top: -2px;
 }
 
-.grafo-container {
+/* .grafo-container {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -133,6 +133,23 @@ p {
 
 .grafo-container img {
     width: 90%;
+} */
+
+.grafo-container {
+    /* display: flex; */
+    /* justify-content: center; */
+    /* align-items: center; */
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.grafo-container img {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    display: block; /* Remove espaços extras abaixo da imagem */
 }
 
 /* Estilos APENAS para tabelas do relatório */
