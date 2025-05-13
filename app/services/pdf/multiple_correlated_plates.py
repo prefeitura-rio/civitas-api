@@ -1223,12 +1223,12 @@ class GraphService():
         net = await self.to_html()
         net.save_graph(temp_html_path)
         
-        logger.debug(f"Graph saved to {temp_html_path}")
-        
         # Modify the HTML to improve the visualization
         with open(temp_html_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         
+        
+        logger.info("Inserting CSS and JS to improve the visualization of the graph.")
         # Insert CSS for white background, better visualization and JS to center the graph
         insert_content = """
         <style>
@@ -1255,6 +1255,8 @@ class GraphService():
                             network.fit({animation: false});
                             network.redraw();
                             network.once('stabilizationIterationsDone', function () {
+                                console.log("Grafo estabilizado, setando data-ready=true");
+                                document.body.setAttribute('data-ready', 'true');
                                 network.setOptions({ physics: false });
                             });
                         }
@@ -1276,6 +1278,9 @@ class GraphService():
         with open(html_file_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
         
+        logger.info(f"Graph saved to {html_file_path}")
+        logger.info("Starting to save the PNG file.")
+        
         try:
             # Configure the driver with a larger size
             if driver is None:
@@ -1287,8 +1292,9 @@ class GraphService():
             # Open the HTML file
             driver.get(f"file://{os.path.abspath(html_file_path)}")
             
+            logger.info("Waiting for the page to be ready.")
             # Wait until the page signals that it is ready
-            WebDriverWait(driver, 10).until(
+            WebDriverWait(driver, 60).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "body[data-ready='true']"))
             )
             
@@ -1299,7 +1305,8 @@ class GraphService():
             network_div = driver.find_element(By.ID, "mynetwork")
             absolute_png_path = os.path.abspath(png_file_path)
             network_div.screenshot(absolute_png_path)
-
+            logger.info(f"PNG file saved to {absolute_png_path}")
+            
             return html_file_path, png_file_path
         finally:
             if driver:
@@ -1562,6 +1569,5 @@ class PdfService():
             "total_monitored_plates": self.total_monitored_plates,
             "detailed_detections": self.detailed_detections,
             "grafo_limited_nodes_path": config.ASSETS_DIR / "grafo_limited_nodes.png",
-            "grafo_path": config.ASSETS_DIR / "grafo.png"
         }
         
