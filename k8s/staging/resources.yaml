@@ -54,7 +54,7 @@ spec:
               memory: 2Gi
             limits:
               cpu: 500m
-              memory: 2Gi
+              memory: 4Gi
           command: ["/bin/bash", "/app/api-entrypoint.sh"]
           livenessProbe:
             httpGet:
