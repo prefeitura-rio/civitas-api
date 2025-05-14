@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import asyncio
+import gc
 import traceback
 import uuid
 from datetime import datetime
@@ -302,6 +303,7 @@ def upload_batch_to_weaviate(items: List[Dict[str, Any]]):
         response = requests.post(
             f"{config.WEAVIATE_BASE_URL}/v1/batch/objects",
             json={"fields": ["ALL"], "objects": data_objects},
+            timeout=300
         )
         response.raise_for_status()
     except Exception as exc:
@@ -311,6 +313,11 @@ def upload_batch_to_weaviate(items: List[Dict[str, Any]]):
     for result in data:
         if "errors" in result["result"]:
             raise Exception(result["result"]["errors"])
+        
+    # free memory
+    del data_objects
+    del data
+    gc.collect()
 
 
 if __name__ == "__main__":
