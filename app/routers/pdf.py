@@ -274,7 +274,7 @@ async def generate_report_correlated_plates(
         {"label": "Limite de placas antes e depois:", "value": data.params.n_plates},
         {
             "label": "Intervalo de tempo:", 
-            "value": f"{data.params.n_minutes} minuto" + "s" if data.params.n_minutes > 1 else ""
+            "value": f"{data.params.n_minutes} minuto{'s' if data.params.n_minutes > 1 else ''}"
         },
         {
             "label": "Total de detecções da placa monitorada:",
