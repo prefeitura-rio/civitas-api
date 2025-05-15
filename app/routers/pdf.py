@@ -273,6 +273,10 @@ async def generate_report_correlated_plates(
         },
         {"label": "Limite de placas antes e depois:", "value": data.params.n_plates},
         {
+            "label": "Intervalo de tempo:", 
+            "value": f"{data.params.n_minutes} minuto" + "s" if data.params.n_minutes > 1 else ""
+        },
+        {
             "label": "Total de detecções da placa monitorada:",
             "value": len(data.report_data),
         },
@@ -330,6 +334,8 @@ async def generate_report_correlated_plates(
         # Table rows
         pdf.set_font("Times")
         for row in data.ranking:
+            if "-" in row.plate:
+                continue
             pdf.set_x(
                 horizontal_offset
             )  # Move to the calculated horizontal offset for each row
