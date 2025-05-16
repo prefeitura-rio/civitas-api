@@ -362,15 +362,15 @@ if __name__ == "__main__":
                 logger.info(f"Getting embeddings for reports of source '{source}'...")
                 items = [item.dict() for item in reports]
                 texts = [generate_text_for_embedding(item) for item in items]
-                num_batches = len(items) // config.UPDATE_EMBEDDINGS_BATCH_SIZE
-                if len(items) % config.UPDATE_EMBEDDINGS_BATCH_SIZE > 0:
+                num_batches = len(items) // 10000
+                if len(items) % 10000 > 0:
                     num_batches += 1
 
                 # Process batches
-                for i in range(0, len(items), config.UPDATE_EMBEDDINGS_BATCH_SIZE):
-                    batch_number = i // config.UPDATE_EMBEDDINGS_BATCH_SIZE + 1
-                    items_batch = items[i : i + config.UPDATE_EMBEDDINGS_BATCH_SIZE]
-                    texts_batch = texts[i : i + config.UPDATE_EMBEDDINGS_BATCH_SIZE]
+                for i in range(0, len(items), 10000):
+                    batch_number = i // 10000 + 1
+                    items_batch = items[i : i + 10000]
+                    texts_batch = texts[i : i + 10000]
 
                     # Generate embeddings for batch
                     embeddings_batch = run_sync(generate_embeddings_batch, texts_batch)
