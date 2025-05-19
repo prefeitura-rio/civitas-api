@@ -504,6 +504,7 @@ def build_n_plates_query(
             DATETIME(datahora, "America/Sao_Paulo")
             BETWEEN DATETIME(DATETIME_SUB(@start_datetime, INTERVAL 1 DAY), "America/Sao_Paulo")
             AND DATETIME(DATETIME_ADD(@end_datetime, INTERVAL 1 DAY), "America/Sao_Paulo")
+            AND placa != "-------"
         QUALIFY(row_num_duplicate) = 1
     ),
 
@@ -830,8 +831,8 @@ def build_positions_query(
         SELECT
             p.datahora,
             p.camera_numero,
-            COALESCE(l.latitude, p.camera_latitude) AS latitude,
-            COALESCE(l.longitude, p.camera_longitude) AS longitude,
+            -ABS(COALESCE(l.latitude, p.camera_latitude)) AS latitude,
+            -ABS(COALESCE(l.longitude, p.camera_longitude)) AS longitude,
             COALESCE(l.bairro, '') AS bairro,
             COALESCE(l.localidade, '') AS localidade,
             p.velocidade
