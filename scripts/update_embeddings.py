@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import gc
+import random
 import traceback
 import uuid
+import time
 from datetime import datetime
 from math import isnan
 from typing import Any, Awaitable, Dict, List
@@ -10,6 +12,7 @@ from typing import Any, Awaitable, Dict, List
 import orjson as json
 import pytz
 import requests
+from requests.exceptions import RequestException, ConnectionError
 import unidecode
 from google.cloud.bigquery.table import Row
 from loguru import logger
@@ -265,59 +268,158 @@ def to_snake_case(string: str) -> str:
     return "".join(char for char in string if char.isalnum() or char == "_")
 
 
-def upload_batch_to_weaviate(items: List[Dict[str, Any]]):
+def upload_batch_to_weaviate(items: List[Dict[str, Any]], max_retries: int = 5, initial_backoff: float = 2.0):
     """
-    Upload a batch of items to Weaviate.
+    Upload a batch of items to Weaviate with retry logic for handling connection issues.
+    If connection issues persist, the function will split large batches into smaller chunks.
 
     Args:
         items (List[Dict[str, Any]]): A list of items to upload.
+        max_retries (int, optional): Maximum number of retry attempts. Defaults to 5.
+        initial_backoff (float, optional): Initial backoff time in seconds. Defaults to 2.0.
     """
-    data_objects = []
-    for item in items:
-        # Create a copy of the keys to avoid modifying the dictionary during iteration
-        keys = list(item.keys())
-        for key in keys:
-            value = item[key]
-            if isinstance(value, datetime):
-                timestamp: datetime = item[key]
-                timestamp_formatted = timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
-                timestamp_seconds = int(timestamp.timestamp())
-                item[key] = timestamp_formatted
-                item[f"{key}_seconds"] = timestamp_seconds
+    # Handle empty batch gracefully
+    if not items:
+        logger.warning("Attempted to upload an empty batch to Weaviate. Skipping.")
+        return
         
-        item_properties = {k: v for k, v in item.items() if k != "embedding"}
-        latitude = item_properties.get("latitude")
-        if latitude and isnan(latitude):
-            item_properties["latitude"] = None
-        longitude = item_properties.get("longitude")
-        if longitude and isnan(longitude):
-            item_properties["longitude"] = None
-        data_object = {
-            "class": config.WEAVIATE_SCHEMA_CLASS,
-            "id": generate_uuid5(item[config.EMBEDDINGS_SOURCE_TABLE_ID_COLUMN]),
-            "properties": item_properties,
-            "vector": item["embedding"],
-        }
-        data_objects.append(data_object)
+    def prepare_data_objects(items_batch):
+        """Prepare a batch of items for upload to Weaviate"""
+        batch_objects = []
+        for item in items_batch:
+            # Create a copy of the keys to avoid modifying the dictionary during iteration
+            keys = list(item.keys())
+            for key in keys:
+                value = item[key]
+                if isinstance(value, datetime):
+                    timestamp: datetime = item[key]
+                    timestamp_formatted = timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+                    timestamp_seconds = int(timestamp.timestamp())
+                    item[key] = timestamp_formatted
+                    item[f"{key}_seconds"] = timestamp_seconds
+            
+            item_properties = {k: v for k, v in item.items() if k != "embedding"}
+            latitude = item_properties.get("latitude")
+            if latitude and isnan(latitude):
+                item_properties["latitude"] = None
+            longitude = item_properties.get("longitude")
+            if longitude and isnan(longitude):
+                item_properties["longitude"] = None
+            data_object = {
+                "class": config.WEAVIATE_SCHEMA_CLASS,
+                "id": generate_uuid5(item[config.EMBEDDINGS_SOURCE_TABLE_ID_COLUMN]),
+                "properties": item_properties,
+                "vector": item["embedding"],
+            }
+            batch_objects.append(data_object)
+        return batch_objects
+    
+    def upload_with_retry(batch_objects, max_retries=max_retries, initial_backoff=initial_backoff):
+        """Upload a batch of objects with retry logic"""
+        retry_count = 0
+        backoff_time = initial_backoff
+        
+        while retry_count <= max_retries:
+            try:
+                response = requests.post(
+                    f"{config.WEAVIATE_BASE_URL}/v1/batch/objects",
+                    json={"fields": ["ALL"], "objects": batch_objects},
+                    timeout=300
+                )
+                response.raise_for_status()
+                
+                data = response.json()
+                for result in data:
+                    if "errors" in result["result"]:
+                        errors = result["result"]["errors"]
+                        # Verify if the error is related to the network and should be treated as a network error
+                        error_msg = str(errors).lower()
+                        if "connect:" in error_msg or "eof" in error_msg or "reset by peer" in error_msg:
+                            # Instead of raising an exception, we treat it as a network error directly
+                            logger.warning(f"Network error detected in response: {errors}")
+                            # Continue the retry loop
+                            retry_count += 1
+                            if retry_count > max_retries:
+                                logger.error(f"Failed to upload embeddings to Weaviate after {max_retries} retries")
+                                return False
+                            logger.info(f"Retrying in {backoff_time:.2f} seconds...")
+                            time.sleep(backoff_time)
+                            backoff_time = min(backoff_time * 2, 60) * (0.9 + 0.2 * random.random())
+                            break  # We exit the loop for and try again in the next cycle while
+                        else:
+                            # Other types of errors are treated as before
+                            raise Exception(errors)
+                else:
+                    # If we get here without breaking, it means there were no network errors
+                    # If successful, return True
+                    return True
+                
+            except (ConnectionError, RequestException, requests.Timeout, requests.ConnectionError, 
+                    requests.HTTPError, OSError) as exc:
+                # Capture all possible network exceptions and timeouts
+                retry_count += 1
+                
+                if retry_count > max_retries:
+                    logger.error(f"Failed to upload embeddings to Weaviate after {max_retries} retries: {exc}")
+                    return False
+                
+                # Log retry attempt
+                logger.warning(f"Network error when uploading to Weaviate (attempt {retry_count}/{max_retries}): {exc}")
+                logger.info(f"Retrying in {backoff_time:.2f} seconds...")
+                
+                # Wait with exponential backoff
+                time.sleep(backoff_time)
+                # Increase backoff time for next retry (exponential backoff with jitter)
+                backoff_time = min(backoff_time * 2, 60) * (0.9 + 0.2 * random.random())
+                
+            except Exception as exc:
+                # For non-connection errors, fail immediately
+                logger.error(f"Failed to upload embeddings to Weaviate: {exc}")
+                raise exc
+        
+        return False
+
     try:
-        response = requests.post(
-            f"{config.WEAVIATE_BASE_URL}/v1/batch/objects",
-            json={"fields": ["ALL"], "objects": data_objects},
-            timeout=300
-        )
-        response.raise_for_status()
-    except Exception as exc:
-        logger.error(f"Failed to upload embeddings to Weaviate: {exc}")
-        raise exc
-    data = response.json()
-    for result in data:
-        if "errors" in result["result"]:
-            raise Exception(result["result"]["errors"])
+        # Initial batch preparation
+        data_objects = prepare_data_objects(items)
         
-    # free memory
-    del data_objects
-    del data
-    gc.collect()
+        # First attempt with the full batch
+        if upload_with_retry(data_objects):
+            logger.info(f"Successfully uploaded batch of {len(items)} items")
+        else:
+            # If full batch failed, split into smaller batches and retry
+            logger.warning(f"Failed to upload full batch of {len(items)} items. Splitting into smaller batches...")
+            
+            # Try with half-size batches
+            half_size = len(items) // 2
+            if half_size == 0:  # Can't split further
+                logger.error(f"Batch size is already at minimum, cannot split further. Failed to upload.")
+                raise Exception("Failed to upload batch after splitting")
+                
+            # Upload first half
+            first_half = items[:half_size]
+            first_half_objects = prepare_data_objects(first_half)
+            if not upload_with_retry(first_half_objects):
+                # If first half fails, recursively try with smaller batches
+                try:
+                    upload_batch_to_weaviate(first_half, max_retries, initial_backoff)
+                except Exception as e:
+                    logger.error(f"Failed to upload first half batch after splitting: {e}")
+                    raise
+            
+            # Upload second half
+            second_half = items[half_size:]
+            second_half_objects = prepare_data_objects(second_half)
+            if not upload_with_retry(second_half_objects):
+                # If second half fails, recursively try with smaller batches
+                try:
+                    upload_batch_to_weaviate(second_half, max_retries, initial_backoff)
+                except Exception as e:
+                    logger.error(f"Failed to upload second half batch after splitting: {e}")
+                    raise
+    finally:
+        # Always ensure memory is freed
+        gc.collect()
 
 
 if __name__ == "__main__":
@@ -362,15 +464,15 @@ if __name__ == "__main__":
                 logger.info(f"Getting embeddings for reports of source '{source}'...")
                 items = [item.dict() for item in reports]
                 texts = [generate_text_for_embedding(item) for item in items]
-                num_batches = len(items) // 10000
-                if len(items) % 10000 > 0:
+                num_batches = len(items) // config.UPDATE_EMBEDDINGS_BATCH_SIZE
+                if len(items) % config.UPDATE_EMBEDDINGS_BATCH_SIZE > 0:
                     num_batches += 1
 
                 # Process batches
-                for i in range(0, len(items), 10000):
-                    batch_number = i // 10000 + 1
-                    items_batch = items[i : i + 10000]
-                    texts_batch = texts[i : i + 10000]
+                for i in range(0, len(items), config.UPDATE_EMBEDDINGS_BATCH_SIZE):
+                    batch_number = i // config.UPDATE_EMBEDDINGS_BATCH_SIZE + 1
+                    items_batch = items[i : i + config.UPDATE_EMBEDDINGS_BATCH_SIZE]
+                    texts_batch = texts[i : i + config.UPDATE_EMBEDDINGS_BATCH_SIZE]
 
                     # Generate embeddings for batch
                     embeddings_batch = run_sync(generate_embeddings_batch, texts_batch)

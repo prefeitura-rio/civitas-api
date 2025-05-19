@@ -141,6 +141,8 @@ WEAVIATE_SCHEMA = {
         {"name": "numero_logradouro", "dataType": ["text"]},
         {"name": "latitude", "dataType": ["number"]},
         {"name": "longitude", "dataType": ["number"]},
+        {"name": "updated_at", "dataType": ["date"]},
+        {"name": "updated_at_seconds", "dataType": ["number"]},
     ],
 }
 
