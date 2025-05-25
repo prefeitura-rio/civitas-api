@@ -101,18 +101,19 @@ DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL = getenv_or_action(
 )
 try:
     _df_codcet_to_camera_numero: pd.DataFrame = pd.read_csv(
-        DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL
+        DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL, 
+        dtype = str
     )
     _df_codcet_to_camera_numero.dropna(inplace=True)
-    CODCET_TO_CAMERA_NUMERO: Dict[str, str] = (
-        _df_codcet_to_camera_numero.groupby("codcet")["camera_numero"]
-        .apply(lambda x: np.random.choice(x))
+    CAMERA_NUMERO_TO_CODCET: Dict[str, str] = (
+        _df_codcet_to_camera_numero.groupby("camera_numero")["codcet"]
+        .first()
         .to_dict()
     )
 except Exception as exc:
     logger.error(f"Failed to load CODCET to camera_numero mapping: {exc}")
     logger.error(traceback.format_exc())
-    CODCET_TO_CAMERA_NUMERO = {}
+    CAMERA_NUMERO_TO_CODCET = {}
 
 # Weaviate schema
 WEAVIATE_SCHEMA_CLASS = getenv_or_action("WEAVIATE_SCHEMA_CLASS", action="raise")

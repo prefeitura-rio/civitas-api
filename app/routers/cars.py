@@ -670,13 +670,18 @@ async def get_cars_by_radar(
 
     logger.debug(f"Date range: {start_time} - {end_time}")
 
-    # Use either camera_numero or codcet
-    if radar in config.CODCET_TO_CAMERA_NUMERO:
-        codcet = radar
-        camera_numero = config.CODCET_TO_CAMERA_NUMERO[codcet]
+    # # Use either camera_numero or codcet
+    if len(radar.replace("-", "").strip()) >= 9:
+        codcet = radar.zfill(10)
+        camera_numero = [c_num for c_num, codc in config.CAMERA_NUMERO_TO_CODCET.items() if codc == codcet]
+        
+        if camera_numero:
+            camera_numero = "', '".join(camera_numero)
     else:
-        codcet = None
         camera_numero = radar
+        codcet = config.CAMERA_NUMERO_TO_CODCET.get(camera_numero, None)
+
+    logger.debug(f"Camera numero: {camera_numero}, CODCET: {codcet}")
 
     return await get_car_by_radar(
         camera_numero=camera_numero,

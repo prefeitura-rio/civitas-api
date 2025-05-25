@@ -67,9 +67,9 @@ def build_get_car_by_radar_query(
     *,
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-    camera_numero: str,
-    codcet: str = None,
-    plate_hint: str = None,
+    camera_numero: str | None = None,
+    codcet: str | None = None,
+    plate_hint: str | None = None,
 ) -> str:
     """
     Build a SQL query to fetch cars by radar within a time range.
@@ -100,16 +100,20 @@ def build_get_car_by_radar_query(
         "{{max_datetime}}", max_datetime.to_datetime_string()
     )
 
-    if codcet:
-        query += (
-            f"AND (camera_numero = '{codcet}' OR camera_numero = '{camera_numero}')"
-        )
-    else:
-        query += f"AND camera_numero = '{camera_numero}'"
-
     if plate_hint:
         query += f"AND placa LIKE '{plate_hint}'"
+        
+    if codcet:
+        query += (
+            f" AND (LPAD(camera_numero, 10, '0') = LPAD('{codcet}', 10, '0')"
+        )
+        
+    if camera_numero:
+        query += f" OR camera_numero IN ('{camera_numero}'))"
+    else:
+        query += ")"
 
+    logger.debug(f"Query: {query}")
     return query
 
 
