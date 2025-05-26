@@ -363,6 +363,7 @@ async def build_graphql_query(
                     numero_logradouro
                     latitude
                     longitude
+                    updated_at
                     _additional {
                         certainty
                     }
