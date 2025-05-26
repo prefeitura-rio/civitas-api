@@ -1598,9 +1598,6 @@ async def get_cameras_cor() -> list:
                 response.raise_for_status()
                 data = await response.json()
                 
-                logger.debug(data[0])
-                # breakpoint()
-                
                 # use dev stream url for now
                 data_replaced_stream_url = [
                     {
