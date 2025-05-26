@@ -19,6 +19,11 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from pyvis.network import Network
 
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+
+executor = ThreadPoolExecutor()
+
 
 class DataService():
     """
@@ -605,6 +610,30 @@ class DataService():
         return df_filtered
     
     
+    def __get_data_from_bq_sync(self, query: str) -> pd.DataFrame:
+        """
+        Get data from BigQuery and return a pandas DataFrame.
+        
+        Args:
+            query: The query to be executed.
+
+        Returns:
+            pd.DataFrame: The data from BigQuery.
+        """
+        try:
+            logger.debug(f"Getting data from BigQuery.")
+            # Create the BigQuery Storage client implicitly
+            df: pd.DataFrame = self.bq_client.query(query).to_dataframe(
+                create_bqstorage_client=True
+            )
+            logger.info(f"DataFrame loaded with shape: {df.shape}")
+            return df
+
+        except Exception as e:
+            logger.error(f"Error getting detections: {e}")
+            raise
+    
+    
     async def __get_detections(
         self,
         monitored: PdfReportMultipleCorrelatedPlatesIn, 
@@ -680,24 +709,15 @@ class DataService():
             "__filter_all_readings__", __filter_all_readings__
         ).replace("__filter_monitored_plates__", __filter_monitored_plates__)
         
-        
-        try:
-            query_job = self.bq_client.query(query_detections)
-            data = query_job.result(page_size=10000)
-            
-            detections = []
-            for page in data.pages:
-                for row in page:
-                    row: Row
-                    row_data = dict(row.items())
-                    detections.append(row_data)
-            
-        except Exception as e:
-            logger.error(f"Error getting detections: {e}")
-            raise e
-        
+        logger.info("Starting to get detections from BigQuery using ThreadPoolExecutor.")
+        loop = asyncio.get_event_loop()
+        detections = await loop.run_in_executor(
+            executor, 
+            self.__get_data_from_bq_sync, 
+            query_detections
+        )        
         logger.info("Detections retrieved.")
-        return detections
+        return detections.to_dict(orient="records")
     
     
     async def __get_correlated_detections(
@@ -724,18 +744,15 @@ class DataService():
             filter_plates=filter_plates
         )
         logger.info("Getting correlated detections.")
-        query_job = self.bq_client.query(query)
-        data = query_job.result(page_size=10000)
-        
-        correlated_detections = []
-        for page in data.pages:
-            for row in page:
-                row: Row
-                row_data = dict(row.items())
-                correlated_detections.append(row_data)
+        loop = asyncio.get_event_loop()
+        correlated_detections = await loop.run_in_executor(
+            executor, 
+            self.__get_data_from_bq_sync, 
+            query
+        )
                 
         logger.info("Correlated detections retrieved.")
-        return pd.DataFrame(correlated_detections)
+        return correlated_detections
     
     
     async def __get_buses_plates(
@@ -753,21 +770,14 @@ class DataService():
         SELECT DISTINCT placa FROM `rj-civitas.cerco_digital.licenciamento_veiculos`;
         """
         
-        try:
-            query_job = self.bq_client.query(buses_plates_query)
-            data = query_job.result(page_size=10000)
-            
-            buses_plates = []
-            for page in data.pages:
-                for row in page:
-                    row: Row
-                    row_data = dict(row.items())
-                    buses_plates.append(row_data["placa"])
-            
-        except Exception as e:
-            logger.error(f"Error getting buses plates: {e}")
-            raise e
+        loop = asyncio.get_event_loop()
+        buses_plates_df = await loop.run_in_executor(
+            executor, 
+            self.__get_data_from_bq_sync, 
+            buses_plates_query
+        )
         
+        buses_plates = buses_plates_df["placa"].tolist()        
         logger.info("Buses plates retrieved.")
         return buses_plates
     
