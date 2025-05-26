@@ -172,7 +172,7 @@ def generate_regular_filters(filters: ReportFilters) -> str:
                 }
             """
             % (
-                config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN,
+                config.EMBEDDINGS_SOURCE_TABLE_REPORT_TIMESTAMP_COLUMN,
                 timestamp_min.isoformat(),
             )
         )
@@ -189,7 +189,7 @@ def generate_regular_filters(filters: ReportFilters) -> str:
                 }
             """
             % (
-                config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN,
+                config.EMBEDDINGS_SOURCE_TABLE_REPORT_TIMESTAMP_COLUMN,
                 timestamp_max.isoformat(),
             )
         )
@@ -332,7 +332,7 @@ async def build_graphql_query(
                 order: desc
             }
         """
-            % f"{config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN}_seconds"
+            % f"{config.EMBEDDINGS_SOURCE_TABLE_REPORT_TIMESTAMP_COLUMN}_seconds"
         )
     elif order_by == ReportsOrderBy.TIMESTAMP_ASC:
         sorting = (
@@ -342,7 +342,7 @@ async def build_graphql_query(
                 order: asc
             }
         """
-            % f"{config.EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN}_seconds"
+            % f"{config.EMBEDDINGS_SOURCE_TABLE_REPORT_TIMESTAMP_COLUMN}_seconds"
         )
 
     # Set returned attributes

@@ -141,6 +141,8 @@ WEAVIATE_SCHEMA = {
         {"name": "numero_logradouro", "dataType": ["text"]},
         {"name": "latitude", "dataType": ["number"]},
         {"name": "longitude", "dataType": ["number"]},
+        {"name": "updated_at", "dataType": ["date"]},
+        {"name": "updated_at_seconds", "dataType": ["number"]},
     ],
 }
 
@@ -158,12 +160,18 @@ EMBEDDINGS_SOURCE_TABLE_TEXT_COLUMN = getenv_or_action(
 EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN = getenv_or_action(
     "EMBEDDINGS_SOURCE_TABLE_TIMESTAMP_COLUMN", action="raise"
 )
+
+EMBEDDINGS_SOURCE_TABLE_REPORT_TIMESTAMP_COLUMN = getenv_or_action(
+    "EMBEDDINGS_SOURCE_TABLE_REPORT_TIMESTAMP_COLUMN", default="raise"
+)
+
 UPDATE_EMBEDDINGS_LOCK_TIMEOUT = int(
     getenv_or_action("UPDATE_EMBEDDINGS_LOCK_TIMEOUT", default=86400)
 )
 UPDATE_EMBEDDINGS_BATCH_SIZE = int(
     getenv_or_action("UPDATE_EMBEDDINGS_BATCH_SIZE", default=100)
 )
+
 UPDATE_EMBEDDINGS_DEBUG_DISCORD_WEBHOOK = getenv_or_action(
     "UPDATE_EMBEDDINGS_DEBUG_DISCORD_WEBHOOK", action="raise"
 )
