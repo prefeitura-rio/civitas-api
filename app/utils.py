@@ -1597,7 +1597,19 @@ async def get_cameras_cor() -> list:
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
-                return data
+                
+                logger.debug(data[0])
+                # breakpoint()
+                
+                # use dev stream url for now
+                data_replaced_stream_url = [
+                    {
+                        **item,
+                        "Streamming": item["Streamming"].replace("app", "dev"),
+                    }
+                    for item in data
+                ]
+                return data_replaced_stream_url
     except Exception:
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail="Failed to fetch cameras list")
