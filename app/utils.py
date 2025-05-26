@@ -2100,7 +2100,7 @@ async def generate_report_id():
     return code
 
 
-async def generate_pdf_report_from_html_template(context: dict, template_relative_path: str, extra_stylesheet_path: Optional[Path | str] = None):
+def generate_pdf_report_from_html_template(context: dict, template_relative_path: str, extra_stylesheet_path: Optional[Path | str] = None):
     """
     Generate a PDF report from an HTML template using the Jinja2 template engine.
     

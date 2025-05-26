@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from app.pydantic_models import DetectionWindowList, PdfReportMultipleCorrelatedPlatesIn, RequestedPlateData
 from google.cloud.bigquery.table import Row
-from app.utils import get_bigquery_client, generate_report_id
+from app.utils import generate_pdf_report_from_html_template, get_bigquery_client, generate_report_id
 from app import config
 from loguru import logger
 from selenium import webdriver
@@ -1123,18 +1123,22 @@ class GraphService():
         logger.info(f"Graph converted to PNG")
         
         return file_path
+    
 
-    async def to_html(self):
+    def to_html(self):
         """
-        Cria e exibe um grafo interativo a partir de um DataFrame,
-        com nós coloridos, tooltips detalhados e opções de visualização.
+        Create and display an interactive graph from a pandas DataFrame,
+        with colored nodes, detailed tooltips and visualization options.
 
         Args:
-            df: DataFrame pandas com os dados das placas.  Deve conter, no mínimo,
-                as colunas 'placa_target', 'placa', 'count_different_targets' e 'target'.
-                Idealmente, deve conter também colunas como 'datahora_local', 'bairro', etc.
-                para informações mais detalhadas nos tooltips.
-            filename: Nome do arquivo HTML onde o grafo será salvo.
+            df: pandas DataFrame with the data of the plates. Must contain, at least,
+                the columns 'placa_target', 'placa', 'count_different_targets' and 'target'.
+                Ideally, it should also contain columns like 'datahora_local', 'bairro', etc.
+                for more detailed information in the tooltips.
+            filename: Name of the HTML file where the graph will be saved.
+
+        Returns:
+            Network: The graph.
         """
 
         net = Network(
@@ -1203,7 +1207,7 @@ class GraphService():
         return net
     
     # async def _to_png(self, file_path='grafo.png', delay=5, driver=None):
-    async def _save_graph(
+    def __save_graph(
         self, 
         file_dir: Path | str = config.ASSETS_DIR, 
         png_file_name: str = "grafo.png", 
@@ -1230,7 +1234,7 @@ class GraphService():
         
         temp_html = tempfile.NamedTemporaryFile(delete=False, suffix='.html')
         temp_html_path = temp_html.name
-        net = await self.to_html()
+        net = self.to_html()
         net.save_graph(temp_html_path)
         
         # Modify the HTML to improve the visualization
@@ -1321,7 +1325,26 @@ class GraphService():
         finally:
             if driver:
                 driver.quit()
-                
+            
+            
+    async def save_graph(
+        self, 
+        file_dir: Path | str = config.ASSETS_DIR, 
+        png_file_name: str = "grafo.png", 
+        html_file_name: str = "grafo.html",
+        delay: int = 5, 
+    ) -> tuple[Path, Path]:
+        """
+        Save the graph to a PNG and HTML file.
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            executor, 
+            self.__save_graph, 
+            file_dir, 
+            png_file_name, 
+            html_file_name, delay
+        )
 
 class PdfService():
     """
@@ -1581,3 +1604,29 @@ class PdfService():
             "grafo_limited_nodes_path": config.ASSETS_DIR / "grafo_limited_nodes.png",
         }
         
+
+    async def generate_pdf_report_from_html_template(
+        self, 
+        context: dict, 
+        template_relative_path: str,
+    ):
+        """
+        Generate a PDF report from an HTML template.
+        Wraps the function in a separate thread.
+        
+        Args:
+            context: Dictionary with data to replace Jinja2 placeholders in the HTML template
+            template_relative_path: Relative path to the HTML template file
+            
+        Returns:
+            Path to the generated PDF file
+        """
+        logger.info("Generating PDF report from HTML template.")
+        
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            executor, 
+            generate_pdf_report_from_html_template, 
+            context, 
+            template_relative_path
+        )

@@ -14,7 +14,7 @@ from app.dependencies import is_user
 from app.models import ReportHistory, User
 from app.pydantic_models import PdfReportCorrelatedPlatesIn, PdfReportMultipleCorrelatedPlatesIn
 from app.services.pdf.multiple_correlated_plates import DataService, GraphService, PdfService
-from app.utils import generate_report_id, generate_pdf_report_from_html_template
+from app.utils import generate_report_id
 
 from loguru import logger
 
@@ -543,7 +543,7 @@ async def generate_report_multiple_correlated_plates(
             "n_plates": data.n_plates
         }
         
-        file_path = await generate_pdf_report_from_html_template(
+        file_path = await pdf_service.generate_pdf_report_from_html_template(
             context=template_context,
             template_relative_path="pdf/multiple_correlated_plates_no_data.html",
         )
@@ -567,15 +567,15 @@ async def generate_report_multiple_correlated_plates(
             pdf_service.set_detections(correlated_detections=correlated_detections),
             pdf_service.set_detailed_detections(correlated_detections=correlated_detections)
         )
-        await graph_service._save_graph(png_file_name="grafo_limited_nodes.png", html_file_name="grafo_limited_nodes.html")
+        await graph_service.save_graph(png_file_name="grafo_limited_nodes.png", html_file_name="grafo_limited_nodes.html")
         
         # generate graph without limiting nodes
         await graph_service.create_graph(dataframe=correlated_detections)
-        html_path_full, png_path_full = await graph_service._save_graph(png_file_name="grafo.png", html_file_name="grafo.html", delay=15)
+        html_path_full, png_path_full = await graph_service.save_graph(png_file_name="grafo.png", html_file_name="grafo.html", delay=15)
         
         template_context = await pdf_service.get_template_context()
         
-        pdf_path = await generate_pdf_report_from_html_template(
+        pdf_path = await pdf_service.generate_pdf_report_from_html_template(
             context=template_context,
             template_relative_path="pdf/multiple_correlated_plates.html",
         )
