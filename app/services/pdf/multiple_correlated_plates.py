@@ -27,11 +27,21 @@ executor = ThreadPoolExecutor()
 
 class DataService():
     """
-    Service for data operations.
+    Service for data operations related to correlated plate detections.
     
-    Args:
-        bq_client: BigQuery client.
-        base_query: Base query for data operations.        
+    This service handles the retrieval and processing of radar detection data
+    from BigQuery, focusing on finding correlations between vehicle plates
+    detected within specific time frames.
+    
+    The service provides methods to:
+    - Build SQL queries for retrieving detection data
+    - Process and filter detection data
+    - Find correlations between plates
+    - Handle vehicle type normalization
+    
+    Attributes:
+        bq_client: BigQuery client used for database queries.
+        base_query: Template SQL query used as the foundation for all data retrieval operations.
     """
     def __init__(self):
         self.bq_client = get_bigquery_client()
