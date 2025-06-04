@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 from functools import wraps
+import os
 from typing import Any, Dict, Optional, Union
-
+import requests
 import orjson as json
 from fastapi import APIRouter, HTTPException, Request, status
 
 from app import config
-from app.models import User, UserHistory
+from app.models import User, UserHistory, ReportHistory
 from app.rate_limiter import limiter
 
 
@@ -55,8 +56,9 @@ def router_request(
                     body = json.loads(body_str)
                 else:
                     body = None
+                
             try:
-                response = await f(*args, **kwargs)
+                response: requests.Response = await f(*args, **kwargs)
                 await UserHistory.create(
                     user=user,
                     method=request.method,
@@ -65,6 +67,26 @@ def router_request(
                     body=body,
                     status_code=200,
                 )
+                # Get report_id from PDF endpoints
+                report_id = None
+                if full_path.startswith("/pdf/"):
+                    if hasattr(response, "headers") and "Content-Disposition" in response.headers:
+                        content_disposition = response.headers.get("Content-Disposition", "")
+
+                        if "filename=" in content_disposition:
+                            filename = content_disposition.split("filename=")[1].strip('"').strip()
+                            report_id = os.path.splitext(filename)[0] # Remove file extension
+                     
+                    if report_id:
+                        await ReportHistory.create(
+                            user=user,
+                            id_report=report_id,
+                            method=request.method,
+                            path=full_path,
+                            query_params=query_params,
+                            body=body,
+                            status_code=response.status_code if hasattr(response, "status_code") else 200,
+                        )
                 return response
             except HTTPException as exc:
                 await UserHistory.create(

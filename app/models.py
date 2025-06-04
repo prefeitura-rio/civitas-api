@@ -207,3 +207,15 @@ class UserHistory(Model):
     body = fields.JSONField(null=True)
     status_code = fields.IntField()
     timestamp = fields.DatetimeField(auto_now_add=True)
+
+
+class ReportHistory(Model):
+    id = fields.UUIDField(pk=True)
+    id_report = fields.CharField(max_length=100)
+    user = fields.ForeignKeyField("app.User", related_name="report_histories")
+    method = fields.CharField(max_length=10)
+    path = fields.CharField(max_length=100)
+    query_params = fields.JSONField(null=True)
+    body = fields.JSONField(null=True)
+    status_code = fields.IntField()
+    timestamp = fields.DatetimeField(auto_now_add=True)

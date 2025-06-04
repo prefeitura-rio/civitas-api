@@ -1,0 +1,127 @@
+{% extends "pdf/template_base.html" %}
+
+{% block content %}
+
+<div class="disclaimer">
+    <div class="estrutura-relatorio">
+        <h3><b>Estrutura do Relatório</b></h3>
+        <p>Este relatório tem como objetivo mapear possíveis vínculos entre ocorrências criminais com base na identificação de veículos que circularam repetidamente nas proximidades de diferentes placas de interesses dos órgãos investigativos (placas monitoradas). A análise parte de uma lista enviada pelo solicitante e utiliza dados de radares da cidade do Rio de Janeiro. A análise busca destacar veículos potencialmente suspeitos por aparecerem com frequência nas imediações de duas ou mais placas monitoradas, em momentos distintos, conforme os critérios definidos pelas autoridades. O objetivo é reconhecer padrões de circulação que possam indicar dinâmicas criminosas ou ligações relevantes entre casos distintos. O processo é dividido em quatro etapas:</p>
+
+        <ol>
+            <li><b>Recebimento da Demanda</b>
+                <p>A autoridade solicitante fornece uma lista de placas de veículos para monitoramento.</p>
+            </li>
+            <li><b>Identificação de Veículos Próximos</b>
+                <p>Para cada placa monitorada, são identificadas outras placas de  veículos que passaram nos mesmos radares no mesmo período.</p>
+            </li>
+            <li><b>Verificação de Proximidade com Outras Placas</b>
+                <p>Compara-se se alguma dessas placas de veículos também esteve próximo de outra placa monitorada, em outra ocorrência.</p>
+            </li>
+            <li><b>Geração de Ranking</b>
+                <p>Gera-se um ranking das placas de veículos que mais passaram perto de múltiplas placas demandadas, com base na recorrência e nos cruzamentos registrados.</p>
+            </li>
+        </ol>
+    </div>
+
+    <div class="parametros-busca">
+        <h3><b>Parâmetros de Busca</b></h3>
+        <p>Abaixo estão os parâmetros utilizados para a geração do relatório. Eles são definidos pelo solicitante ou assumem valores padrão quando não especificados.</p>
+        <ol>
+            <li><b>Placas Demandadas</b>
+                <p>Lista de placas demandadas pelas autoridades de segurança.</p>
+            </li>
+
+            <li><b>Data Inicial e Final</b>
+                <p>Intervalo de tempo para a busca de detecções por placa monitorada.</p>
+            </li>
+
+            <li><b>Intervalo de Tempo Relativo</b>
+                <p>As buscas por veículos próximos da placa monitorada podem ser realizadas no intervalo de até <b>vinte minutos antes e vinte minutos depois</b> da passagem da placa monitorada. Os parâmetros são definidos pelo solicitante ou assumem valores padrão quando não especificados.</p>
+                
+                <p><b>Padrão:</b> 3 minutos antes e 3 minutos depois, conforme diretrizes operacionais internas, quando não especificado na solicitação.</p>
+            </li>
+
+            <li><b>Detecções Antes, Depois ou Antes e Depois</b>
+                <p>O demandante pode solicitar que o intervalo de tempo para a busca por outros veículos que circularam nas proximidades das placas monitoradas seja anterior, posterior ou abranja ambos os períodos em relação à passagem das placas monitoradas. Os parâmetros são definidos pelo solicitante ou assumem valores padrão quando não especificados.</p>
+
+                <ul style="margin-top: 0px;">
+                    <li><b>Detecções antes:</b> Buscar veículos que passaram até <b>x</b> minutos antes da passagem da placa monitorada.</li>
+                    <li><b>Detecções depois:</b> Buscar veículos que passaram até <b>x</b> minutos depois da passagem da placa monitorada.</li>
+                    <li><b>Detecções antes e depois:</b> Buscar veículos que passaram até <b>x</b> minutos antes e até <b>x</b> minutos depois da passagem da placa monitorada.</li>
+                </ul>
+
+                <p><b>Padrão:</b> detecções antes e depois da passagem da placa monitorada.</p>
+            </li>
+
+            <li><b>Quantidade Mínima de Placas Monitoradas Diferentes</b>
+                <p>Esse parâmetro estabelece a quantidade mínima de placas monitoradas diferentes com as quais um mesmo veículo deve ter sido identificado nas proximidades, em eventos distintos, para ser incluído no ranking. Por exemplo, se o parâmetro estiver definido como 2, um carro só aparecerá no ranking se tiver sido flagrado nas proximidades de duas placas monitoradas distintas, em momentos diferentes. Os parâmetros são definidos pelo solicitante ou assumem valores padrão quando não especificados.</p>
+
+                <p><b>Padrão:</b> 2 placas monitoradas.</p>
+            </li>
+
+            <li><b>Filtragem de Veículos</b>
+                <p>A análise pode considerar dois modos de filtragem em relação ao tipo de veículo:</p>
+                <ul style="margin-top: -10px;">
+                    <li style="margin-bottom: -10px;">Todas as leituras de placas (sem restrição).</li>
+                    <li>Todas as leituras, exceto placas cadastradas de ônibus municipais.</li>
+                </ul>
+
+                <p><b>Padrão:</b> Todas as leituras, exceto placas cadastradas de ônibus municipais.</p>
+            </li>
+        </ol>
+    </div>
+
+    <div class="limitacoes-relatorio">
+        <h3 style="margin-bottom: -10px;"><b>Limitações do Relatório</b></h3>
+        <ol>
+            <li><b>Período de disponibilidade dos dados</b>
+                <p>Os dados de detecções estão disponíveis desde a data <b>01/06/2024</b> em diante. Não é possível consultar períodos anteriores.</p></li>
+
+            <li><b>Ausência de detecção</b>
+                <p>A ausência de registro <b>não implica necessariamente</b> que o veículo não tenha passado pelo local. A leitura por OCR pode falhar devido a fatores como:</p>
+                <ul style="margin-top: 0px;">
+                    <li style="margin-bottom: -10px;">Placas danificadas ou sujas;</li>
+                    <li style="margin-bottom: -10px;">Obstruções visuais na câmera;</li>
+                    <li style="margin-bottom: -10px;">Condições climáticas adversas;</li>
+                    <li style="margin-bottom: -10px;">Período de inatividade do equipamento;</li>
+                    <li>Falhas técnicas.</li>
+                </ul>
+                <p>Isto significa que os dados apresentados neste relatório <b>não são exaustivos</b> e a ausência de uma placa não é determinante para comprovar que não houve a passagem naquela localidade.</p>
+            </li>
+
+            <li><b>Distância entre radares</b>
+                <p>O relatório não indica trajetos percorridos entre as detecções.</p>
+            </li>
+        </ol>
+    </div>
+</div>
+
+<div class="parametros-gerais page-break">
+    <h3 style="text-align: center;">Não foram encontradas múltiplas correlações para os parâmetros de busca fornecidos.</h3>
+    <br>
+    <h3><b>Parâmetros Gerais</b></h3>
+
+    <div class="parametros-gerais-text" style="padding-left: 20px;">
+        <p><b>Quantidade de placas demandadas:</b> {{ requested_vehicles | length }}</p>
+        <p><b>Intervalo de tempo:</b> {{ time_interval_str }} {{ before_after_str }}</p>
+        <p><b>Quantidade mínima de placas monitoradas diferentes:</b> {{ min_different_targets }}</p>
+        <p><b>Filtragem de veículos:</b> {{ vehicle_filter_str }}</p>
+    </div>
+
+    <h3>Detalhes das Placas Demandadas</h3>
+    <table class="report-table">
+        <tr>
+            <th>Placa Demandada</th>
+            <th>Data Inicial</th>
+            <th>Data Final</th>
+        </tr>
+        {% for vehicle in requested_vehicles %}
+        <tr>
+            <td>{{ vehicle.plate }}</td>
+            <td>{{ vehicle.start }}</td>
+            <td>{{ vehicle.end }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

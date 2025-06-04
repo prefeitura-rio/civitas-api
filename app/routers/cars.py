@@ -130,6 +130,8 @@ async def get_monitored_plates(
     operation_id: UUID = None,
     operation_title: str = None,
     active: bool = None,
+    start_time_create: datetime = None,
+    end_time_create: datetime = None,
     notification_channel_id: UUID = None,
     notification_channel_title: str = None,
     plate_contains: str = None,
@@ -177,6 +179,11 @@ async def get_monitored_plates(
         filtered = True
         monitored_plates_queryset = monitored_plates_queryset.filter(
             plate__icontains=plate_contains
+        )
+    if start_time_create and end_time_create:
+        filtered = True
+        monitored_plates_queryset = monitored_plates_queryset.filter(
+            created_at__gte=start_time_create, created_at__lte=end_time_create
         )
     if not filtered:
         monitored_plates_queryset = monitored_plates_queryset.all()

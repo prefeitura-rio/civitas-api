@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import base64
+from datetime import datetime
+from pathlib import Path
 import re
 import traceback
 from contextlib import AbstractAsyncContextManager
 from enum import Enum
 from types import ModuleType
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+import uuid
 
 import aiohttp
+import jinja2
 import orjson as json
 import pendulum
 import pytz
@@ -40,6 +44,7 @@ from app.pydantic_models import (
 )
 from app.rate_limiter_cpf import cpf_limiter
 from app.redis_cache import cache
+from weasyprint import HTML
 
 
 class ReportsOrderBy(str, Enum):
@@ -2087,3 +2092,61 @@ def validate_plate(plate: str) -> bool:
         return False
 
     return True
+
+
+async def generate_report_id():
+    now_dt = pendulum.now(tz=config.TIMEZONE)
+    code = f"{now_dt.year}{str(now_dt.month).zfill(2)}{str(now_dt.day).zfill(2)}.{str(now_dt.hour).zfill(2)}{str(now_dt.minute).zfill(2)}{str(now_dt.second).zfill(2)}{str(now_dt.microsecond // 1000).zfill(3)}"  # noqa
+    return code
+
+
+def generate_pdf_report_from_html_template(context: dict, template_relative_path: str, extra_stylesheet_path: Optional[Path | str] = None):
+    """
+    Generate a PDF report from an HTML template using the Jinja2 template engine.
+    
+    Args:
+        context: Dictionary with data to replace Jinja2 placeholders in the HTML template
+               (e.g., {{ variable_name }})
+               Example:
+               {
+                   'img_path': '/path/to/image.png',
+                   'text_value': 'Sample text to display',
+               }
+        template_relative_path: Relative path to the HTML template file
+               Example: 'pdf/teste.html'
+        extra_stylesheet_path: Optional path to additional CSS stylesheet
+        
+    Returns:
+        Path to the generated PDF file
+    """
+    logger.info("Generating PDF report from HTML template.")
+    outputs_dir = Path("/tmp/pdf")
+    
+    # Add paths to context
+    # You can use ./templates/pdf/template_base.html as a base template and extend it with your own styles and HTML content
+    context['styles_base_path'] = config.STYLES_BASE_PATH
+    context['logo_prefeitura_path'] = config.ASSETS_DIR / 'logo_prefeitura.png'
+    context['logo_civitas_path'] = config.ASSETS_DIR / 'logo_civitas.png'
+    
+    if not outputs_dir.exists():
+        outputs_dir.mkdir(parents=True)
+    
+    output_filename = f"{uuid.uuid4()}.pdf"
+    output_path = outputs_dir / output_filename
+    
+    env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(config.HTML_TEMPLATES_DIR),
+        autoescape=True
+    )
+    
+    logger.info(f"Rendering template: {template_relative_path}")
+    template = env.get_template(template_relative_path)
+    html_content = template.render(**context)
+    logger.info(f"Template rendered.")
+    
+    # Set base_url to project root
+    logger.info(f"Writing PDF to: {output_path}")
+    HTML(string=html_content, base_url=Path.cwd().as_posix()).write_pdf(str(output_path))
+        
+    logger.info(f"✅ PDF report created: {output_path}")
+    return output_path
