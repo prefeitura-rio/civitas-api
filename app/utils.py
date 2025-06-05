@@ -821,33 +821,34 @@ def build_positions_query(
                 `rj-cetrio`.ocr_radar.plateDistance(TRIM(UPPER(REGEXP_REPLACE(NORMALIZE(
                     placa, NFD), r'\pM', ''))), "{{placa}}") <= 0.0
                 AND (camera_latitude != 0 AND camera_longitude != 0)
-                AND DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
-                AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
+                AND datahora >= TIMESTAMP("{{min_datetime}}", "America/Sao_Paulo")
+                AND datahora <= TIMESTAMP("{{max_datetime}}", "America/Sao_Paulo")
             ORDER BY datahora ASC, placa ASC
         ),
 
         loc AS (
             SELECT
+                t1.codcet,
                 t2.camera_numero,
                 t1.bairro,
                 t1.locequip AS localidade,
                 CAST(t1.latitude AS FLOAT64) AS latitude,
                 CAST(t1.longitude AS FLOAT64) AS longitude,
-            FROM `rj-cetrio.ocr_radar_staging.equipamento` t1
-            JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
+            FROM `rj-cetrio.ocr_radar.equipamento` t1
+            LEFT JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
                 ON t1.codcet = t2.codcet
         )
 
-        SELECT
+        SELECT DISTINCT
             p.datahora,
-            p.camera_numero,
+            COALESCE(l.codcet, p.camera_numero) AS camera_numero,
             -ABS(COALESCE(l.latitude, p.camera_latitude)) AS latitude,
             -ABS(COALESCE(l.longitude, p.camera_longitude)) AS longitude,
             COALESCE(l.bairro, '') AS bairro,
             COALESCE(l.localidade, '') AS localidade,
             p.velocidade
         FROM ordered_positions p
-        LEFT JOIN loc l ON p.camera_numero = l.camera_numero
+        LEFT JOIN loc l ON p.camera_numero = l.camera_numero OR p.camera_numero = l.codcet
         ORDER BY p.datahora ASC
         """.replace("{{placa}}", placa)
         .replace("{{min_datetime}}", min_datetime.to_datetime_string())
@@ -855,6 +856,7 @@ def build_positions_query(
         .replace("{{min_distance}}", str(min_distance))
     )
 
+    logger.info(f"Query: {query}")
     return query
 
 
