@@ -108,10 +108,14 @@ def build_get_car_by_radar_query(
             f" AND (LPAD(camera_numero, 10, '0') = LPAD('{codcet}', 10, '0')"
         )
         
-    if camera_numero:
-        query += f" OR camera_numero IN ('{camera_numero}'))"
+        if camera_numero:
+            query += f" OR camera_numero IN ('{camera_numero}'))"
+        else:
+            query += ")"
+    
     else:
-        query += ")"
+        if camera_numero:
+            query += f" AND camera_numero IN ('{camera_numero}')"
 
     logger.debug(f"Query: {query}")
     return query
@@ -510,10 +514,9 @@ def build_n_plates_query(
             DATETIME(datahora_captura, 'America/Sao_Paulo') AS datahora_captura,
             ROW_NUMBER() OVER (PARTITION BY placa, datahora ORDER BY datahora) AS row_num_duplicate
         FROM `rj-cetrio.ocr_radar.readings_*`
-        WHERE
-            DATETIME(datahora, "America/Sao_Paulo")
-            BETWEEN DATETIME(DATETIME_SUB(@start_datetime, INTERVAL 1 DAY), "America/Sao_Paulo")
-            AND DATETIME(DATETIME_ADD(@end_datetime, INTERVAL 1 DAY), "America/Sao_Paulo")
+        WHERE            
+            datahora BETWEEN TIMESTAMP_SUB(@start_datetime, INTERVAL 1 DAY)
+            AND TIMESTAMP_ADD(@end_datetime, INTERVAL 1 DAY)
             AND placa != "-------"
         QUALIFY(row_num_duplicate) = 1
     ),
@@ -541,7 +544,7 @@ def build_n_plates_query(
                 )
             ) AS hashed_coordinates, -- Generate a unique hash for the location
         FROM `rj-cetrio.ocr_radar.equipamento` t1
-        JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
+        LEFT JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
             ON t1.codcet = t2.codcet
     ),
 
@@ -569,39 +572,41 @@ def build_n_plates_query(
         FROM
             unique_locations l
             JOIN unique_location_coordinates  b ON l.hashed_coordinates = b.hashed_coordinates
-        WHERE
-            -- Ensure there is at least one reading for each radar
-            EXISTS (
-                SELECT
-                    1
-                FROM
-                    all_readings c
-                WHERE l.camera_numero = c.camera_numero
-            )
     ),
 
     -- Select specific readings for the desired license plate
     selected_readings AS (
-        SELECT
+        SELECT DISTINCT
             b.hashed_coordinates,
             a.placa,
             a.velocidade,
             a.datahora_local,
-            a.camera_numero,
+            b.codcet,
             a.empresa,
             a.latitude,
             a.longitude,
             a.datahora_captura,
-            ROW_NUMBER() OVER(PARTITION BY a.placa ORDER BY a.datahora_local) n_deteccao,
             DATETIME_SUB(a.datahora_local, INTERVAL @N_minutes MINUTE) AS datahora_inicio,
             DATETIME_ADD(a.datahora_local, INTERVAL @N_minutes MINUTE) AS datahora_fim
-        FROM all_readings a
-        JOIN radar_group b ON a.camera_numero = b.camera_numero
+        FROM 
+            all_readings a
+        JOIN 
+            radar_group b 
+        ON 
+            a.camera_numero = b.camera_numero OR LPAD(a.camera_numero, 10, '0') = b.codcet
         WHERE
             a.placa = @plate
             AND datahora_local
             BETWEEN DATETIME(@start_datetime, "America/Sao_Paulo")
             AND DATETIME(@end_datetime, "America/Sao_Paulo")
+    ),
+    
+    ordered_readings AS (
+        SELECT
+            *,
+            ROW_NUMBER() OVER(PARTITION BY placa ORDER BY datahora_local) n_deteccao
+        FROM
+            selected_readings
     ),
 
     -- Look for records before and after the selected_readings reading time
@@ -616,8 +621,8 @@ def build_n_plates_query(
             s.n_deteccao
         FROM
             all_readings a
-        JOIN radar_group l ON a.camera_numero = l.camera_numero
-        JOIN selected_readings s ON l.hashed_coordinates = s.hashed_coordinates
+        JOIN radar_group l ON a.camera_numero = l.camera_numero OR LPAD(a.camera_numero, 10, '0') = l.codcet
+        JOIN ordered_readings s ON l.hashed_coordinates = s.hashed_coordinates
             AND (
                 a.datahora_local BETWEEN
                     s.datahora_inicio AND s.datahora_fim
@@ -626,13 +631,13 @@ def build_n_plates_query(
 
     -- Aggregate final results
     aggregations AS (
-        SELECT
+        SELECT DISTINCT
             b.n_deteccao AS id_detection,
             s.datahora_local AS detection_time, -- group by each plate detection
             b.hashed_coordinates AS id_camera_groups,
             ARRAY(
-                SELECT
-                    g.camera_numero
+                SELECT DISTINCT
+                    g.codcet
                 FROM
                     radar_group g
                 WHERE g.hashed_coordinates = b.hashed_coordinates
@@ -651,7 +656,7 @@ def build_n_plates_query(
                 ORDER BY
                     b.datahora_local) as detections -- Organize detections by date/time
         FROM before_and_after b
-        JOIN selected_readings s ON b.hashed_coordinates = s.hashed_coordinates AND b.n_deteccao = s.n_deteccao
+        JOIN ordered_readings s ON b.hashed_coordinates = s.hashed_coordinates AND b.n_deteccao = s.n_deteccao
         GROUP BY all
     ),
 
@@ -777,6 +782,8 @@ def build_n_plates_query(
         bigquery.ScalarQueryParameter("N_minutes", "INT64", n_minutes),
         bigquery.ScalarQueryParameter("N_plates", "INT64", n_plates),
     ]
+
+    logger.info(f"Query: {query}") # TODO: remove this later
     return query, query_params
 
 
@@ -821,33 +828,34 @@ def build_positions_query(
                 `rj-cetrio`.ocr_radar.plateDistance(TRIM(UPPER(REGEXP_REPLACE(NORMALIZE(
                     placa, NFD), r'\pM', ''))), "{{placa}}") <= 0.0
                 AND (camera_latitude != 0 AND camera_longitude != 0)
-                AND DATETIME(datahora, "America/Sao_Paulo") >= DATETIME("{{min_datetime}}")
-                AND DATETIME(datahora, "America/Sao_Paulo") <= DATETIME("{{max_datetime}}")
+                AND datahora >= TIMESTAMP("{{min_datetime}}", "America/Sao_Paulo")
+                AND datahora <= TIMESTAMP("{{max_datetime}}", "America/Sao_Paulo")
             ORDER BY datahora ASC, placa ASC
         ),
 
         loc AS (
             SELECT
+                t1.codcet,
                 t2.camera_numero,
                 t1.bairro,
                 t1.locequip AS localidade,
                 CAST(t1.latitude AS FLOAT64) AS latitude,
                 CAST(t1.longitude AS FLOAT64) AS longitude,
-            FROM `rj-cetrio.ocr_radar_staging.equipamento` t1
-            JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
+            FROM `rj-cetrio.ocr_radar.equipamento` t1
+            LEFT JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
                 ON t1.codcet = t2.codcet
         )
 
-        SELECT
+        SELECT DISTINCT
             p.datahora,
-            p.camera_numero,
+            COALESCE(l.codcet, p.camera_numero) AS camera_numero,
             -ABS(COALESCE(l.latitude, p.camera_latitude)) AS latitude,
             -ABS(COALESCE(l.longitude, p.camera_longitude)) AS longitude,
             COALESCE(l.bairro, '') AS bairro,
             COALESCE(l.localidade, '') AS localidade,
             p.velocidade
         FROM ordered_positions p
-        LEFT JOIN loc l ON p.camera_numero = l.camera_numero
+        LEFT JOIN loc l ON p.camera_numero = l.camera_numero OR p.camera_numero = l.codcet
         ORDER BY p.datahora ASC
         """.replace("{{placa}}", placa)
         .replace("{{min_datetime}}", min_datetime.to_datetime_string())
@@ -1224,9 +1232,9 @@ async def generate_embeddings_batch(
 def get_car_by_radar(
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-    camera_numero: str,
-    codcet: str = None,
-    plate_hint: str = None,
+    camera_numero: str | None = None,
+    codcet: str | None = None,
+    plate_hint: str | None = None,
 ) -> List[CarPassageOut]:
     """
     Fetch cars by radar within a time range.
@@ -1234,9 +1242,14 @@ def get_car_by_radar(
     Args:
         min_datetime (pendulum.DateTime): The minimum datetime of the range.
         max_datetime (pendulum.DateTime): The maximum datetime of the range.
-        camera_numero (str): The camera number.
+        camera_numero (str, optional): The camera number. Defaults to None.
         codcet (str, optional): The codcet. Defaults to None.
         plate_hint (str, optional): The plate hint. Defaults to None.
+
+    Important:
+        - camera_numero and codcet aren't mutually exclusive.
+        - If both are provided, both will be used to filter the results.
+        - If neither are provided, the function will return an error.
 
     Returns:
         List[CarPassageOut]: The car passages.

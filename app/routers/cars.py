@@ -26,6 +26,7 @@ from app.pydantic_models import (
     CortexCreditsOut,
     CortexPlacaOut,
     CortexPlacasIn,
+    GetCarsByRadarIn,
     MonitoredPlateHistory,
     MonitoredPlateIn,
     MonitoredPlateOut,
@@ -655,30 +656,27 @@ async def get_necessary_credits(
     method="GET", router=router, path="/radar", response_model=list[CarPassageOut]
 )
 async def get_cars_by_radar(
-    radar: str,
-    start_time: datetime,
-    end_time: datetime,
     user: Annotated[User, Depends(is_user)],
     request: Request,
-    plate_hint: str = None,
+    data: Annotated[GetCarsByRadarIn, Depends()],
 ):
     # Parse start_time and end_time to pendulum.DateTime
-    start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
+    start_time = DateTime.instance(data.start_time, tz=config.TIMEZONE)
     start_time = start_time.in_tz(config.TIMEZONE)
-    end_time = DateTime.instance(end_time, tz=config.TIMEZONE)
+    end_time = DateTime.instance(data.end_time, tz=config.TIMEZONE)
     end_time = end_time.in_tz(config.TIMEZONE)
 
     logger.debug(f"Date range: {start_time} - {end_time}")
 
     # # Use either camera_numero or codcet
-    if len(radar.replace("-", "").strip()) >= 9:
-        codcet = radar.zfill(10)
+    if len(data.radar.replace("-", "").strip()) >= 9:
+        codcet = data.radar.zfill(10)
         camera_numero = [c_num for c_num, codc in config.CAMERA_NUMERO_TO_CODCET.items() if codc == codcet]
         
         if camera_numero:
             camera_numero = "', '".join(camera_numero)
     else:
-        camera_numero = radar
+        camera_numero = data.radar
         codcet = config.CAMERA_NUMERO_TO_CODCET.get(camera_numero, None)
 
     logger.debug(f"Camera numero: {camera_numero}, CODCET: {codcet}")
@@ -688,5 +686,5 @@ async def get_cars_by_radar(
         codcet=codcet,
         min_datetime=start_time,
         max_datetime=end_time,
-        plate_hint=plate_hint,
+        plate_hint=data.plate_hint,
     )
