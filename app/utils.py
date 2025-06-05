@@ -856,7 +856,6 @@ def build_positions_query(
         .replace("{{min_distance}}", str(min_distance))
     )
 
-    logger.info(f"Query: {query}")
     return query
 
 
