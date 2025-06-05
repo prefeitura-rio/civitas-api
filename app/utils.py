@@ -1645,6 +1645,7 @@ def get_radar_positions() -> List[RadarOut]:
             MAX(DATETIME(datahora, "America/Sao_Paulo")) AS last_detection_time,
             'yes' AS has_data
         FROM `rj-cetrio.ocr_radar.readings_*`
+        WHERE camera_numero IS NOT NULL AND camera_numero != ''
         GROUP BY camera_numero, camera_latitude, camera_longitude, empresa
         ),
 
