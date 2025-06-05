@@ -4,6 +4,7 @@ from typing import Dict, List, Literal, Optional
 from uuid import UUID
 from enum import Enum
 
+from fastapi import Query
 from pydantic import BaseModel, Field, root_validator, validator
 
 from app.enums import NotificationChannelTypeEnum
@@ -810,7 +811,41 @@ class DetectionWindow(BaseModel):
     
 class DetectionWindowList(BaseModel):
     detection_window_list: List[DetectionWindow]
-    
+
+class GetCarsByRadarIn:
+    def __init__(
+        self,
+        radar: str = Query(
+            ...,
+            description="CODCET or CAMERA_NUMBER to get cars by",
+            min_length=1,
+            max_length=10,
+        ),
+        start_time: datetime = Query(
+            ...,
+            description="The start time to get cars by (UTC)",
+            example="2021-01-01 00:00:00",
+        ),
+        end_time: datetime = Query(
+            ...,
+            description="The end time to get cars by (UTC)",
+            example="2021-01-01 00:00:00",
+        ),
+        plate_hint: str = Query(
+            None,
+            description="The plate hint to get cars by",
+            example="ABC1234, A**1234",
+            min_length=2, # min plate_hint must be A* (2 characters)
+            max_length=7, # max plate_hint must be ABC1D34 (7 characters)
+            regex = r"^[a-zA-Z0-9*]{2,7}$" # plate_hint must be alphanumeric and can contain *
+        ),
+    ):
+        self.radar = radar
+        self.start_time = start_time
+        self.end_time = end_time
+        self.plate_hint = plate_hint
+
+      
 
 MonitoredPlateOut.update_forward_refs()
 MonitoredPlateHistory.update_forward_refs()

@@ -108,10 +108,14 @@ def build_get_car_by_radar_query(
             f" AND (LPAD(camera_numero, 10, '0') = LPAD('{codcet}', 10, '0')"
         )
         
-    if camera_numero:
-        query += f" OR camera_numero IN ('{camera_numero}'))"
+        if camera_numero:
+            query += f" OR camera_numero IN ('{camera_numero}'))"
+        else:
+            query += ")"
+    
     else:
-        query += ")"
+        if camera_numero:
+            query += f" AND camera_numero IN ('{camera_numero}')"
 
     logger.debug(f"Query: {query}")
     return query
@@ -1228,9 +1232,9 @@ async def generate_embeddings_batch(
 def get_car_by_radar(
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-    camera_numero: str,
-    codcet: str = None,
-    plate_hint: str = None,
+    camera_numero: str | None = None,
+    codcet: str | None = None,
+    plate_hint: str | None = None,
 ) -> List[CarPassageOut]:
     """
     Fetch cars by radar within a time range.
@@ -1238,9 +1242,14 @@ def get_car_by_radar(
     Args:
         min_datetime (pendulum.DateTime): The minimum datetime of the range.
         max_datetime (pendulum.DateTime): The maximum datetime of the range.
-        camera_numero (str): The camera number.
+        camera_numero (str, optional): The camera number. Defaults to None.
         codcet (str, optional): The codcet. Defaults to None.
         plate_hint (str, optional): The plate hint. Defaults to None.
+
+    Important:
+        - camera_numero and codcet aren't mutually exclusive.
+        - If both are provided, both will be used to filter the results.
+        - If neither are provided, the function will return an error.
 
     Returns:
         List[CarPassageOut]: The car passages.
