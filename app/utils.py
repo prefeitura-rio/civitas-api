@@ -1694,14 +1694,13 @@ def get_radar_positions() -> List[RadarOut]:
             ELSE 'no'
             END AS active_in_last_24_hours
         FROM radars t1
-        LEFT JOIN used_radars_deduplicated t2
+        FULL OUTER JOIN used_radars_deduplicated t2
             ON t1.codcet = t2.codcet
         )
 
         SELECT
             *
         FROM selected_radar
-        WHERE has_data = 'yes'
         ORDER BY last_detection_time
     """
     bq_client = get_bigquery_client()
