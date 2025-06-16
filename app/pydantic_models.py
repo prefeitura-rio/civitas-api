@@ -824,12 +824,12 @@ class GetCarsByRadarIn:
         start_time: datetime = Query(
             ...,
             description="The start time to get cars by (UTC)",
-            example="2021-01-01 00:00:00",
+            example="2021-01-01T00:00:00.000Z",
         ),
         end_time: datetime = Query(
             ...,
             description="The end time to get cars by (UTC)",
-            example="2021-01-01 00:00:00",
+            example="2021-01-01T00:00:00.000Z",
         ),
         plate_hint: str = Query(
             None,

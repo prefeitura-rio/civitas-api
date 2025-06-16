@@ -1636,8 +1636,7 @@ def get_radar_positions() -> List[RadarOut]:
     query = """
         WITH radars AS (
             SELECT
-                COALESCE(t1.codcet, t2.codcet) AS codcet,
-                t2.camera_numero,
+                t1.codcet,
                 t1.latitude,
                 t1.longitude,
                 t1.locequip,
@@ -1645,27 +1644,41 @@ def get_radar_positions() -> List[RadarOut]:
                 t1.logradouro,
                 t1.sentido
             FROM `rj-cetrio.ocr_radar.equipamento` t1
-            JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
-                ON t1.codcet = t2.codcet
         ),
 
         used_radars AS (
         SELECT
-            camera_numero,
-            camera_latitude,
-            camera_longitude,
+            CASE WHEN ARRAY_LENGTH(REGEXP_EXTRACT_ALL(TRIM(camera_numero), r'[0-9]')) = 9
+            THEN LPAD(ARRAY_TO_STRING(REGEXP_EXTRACT_ALL(TRIM(camera_numero), r'[0-9]'), ''), 10, '0')
+            ELSE ARRAY_TO_STRING(REGEXP_EXTRACT_ALL(TRIM(camera_numero), r'[0-9]'), '', camera_numero) 
+            END AS codcet,
+            -ABS(camera_latitude) camera_latitude,
+            -ABS(camera_longitude) camera_longitude,
             empresa,
             MAX(DATETIME(datahora, "America/Sao_Paulo")) AS last_detection_time,
             'yes' AS has_data
         FROM `rj-cetrio.ocr_radar.readings_*`
-        WHERE camera_numero IS NOT NULL AND camera_numero != ''
+        WHERE 
+            camera_numero IS NOT NULL 
+            AND camera_numero != ''
+            AND ARRAY_LENGTH(REGEXP_EXTRACT_ALL(TRIM(camera_numero), r'[0-9]')) >= 9 -- manter apenas os codcets
         GROUP BY camera_numero, camera_latitude, camera_longitude, empresa
+        ),
+
+        -- some radars has different lat/long in readings tables and it causes duplicated values on previous CTE
+        used_radars_deduplicated AS (
+            SELECT 
+                *, 
+                ROW_NUMBER() OVER(PARTITION BY codcet ORDER BY last_detection_time DESC) rn 
+            FROM
+                used_radars
+            QUALIFY rn = 1
         ),
 
         selected_radar AS (
         SELECT
-            t1.codcet,
-            COALESCE(t1.camera_numero, t2.camera_numero) AS camera_numero,
+            COALESCE(t1.codcet, t2.codcet) AS codcet,
+            COALESCE(t1.codcet, t2.codcet) AS camera_numero, -- TODO: kept for now
             COALESCE(t2.empresa, NULL) AS empresa,
             COALESCE(t1.latitude, t2.camera_latitude) AS latitude,
             COALESCE(t1.longitude, t2.camera_longitude) AS longitude,
@@ -1681,13 +1694,14 @@ def get_radar_positions() -> List[RadarOut]:
             ELSE 'no'
             END AS active_in_last_24_hours
         FROM radars t1
-        FULL OUTER JOIN used_radars t2
-            ON t1.camera_numero = t2.camera_numero
+        LEFT JOIN used_radars_deduplicated t2
+            ON t1.codcet = t2.codcet
         )
 
         SELECT
             *
         FROM selected_radar
+        WHERE has_data = 'yes'
         ORDER BY last_detection_time
     """
     bq_client = get_bigquery_client()
