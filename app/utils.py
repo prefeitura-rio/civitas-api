@@ -67,18 +67,16 @@ def build_get_car_by_radar_query(
     *,
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-    camera_numero: str | None = None,
-    codcet: str | None = None,
+    codcet: str,
     plate_hint: str | None = None,
-) -> str:
+) -> Tuple[str, List[bigquery.ScalarQueryParameter]]:
     """
     Build a SQL query to fetch cars by radar within a time range.
 
     Args:
         min_datetime (pendulum.DateTime): The minimum datetime of the range.
         max_datetime (pendulum.DateTime): The maximum datetime of the range.
-        camera_numero (str): The camera number.
-        codcet (str, optional): The codcet. Defaults to None.
+        codcet (str): The codcet.
         plate_hint (str, optional): The plate hint. Defaults to None.
 
     Returns:
@@ -92,33 +90,25 @@ def build_get_car_by_radar_query(
             placa,
             DATETIME(datahora, "America/Sao_Paulo") AS datahora,
             velocidade
-        FROM `rj-cetrio.ocr_radar.readings_*`
+        FROM `rj-cetrio.ocr_radar.vw_readings`
         WHERE
-            datahora >= TIMESTAMP("{{min_datetime}}", "America/Sao_Paulo")
-            AND datahora <= TIMESTAMP("{{max_datetime}}", "America/Sao_Paulo")
-    """.replace("{{min_datetime}}", min_datetime.to_datetime_string()).replace(
-        "{{max_datetime}}", max_datetime.to_datetime_string()
-    )
+            datahora >= TIMESTAMP(@min_datetime, "America/Sao_Paulo")
+            AND datahora <= TIMESTAMP(@max_datetime, "America/Sao_Paulo")
+    """
+
+    query += "AND codcet = @codcet"
+    query_params = [
+        bigquery.ScalarQueryParameter("min_datetime", "DATETIME", min_datetime.to_datetime_string()),
+        bigquery.ScalarQueryParameter("max_datetime", "DATETIME", max_datetime.to_datetime_string()),
+        bigquery.ScalarQueryParameter("codcet", "STRING", codcet),
+    ]
 
     if plate_hint:
-        query += f"AND placa LIKE '{plate_hint}'"
-        
-    if codcet:
-        query += (
-            f" AND (LPAD(camera_numero, 10, '0') = LPAD('{codcet}', 10, '0')"
-        )
-        
-        if camera_numero:
-            query += f" OR camera_numero IN ('{camera_numero}'))"
-        else:
-            query += ")"
+        query += " AND placa LIKE @plate_hint"
+        query_params.append(bigquery.ScalarQueryParameter("plate_hint", "STRING", plate_hint))
     
-    else:
-        if camera_numero:
-            query += f" AND camera_numero IN ('{camera_numero}')"
-
     logger.debug(f"Query: {query}")
-    return query
+    return query, query_params
 
 
 def generate_regular_filters(filters: ReportFilters) -> str:
@@ -1232,8 +1222,7 @@ async def generate_embeddings_batch(
 def get_car_by_radar(
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-    camera_numero: str | None = None,
-    codcet: str | None = None,
+    codcet: str,
     plate_hint: str | None = None,
 ) -> List[CarPassageOut]:
     """
@@ -1254,16 +1243,19 @@ def get_car_by_radar(
     Returns:
         List[CarPassageOut]: The car passages.
     """
-    query = build_get_car_by_radar_query(
+    query, query_params = build_get_car_by_radar_query(
         min_datetime=min_datetime,
         max_datetime=max_datetime,
-        camera_numero=camera_numero,
         codcet=codcet,
         plate_hint=plate_hint,
     )
+    logger.debug(f"Query: {query}")
+    logger.debug(f"Query params: {query_params}")
+    job_config = bigquery.QueryJobConfig(query_parameters=query_params)
     bq_client = get_bigquery_client()
-    query_job = bq_client.query(query)
+    query_job = bq_client.query(query, job_config=job_config)
     data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
+    logger.debug(f"Data: {data}")
     car_passages = []
     for page in data.pages:
         for row in page:
@@ -1277,6 +1269,7 @@ def get_car_by_radar(
             )
     # Sort car passages by timestamp ascending
     car_passages = sorted(car_passages, key=lambda x: x.timestamp)
+    logger.debug(f"Car passages: {len(car_passages)}")
     return car_passages
 
 

@@ -815,11 +815,10 @@ class DetectionWindowList(BaseModel):
 class GetCarsByRadarIn:
     def __init__(
         self,
-        radar: str = Query(
+        codcet: str = Query(
             ...,
-            description="CODCET or CAMERA_NUMBER to get cars by",
-            min_length=1,
-            max_length=10,
+            description="CODCET to get cars by",
+            length=10,
         ),
         start_time: datetime = Query(
             ...,
@@ -840,7 +839,7 @@ class GetCarsByRadarIn:
             regex = r"^[a-zA-Z0-9*]{2,7}$" # plate_hint must be alphanumeric and can contain *
         ),
     ):
-        self.radar = radar
+        self.codcet = codcet
         self.start_time = start_time
         self.end_time = end_time
         self.plate_hint = plate_hint
