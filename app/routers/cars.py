@@ -547,7 +547,6 @@ async def get_car_path(
     request: Request,
     max_time_interval: int = 60 * 60,
     polyline: bool = False,
-    min_plate_distance: float = 0,
 ):
     # Parse start_time and end_time to pendulum.DateTime
     start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
@@ -565,7 +564,6 @@ async def get_car_path(
         max_datetime=end_time,
         max_time_interval=max_time_interval,
         polyline=polyline,
-        min_plate_distance=min_plate_distance,
     )
 
     # Build response

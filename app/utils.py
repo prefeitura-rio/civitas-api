@@ -779,8 +779,7 @@ def build_n_plates_query(
 def build_positions_query(
     placa: str,
     min_datetime: pendulum.DateTime,
-    max_datetime: pendulum.DateTime,
-    min_distance: float = 0,
+    max_datetime: pendulum.DateTime
 ) -> str:
     """
     Build a SQL query to fetch the positions of a vehicle within a time range.
@@ -801,58 +800,56 @@ def build_positions_query(
     except ValueError:
         raise ValueError("Invalid datetime range")
 
-    query = (
-        """
+    query = """
         WITH ordered_positions AS (
             SELECT
                 DISTINCT
                     DATETIME(datahora, "America/Sao_Paulo") AS datahora,
                     placa,
-                    camera_numero,
+                    codcet,
                     camera_latitude,
                     camera_longitude,
                     velocidade
-            FROM `rj-cetrio.ocr_radar.readings_*`
+            FROM `rj-cetrio.ocr_radar.vw_readings`
             WHERE
-                `rj-cetrio`.ocr_radar.plateDistance(TRIM(UPPER(REGEXP_REPLACE(NORMALIZE(
-                    placa, NFD), r'\pM', ''))), "{{placa}}") <= 0.0
+                placa = @plate
                 AND (camera_latitude != 0 AND camera_longitude != 0)
-                AND datahora >= TIMESTAMP("{{min_datetime}}", "America/Sao_Paulo")
-                AND datahora <= TIMESTAMP("{{max_datetime}}", "America/Sao_Paulo")
+                AND datahora >= TIMESTAMP(@min_datetime, "America/Sao_Paulo")
+                AND datahora <= TIMESTAMP(@max_datetime, "America/Sao_Paulo")
             ORDER BY datahora ASC, placa ASC
         ),
 
         loc AS (
             SELECT
                 t1.codcet,
-                t2.camera_numero,
                 t1.bairro,
                 t1.locequip AS localidade,
-                CAST(t1.latitude AS FLOAT64) AS latitude,
-                CAST(t1.longitude AS FLOAT64) AS longitude,
+                t1.latitude,
+                t1.longitude,
             FROM `rj-cetrio.ocr_radar.equipamento` t1
-            LEFT JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
-                ON t1.codcet = t2.codcet
         )
 
         SELECT DISTINCT
             p.datahora,
-            COALESCE(l.codcet, p.camera_numero) AS camera_numero,
-            -ABS(COALESCE(l.latitude, p.camera_latitude)) AS latitude,
-            -ABS(COALESCE(l.longitude, p.camera_longitude)) AS longitude,
+            p.codcet,
+            COALESCE(l.latitude, p.camera_latitude) AS latitude,
+            COALESCE(l.longitude, p.camera_longitude) AS longitude,
             COALESCE(l.bairro, '') AS bairro,
             COALESCE(l.localidade, '') AS localidade,
             p.velocidade
         FROM ordered_positions p
-        LEFT JOIN loc l ON p.camera_numero = l.camera_numero OR p.camera_numero = l.codcet
+        LEFT JOIN loc l ON p.codcet = l.codcet
         ORDER BY p.datahora ASC
-        """.replace("{{placa}}", placa)
-        .replace("{{min_datetime}}", min_datetime.to_datetime_string())
-        .replace("{{max_datetime}}", max_datetime.to_datetime_string())
-        .replace("{{min_distance}}", str(min_distance))
-    )
+        """
+    
+    query_params = [
+        bigquery.ScalarQueryParameter("plate", "STRING", placa),
+        bigquery.ScalarQueryParameter("min_datetime", "DATETIME", min_datetime.to_datetime_string()),
+        bigquery.ScalarQueryParameter("max_datetime", "DATETIME", max_datetime.to_datetime_string()),
+        # bigquery.ScalarQueryParameter("min_distance", "FLOAT64", min_distance),
+    ]
 
-    return query
+    return query, query_params
 
 
 async def cortex_request(
@@ -1363,11 +1360,10 @@ async def get_path(
     max_datetime: pendulum.DateTime,
     max_time_interval: int = 60 * 60,
     polyline: bool = False,
-    min_plate_distance: float = 0,
 ) -> List[Dict[str, Union[str, List]]]:
     locations_interval = (
         await get_positions(
-            placa, min_datetime, max_datetime, min_plate_distance=min_plate_distance
+            placa, min_datetime, max_datetime
         )
     )["locations"]
     locations_trips_original = get_trips_chunks(
@@ -1482,7 +1478,6 @@ async def get_positions(
     placa: str,
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-    min_plate_distance: float = 0,
 ) -> Dict[str, list]:
     """
     Fetch the positions of a vehicle within a time range.
@@ -1491,8 +1486,6 @@ async def get_positions(
         placa (str): The vehicle license plate.
         min_datetime (pendulum.DateTime): The minimum datetime of the range.
         max_datetime (pendulum.DateTime): The maximum datetime of the range.
-        min_plate_distance (float, optional): The minimum distance between plates. Defaults to 0.
-
     Returns:
         Dict[str, list]: The positions of the vehicle.
     """
@@ -1526,11 +1519,12 @@ async def get_positions(
     # return {"placa": placa, "locations": cached_locations}
 
     # Query database for missing data and cache it
-    query = build_positions_query(
-        placa, min_datetime, max_datetime, min_distance=min_plate_distance
+    query, query_params = build_positions_query(
+        placa, min_datetime, max_datetime
     )
     bq_client = get_bigquery_client()
-    query_job = bq_client.query(query)
+    job_config = bigquery.QueryJobConfig(query_parameters=query_params)
+    query_job = bq_client.query(query, job_config=job_config)
     data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
     locations = []
     for page in data.pages:

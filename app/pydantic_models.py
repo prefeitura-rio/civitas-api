@@ -336,7 +336,7 @@ class Token(BaseModel):
 
 class Location(BaseModel):
     datahora: datetime
-    camera_numero: str
+    codcet: str
     latitude: float
     longitude: float
     bairro: str
