@@ -497,13 +497,13 @@ def build_n_plates_query(
             placa,
             velocidade,
             DATETIME(datahora, 'America/Sao_Paulo') AS datahora_local,
-            camera_numero,
+            codcet,
             empresa,
             camera_latitude AS latitude,
             camera_longitude AS longitude,
             DATETIME(datahora_captura, 'America/Sao_Paulo') AS datahora_captura,
             ROW_NUMBER() OVER (PARTITION BY placa, datahora ORDER BY datahora) AS row_num_duplicate
-        FROM `rj-cetrio.ocr_radar.readings_*`
+        FROM `rj-cetrio.ocr_radar.vw_readings`
         WHERE            
             datahora BETWEEN TIMESTAMP_SUB(@start_datetime, INTERVAL 1 DAY)
             AND TIMESTAMP_ADD(@end_datetime, INTERVAL 1 DAY)
@@ -517,8 +517,8 @@ def build_n_plates_query(
             t1.codcet,
             t2.camera_numero,
             t1.bairro,
-            CAST(t1.latitude AS FLOAT64) AS latitude,
-            CAST(t1.longitude AS FLOAT64) AS longitude,
+            t1.latitude,
+            t1.longitude,
             TRIM(
             REGEXP_REPLACE(
                 REGEXP_REPLACE(t1.locequip, r'^(.*?) -.*', r'\\1'), -- Remove the part after " -"
@@ -551,7 +551,6 @@ def build_n_plates_query(
     -- Group radar information with readings
     radar_group AS (
         SELECT
-            l.camera_numero,
             l.codcet,
             l.bairro,
             l.latitude,
@@ -583,7 +582,7 @@ def build_n_plates_query(
         JOIN 
             radar_group b 
         ON 
-            a.camera_numero = b.camera_numero OR LPAD(a.camera_numero, 10, '0') = b.codcet
+            a.codcet = b.codcet
         WHERE
             a.placa = @plate
             AND datahora_local
@@ -607,11 +606,11 @@ def build_n_plates_query(
             l.locequip,
             l.bairro,
             l.sentido,
-            a.*,
+            a.* EXCEPT(codcet),
             s.n_deteccao
         FROM
             all_readings a
-        JOIN radar_group l ON a.camera_numero = l.camera_numero OR LPAD(a.camera_numero, 10, '0') = l.codcet
+        JOIN radar_group l ON a.codcet = l.codcet
         JOIN ordered_readings s ON l.hashed_coordinates = s.hashed_coordinates
             AND (
                 a.datahora_local BETWEEN
@@ -639,7 +638,7 @@ def build_n_plates_query(
                 STRUCT(
                     b.datahora_local AS `timestamp`,
                     b.placa,
-                    b.camera_numero,
+                    b.codcet,
                     RIGHT(b.codcet, 1) AS lane,
                     b.velocidade AS speed
                 )
@@ -693,7 +692,7 @@ def build_n_plates_query(
             a.longitude,
             a.timestamp,
             a.placa AS plate,
-            a.camera_numero,
+            a.codcet,
             a.lane,
             a.speed,
             COUNT(a.placa) AS `count`
@@ -735,7 +734,7 @@ def build_n_plates_query(
             STRUCT(
                 a.timestamp,
                 a.plate,
-                a.camera_numero,
+                a.codcet,
                 a.lane,
                 a.speed,
                 b.count
