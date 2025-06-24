@@ -1227,14 +1227,8 @@ def get_car_by_radar(
     Args:
         min_datetime (pendulum.DateTime): The minimum datetime of the range.
         max_datetime (pendulum.DateTime): The maximum datetime of the range.
-        camera_numero (str, optional): The camera number. Defaults to None.
         codcet (str, optional): The codcet. Defaults to None.
         plate_hint (str, optional): The plate hint. Defaults to None.
-
-    Important:
-        - camera_numero and codcet aren't mutually exclusive.
-        - If both are provided, both will be used to filter the results.
-        - If neither are provided, the function will return an error.
 
     Returns:
         List[CarPassageOut]: The car passages.
