@@ -783,7 +783,7 @@ class PdfReportMultipleCorrelatedPlatesIn(BaseModel):
     
 class DetectionWindow(BaseModel):
     plate: str
-    camera_number: str
+    codcet: str
     detection_index: int
     target_id: int
     n_minutes: int
