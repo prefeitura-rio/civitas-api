@@ -496,7 +496,7 @@ async def generate_report_correlated_plates(
                 )
                 pdf.cell(25, 7, text=detection.plate, border=1, align="C", fill=fill)
                 pdf.cell(
-                    25, 7, text=detection.camera_numero, border=1, align="C", fill=fill
+                    25, 7, text=detection.codcet, border=1, align="C", fill=fill
                 )
                 pdf.cell(15, 7, text=detection.lane, border=1, align="C", fill=fill)
                 pdf.cell(

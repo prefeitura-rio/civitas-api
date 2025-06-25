@@ -711,7 +711,7 @@ class WazeAlertOut(BaseModel):
 class PdfReportCorrelatedPlatesDataDetection(BaseModel):
     timestamp: datetime
     plate: str
-    camera_numero: str
+    codcet: str
     lane: str
     speed: float
     count: int
