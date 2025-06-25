@@ -515,7 +515,6 @@ def build_n_plates_query(
     unique_locations AS (
         SELECT
             t1.codcet,
-            t2.camera_numero,
             t1.bairro,
             t1.latitude,
             t1.longitude,
@@ -534,8 +533,6 @@ def build_n_plates_query(
                 )
             ) AS hashed_coordinates, -- Generate a unique hash for the location
         FROM `rj-cetrio.ocr_radar.equipamento` t1
-        LEFT JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
-            ON t1.codcet = t2.codcet
     ),
 
     -- Select unique coordinates for each location

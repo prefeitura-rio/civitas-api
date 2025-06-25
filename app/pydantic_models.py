@@ -544,8 +544,8 @@ class NotificationChannelUpdate(BaseModel):
 class NPlatesBeforeAfterDetection(BaseModel):
     timestamp: Optional[datetime] = None
     plate: str
-    camera_numero: Optional[str] = None
-    lane: Optional[str] = None
+    codcet: str
+    lane: str
     speed: Optional[float] = None
     count: Optional[int] = None
 
