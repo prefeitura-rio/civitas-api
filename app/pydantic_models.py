@@ -818,7 +818,8 @@ class GetCarsByRadarIn:
         codcet: str = Query(
             ...,
             description="CODCET to get cars by",
-            length=10,
+            min_length=10,
+            max_length=10,
         ),
         start_time: datetime = Query(
             ...,
