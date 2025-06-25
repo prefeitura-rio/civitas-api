@@ -584,8 +584,7 @@ class OperationUpdate(BaseModel):
 
 
 class RadarOut(BaseModel):
-    codcet: Optional[str] = None
-    camera_numero: Optional[str] = None
+    codcet: str
     latitude: float
     longitude: float
     locequip: Optional[str] = None
@@ -596,20 +595,6 @@ class RadarOut(BaseModel):
     active_in_last_24_hours: Optional[str] = None
     last_detection_time: Optional[datetime] = None
     sentido: Optional[str] = None
-
-    @root_validator
-    def validate_codcet_or_camera_numero(cls, values: dict):
-        codcet = values.get("codcet")
-        camera_numero = values.get("camera_numero")
-        # At least one must be set
-        if not codcet and not camera_numero:
-            raise ValueError("At least one of codcet or camera_numero must be set.")
-        # If only one is set, copy the value to the other
-        if codcet and not camera_numero:
-            values["camera_numero"] = codcet
-        if camera_numero and not codcet:
-            values["codcet"] = camera_numero
-        return values
 
 
 class ReportFilters(BaseModel):

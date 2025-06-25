@@ -1628,21 +1628,16 @@ def get_radar_positions() -> List[RadarOut]:
 
         used_radars AS (
         SELECT
-            CASE WHEN ARRAY_LENGTH(REGEXP_EXTRACT_ALL(TRIM(camera_numero), r'[0-9]')) = 9
-            THEN LPAD(ARRAY_TO_STRING(REGEXP_EXTRACT_ALL(TRIM(camera_numero), r'[0-9]'), ''), 10, '0')
-            ELSE ARRAY_TO_STRING(REGEXP_EXTRACT_ALL(TRIM(camera_numero), r'[0-9]'), '', camera_numero) 
-            END AS codcet,
-            -ABS(camera_latitude) camera_latitude,
-            -ABS(camera_longitude) camera_longitude,
+            codcet,
+            camera_latitude,
+            camera_longitude,
             empresa,
             MAX(DATETIME(datahora, "America/Sao_Paulo")) AS last_detection_time,
             'yes' AS has_data
-        FROM `rj-cetrio.ocr_radar.readings_*`
+        FROM `rj-cetrio.ocr_radar.vw_readings`
         WHERE 
-            camera_numero IS NOT NULL 
-            AND camera_numero != ''
-            AND ARRAY_LENGTH(REGEXP_EXTRACT_ALL(TRIM(camera_numero), r'[0-9]')) >= 9 -- manter apenas os codcets
-        GROUP BY camera_numero, camera_latitude, camera_longitude, empresa
+            codcet IS NOT NULL 
+        GROUP BY codcet, camera_latitude, camera_longitude, empresa
         ),
 
         -- some radars has different lat/long in readings tables and it causes duplicated values on previous CTE
@@ -1658,7 +1653,6 @@ def get_radar_positions() -> List[RadarOut]:
         selected_radar AS (
         SELECT
             COALESCE(t1.codcet, t2.codcet) AS codcet,
-            COALESCE(t1.codcet, t2.codcet) AS camera_numero, -- TODO: kept for now
             COALESCE(t2.empresa, NULL) AS empresa,
             COALESCE(t1.latitude, t2.camera_latitude) AS latitude,
             COALESCE(t1.longitude, t2.camera_longitude) AS longitude,
