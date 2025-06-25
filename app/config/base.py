@@ -95,26 +95,6 @@ CORTEX_CPF_RATE_LIMIT = getenv_or_action("CORTEX_CPF_RATE_LIMIT", default="2/min
 # Tixxi
 TIXXI_CAMERAS_LIST_URL = getenv_or_action("TIXXI_CAMERAS_LIST_URL")
 
-# External data that is loaded persistently
-DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL = getenv_or_action(
-    "DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL"
-)
-try:
-    _df_codcet_to_camera_numero: pd.DataFrame = pd.read_csv(
-        DATA_CODCET_TO_CAMERA_NUMERO_CSV_URL, 
-        dtype = str
-    )
-    _df_codcet_to_camera_numero.dropna(inplace=True)
-    CAMERA_NUMERO_TO_CODCET: Dict[str, str] = (
-        _df_codcet_to_camera_numero.groupby("camera_numero")["codcet"]
-        .first()
-        .to_dict()
-    )
-except Exception as exc:
-    logger.error(f"Failed to load CODCET to camera_numero mapping: {exc}")
-    logger.error(traceback.format_exc())
-    CAMERA_NUMERO_TO_CODCET = {}
-
 # Weaviate schema
 WEAVIATE_SCHEMA_CLASS = getenv_or_action("WEAVIATE_SCHEMA_CLASS", action="raise")
 WEAVIATE_SCHEMA = {
