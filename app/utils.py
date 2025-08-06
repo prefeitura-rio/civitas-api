@@ -1581,7 +1581,10 @@ async def get_cameras_cor() -> list:
     Fetch the cameras list.
     """
     try:
-        async with aiohttp.ClientSession() as session:
+        # todo: remove this after SSL certificate is ok
+        connector = aiohttp.TCPConnector(ssl=False)
+        
+        async with aiohttp.ClientSession(connector=connector) as session:
             async with session.get(
                 config.TIXXI_CAMERAS_LIST_URL,
             ) as response:
