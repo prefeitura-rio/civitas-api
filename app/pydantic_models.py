@@ -336,7 +336,7 @@ class Token(BaseModel):
 
 class Location(BaseModel):
     datahora: datetime
-    camera_numero: str
+    codcet: str
     latitude: float
     longitude: float
     bairro: str
@@ -544,8 +544,8 @@ class NotificationChannelUpdate(BaseModel):
 class NPlatesBeforeAfterDetection(BaseModel):
     timestamp: Optional[datetime] = None
     plate: str
-    camera_numero: Optional[str] = None
-    lane: Optional[str] = None
+    codcet: str
+    lane: str
     speed: Optional[float] = None
     count: Optional[int] = None
 
@@ -584,8 +584,7 @@ class OperationUpdate(BaseModel):
 
 
 class RadarOut(BaseModel):
-    codcet: Optional[str] = None
-    camera_numero: Optional[str] = None
+    codcet: str
     latitude: float
     longitude: float
     locequip: Optional[str] = None
@@ -596,20 +595,6 @@ class RadarOut(BaseModel):
     active_in_last_24_hours: Optional[str] = None
     last_detection_time: Optional[datetime] = None
     sentido: Optional[str] = None
-
-    @root_validator
-    def validate_codcet_or_camera_numero(cls, values: dict):
-        codcet = values.get("codcet")
-        camera_numero = values.get("camera_numero")
-        # At least one must be set
-        if not codcet and not camera_numero:
-            raise ValueError("At least one of codcet or camera_numero must be set.")
-        # If only one is set, copy the value to the other
-        if codcet and not camera_numero:
-            values["camera_numero"] = codcet
-        if camera_numero and not codcet:
-            values["codcet"] = camera_numero
-        return values
 
 
 class ReportFilters(BaseModel):
@@ -726,7 +711,7 @@ class WazeAlertOut(BaseModel):
 class PdfReportCorrelatedPlatesDataDetection(BaseModel):
     timestamp: datetime
     plate: str
-    camera_numero: str
+    codcet: str
     lane: str
     speed: float
     count: int
@@ -798,7 +783,7 @@ class PdfReportMultipleCorrelatedPlatesIn(BaseModel):
     
 class DetectionWindow(BaseModel):
     plate: str
-    camera_number: str
+    codcet: str
     detection_index: int
     target_id: int
     n_minutes: int
@@ -815,10 +800,10 @@ class DetectionWindowList(BaseModel):
 class GetCarsByRadarIn:
     def __init__(
         self,
-        radar: str = Query(
+        codcet: str = Query(
             ...,
-            description="CODCET or CAMERA_NUMBER to get cars by",
-            min_length=1,
+            description="CODCET to get cars by",
+            min_length=10,
             max_length=10,
         ),
         start_time: datetime = Query(
@@ -840,7 +825,7 @@ class GetCarsByRadarIn:
             regex = r"^[a-zA-Z0-9*]{2,7}$" # plate_hint must be alphanumeric and can contain *
         ),
     ):
-        self.radar = radar
+        self.codcet = codcet
         self.start_time = start_time
         self.end_time = end_time
         self.plate_hint = plate_hint

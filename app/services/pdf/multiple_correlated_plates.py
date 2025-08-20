@@ -67,26 +67,25 @@ class DataService():
                 placa,
                 tipoveiculo,
                 velocidade,
-                camera_numero,
+                codcet,
                 DATETIME(datahora, 'America/Sao_Paulo') AS datahora_local,
                 empresa,
                 DATETIME(datahora_captura, 'America/Sao_Paulo') AS datahora_captura,
                 ROW_NUMBER() OVER (PARTITION BY placa, datahora ORDER BY datahora) AS row_num_duplicate
-            FROM `rj-cetrio.ocr_radar.readings_*`
+            FROM `rj-cetrio.ocr_radar.vw_readings`
             WHERE
                 __filter_all_readings__
             QUALIFY(row_num_duplicate) = 1
-            ORDER BY camera_numero, datahora
+            ORDER BY codcet, datahora
         ),
 
 
         unique_locations AS ( -- Get all unique locations and associated information
         SELECT
             t1.codcet,
-            t2.camera_numero,
             t1.bairro,
-            CAST(t1.latitude AS FLOAT64) AS latitude,
-            CAST(t1.longitude AS FLOAT64) AS longitude,
+            t1.latitude,
+            t1.longitude,
             TRIM(
             REGEXP_REPLACE(
                 REGEXP_REPLACE(t1.locequip, r'^(.*?) -.*', r'\\1'), -- Remove the part after " -"
@@ -102,8 +101,6 @@ class DataService():
             )
             ) AS hashed_coordinates, -- Generate a unique hash for the location
         FROM `rj-cetrio.ocr_radar.equipamento` t1
-        JOIN `rj-cetrio.ocr_radar.equipamento_codcet_to_camera_numero` t2
-            ON t1.codcet = t2.codcet
         ),
 
         -- Select unique coordinates for each location
@@ -117,9 +114,9 @@ class DataService():
         ),
 
 
-        camera_numero AS (
+        codcets AS (
         SELECT 
-            distinct camera_numero
+            distinct codcet
         from _all_
         ),
 
@@ -127,7 +124,6 @@ class DataService():
         -- Group radar information with readings
         radar_group AS (
         SELECT
-            l.camera_numero,
             l.codcet,
             l.bairro,
             l.latitude,
@@ -138,7 +134,7 @@ class DataService():
         FROM
             unique_locations l
             JOIN unique_location_coordinates  b ON l.hashed_coordinates = b.hashed_coordinates
-            JOIN camera_numero c ON l.camera_numero = c.camera_numero
+            JOIN codcets c ON l.codcet = c.codcet
 
         ),
 
@@ -149,8 +145,7 @@ class DataService():
                 a.tipoveiculo,
                 a.datahora_local,
                 a.datahora_captura,
-                a.camera_numero,
-                r.codcet,
+                a.codcet,
                 r.locequip,
                 r.bairro,
                 r.sentido,
@@ -159,7 +154,7 @@ class DataService():
                 r.longitude,
                 a.velocidade
             FROM _all_ a
-            LEFT JOIN radar_group r ON a.camera_numero = r.camera_numero
+            LEFT JOIN radar_group r ON a.codcet = r.codcet
         ),
 
 
@@ -176,7 +171,7 @@ class DataService():
         target_filter AS (
             SELECT 
                 placa,
-                camera_numero,
+                codcet,
                 hashed_coordinates,
                 ROW_NUMBER() OVER(PARTITION BY placa ORDER BY datahora_local) detection_id,
                 datahora_local,
@@ -198,7 +193,6 @@ class DataService():
                     ELSE false
                 END as target,
                 a.velocidade,
-                a.camera_numero,
                 a.codcet,
                 a.locequip,
                 a.bairro,
@@ -216,7 +210,7 @@ class DataService():
                     a.target_parameters.start_time,
                     a.target_parameters.end_time,
                     t.datahora_local as detection_datahora_local,
-                    t.camera_numero as camera_numero
+                    t.codcet as codcet
 
                 )  as target_parameters,
             FROM _all a
@@ -255,7 +249,6 @@ class DataService():
                     ELSE false
                 END as target,
                 a.velocidade,
-                a.camera_numero,
                 a.codcet,
                 a.locequip,
                 a.bairro,
@@ -338,7 +331,6 @@ class DataService():
                 d.count_different_targets,
                 a.datahora_local,
                 a.datahora_captura,
-                a.camera_numero,
                 a.codcet,
                 a.locequip,
                 a.bairro,
@@ -682,19 +674,19 @@ class DataService():
         _all_ AS (
             SELECT
                 placa,
-                camera_numero,
+                codcet,
                 DATETIME(datahora, 'America/Sao_Paulo') AS datahora_local,
                 ROW_NUMBER() OVER (PARTITION BY placa, datahora ORDER BY datahora) AS row_num_duplicate
-            FROM `rj-cetrio.ocr_radar.readings_*`
+            FROM `rj-cetrio.ocr_radar.vw_readings`
             WHERE
                 __filter_all_readings__
             QUALIFY(row_num_duplicate) = 1
-            ORDER BY camera_numero, datahora
+            ORDER BY codcet, datahora
         )
 
         SELECT 
             a.placa AS plate,
-            a.camera_numero AS camera_number,
+            a.codcet AS codcet,
             ROW_NUMBER() OVER (PARTITION BY a.placa ORDER BY a.datahora_local) AS detection_index,
             f.target_parameters.target_id,
             f.target_parameters.n_minutes,

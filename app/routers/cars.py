@@ -547,7 +547,6 @@ async def get_car_path(
     request: Request,
     max_time_interval: int = 60 * 60,
     polyline: bool = False,
-    min_plate_distance: float = 0,
 ):
     # Parse start_time and end_time to pendulum.DateTime
     start_time = DateTime.instance(start_time, tz=config.TIMEZONE)
@@ -565,7 +564,6 @@ async def get_car_path(
         max_datetime=end_time,
         max_time_interval=max_time_interval,
         polyline=polyline,
-        min_plate_distance=min_plate_distance,
     )
 
     # Build response
@@ -668,22 +666,8 @@ async def get_cars_by_radar(
 
     logger.debug(f"Date range: {start_time} - {end_time}")
 
-    # # Use either camera_numero or codcet
-    if len(data.radar.replace("-", "").strip()) >= 9:
-        codcet = data.radar.zfill(10)
-        camera_numero = [c_num for c_num, codc in config.CAMERA_NUMERO_TO_CODCET.items() if codc == codcet]
-        
-        if camera_numero:
-            camera_numero = "', '".join(camera_numero)
-    else:
-        camera_numero = data.radar
-        codcet = config.CAMERA_NUMERO_TO_CODCET.get(camera_numero, None)
-
-    logger.debug(f"Camera numero: {camera_numero}, CODCET: {codcet}")
-
     return await get_car_by_radar(
-        camera_numero=camera_numero,
-        codcet=codcet,
+        codcet=data.codcet,
         min_datetime=start_time,
         max_datetime=end_time,
         plate_hint=data.plate_hint,
