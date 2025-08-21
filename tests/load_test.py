@@ -159,5 +159,57 @@ async def main():
     print("3. Heavy queries (10h) should show clear blocking patterns")
     print("4. High variance in response times indicates event loop blocking")
 
+async def test_real_api():
+    """Test real Civitas API endpoints"""
+    print("🔍 Testing Real Civitas API")
+    print("=" * 50)
+    
+    base_url = "http://localhost:8000"
+    
+    # Test /cars/plates endpoint
+    print("\n📍 Testing /cars/plates endpoint...")
+    plates_payload = {"plates": ["ABC1234", "XYZ5678", "DEF9012"]}
+    
+    start_time = time.time()
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"{base_url}/cars/plates", 
+                                   json=plates_payload,
+                                   headers={"Content-Type": "application/json"}) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    elapsed = time.time() - start_time
+                    print(f"✅ /cars/plates: {response.status} - {elapsed:.3f}s")
+                    print(f"   Response keys: {list(data.keys()) if isinstance(data, dict) else 'list'}")
+                else:
+                    print(f"❌ /cars/plates: {response.status} - {await response.text()}")
+    except Exception as e:
+        print(f"❌ /cars/plates error: {e}")
+    
+    # Test /cars/path endpoint
+    print("\n🛣️  Testing /cars/path endpoint...")
+    path_payload = {
+        "plate": "ABC1234",
+        "start_date": "2024-01-01",
+        "end_date": "2024-01-31"
+    }
+    
+    start_time = time.time()
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"{base_url}/cars/path", 
+                                   json=path_payload,
+                                   headers={"Content-Type": "application/json"}) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    elapsed = time.time() - start_time
+                    print(f"✅ /cars/path: {response.status} - {elapsed:.3f}s")
+                    print(f"   Response keys: {list(data.keys()) if isinstance(data, dict) else 'list'}")
+                else:
+                    print(f"❌ /cars/path: {response.status} - {await response.text()}")
+    except Exception as e:
+        print(f"❌ /cars/path error: {e}")
+
+
 if __name__ == "__main__":
     asyncio.run(main())

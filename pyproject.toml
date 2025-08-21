@@ -5,6 +5,11 @@ description = ""
 authors = ["Gabriel Gazola Milan <gabriel.gazola@poli.ufrj.br>"]
 readme = "README.md"
 
+[tool.poetry.scripts]
+test-eventloop = "tests.quick_test:main"
+serve-test-api = "tests.test_api:serve"
+test-performance = "tests.load_test:main"
+
 [tool.poetry.dependencies]
 python = "^3.11"
 aerich = "^0.7.2"
@@ -59,6 +64,13 @@ src_folder = "./."
 lint = "black . && isort . && flake8 ."
 serve = "uvicorn app.main:app --reload --port 8080"
 test = "pytest"
+# Event loop and performance testing scripts
+test-eventloop = "python tests/quick_test.py"
+test-api-mock = "uvicorn tests.test_api:app --host 0.0.0.0 --port 8001"
+test-performance = "python tests/load_test.py"
+test-all-performance = "python tests/quick_test.py && python tests/load_test.py"
+# Production testing (requires API running on port 8000)
+test-prod-cars = "python -c \"import asyncio; from tests.load_test import test_real_api; asyncio.run(test_real_api())\""
 
 [build-system]
 requires = ["poetry-core"]

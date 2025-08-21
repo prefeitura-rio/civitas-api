@@ -100,7 +100,62 @@ aerich upgrade
 
 ## 🏃‍♂️ Executando o Projeto
 
-### Desenvolvimento
+### Scripts de Performance Testing
+
+Este projeto inclui ferramentas para testar performance e detectar problemas de event loop blocking. Use os comandos do Makefile para facilitar a execução:
+
+### Comandos Disponíveis
+
+```bash
+# Ver todos os comandos disponíveis
+make help
+
+# Testes de Performance
+make test-eventloop     # Testes básicos de event loop
+make test-api-mock      # API mock para testes (porta 8001)
+make test-performance   # Testes de carga na API mock
+make test-all          # Todos os testes de performance
+make test-real         # Testa endpoints reais (requer API principal)
+
+# Comandos padrão
+make install           # Instalar dependências
+make serve            # API principal (porta 8080)
+make test             # Testes pytest padrão
+make lint             # Formatação e linting
+```
+
+### Workflow de Testing
+
+1. **Teste básico do event loop:**
+   ```bash
+   make test-eventloop
+   ```
+
+2. **Teste com API mock:**
+   ```bash
+   # Terminal 1: Inicie a API mock
+   make test-api-mock
+   
+   # Terminal 2: Execute os testes
+   make test-performance
+   ```
+
+3. **Teste da API real:**
+   ```bash
+   # Terminal 1: API principal
+   make serve
+   
+   # Terminal 2: Testes nos endpoints reais
+   make test-real
+   ```
+
+### Interpretação dos Resultados
+
+- **Event Loop Lag**: < 10ms = ✅ Bom, 10-50ms = ⚠️ Alto, >50ms = ❌ Problema
+- **Concurrency Efficiency**: > 0.1 = ✅ Bom, valores baixos indicam blocking
+- **Response Times**: Monitore tempos elevados e timeouts
+
+## Desenvolvimento
 
 ```bash
 # Executar servidor de desenvolvimento
@@ -206,39 +261,6 @@ aerich migrate
 # Aplicar migrações
 aerich upgrade
 ```
-
-## 🚀 Deploy
-
-### Staging
-
-```bash
-# Deploy automático via Cloud Build
-git push origin main
-```
-
-### Produção
-
-O deploy em produção é feito através do Google Cloud Build com os manifestos Kubernetes em `k8s/prod/`.
-
-## 🤝 Contribuição
-
-1. Faça um fork do projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
-3. Commit suas mudanças (`git commit -am 'Add nova feature'`)
-4. Push para a branch (`git push origin feature/nova-feature`)
-5. Abra um Pull Request
-
-### Padrões de Commit
-
-- `feat:` nova funcionalidade
-- `fix:` correção de bug
-- `docs:` documentação
-- `style:` formatação
-- `refactor:` refatoração
-- `test:` testes
-- `chore:` tarefas de manutenção
-
----
 
 ## 📝 Licença
 

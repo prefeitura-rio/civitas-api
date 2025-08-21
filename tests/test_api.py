@@ -160,13 +160,19 @@ async def test_concurrent_load():
     }
 
 
-if __name__ == "__main__":
-    print("🚀 Starting Civitas Test API on http://localhost:8000")
+def serve():
+    """Entry point for serving the test API"""
+    print("🚀 Starting Civitas Test API on http://localhost:8001")
     print("📊 Test endpoints:")
     print("  - GET  /health")
     print("  - POST /test/cars/plates")
     print("  - GET  /test/cars/path?placa=ABC1234&hours=1")
     print("  - GET  /test/concurrent")
-    print("  - Docs: http://localhost:8000/docs")
+    print("  - Docs: http://localhost:8001/docs")
     
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001)
+
+
+if __name__ == "__main__":
+    serve()
