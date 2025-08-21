@@ -12,12 +12,17 @@ help:
 	@echo ""
 	@echo "API:"
 	@echo "  serve            Start main API (port 8080)"
-	@echo "  test-api-mock    Start test API mock (port 8001)"
+	@echo "  mock-api         Start diagnostic mock API (port 8001)"
 	@echo ""
-	@echo "Performance Tests:"
-	@echo "  test-eventloop   Run basic event loop tests"
-	@echo "  test-performance Run load tests against mock API"
-	@echo "  test-all         Run all performance tests"
+	@echo "📊 DIAGNOSTIC Scripts (métricas + console output):"
+	@echo "  diag-eventloop   Event loop lag measurement"
+	@echo "  diag-load        Load testing against mock API"
+	@echo "  diag-all         All diagnostic scripts"
+	@echo ""
+	@echo "✅ PERFORMANCE Tests (pytest + assertions):"
+	@echo "  test-perf        All performance tests with assertions"
+	@echo "  test-perf-fast   Fast event loop test only"
+	@echo "  test-examples    Show failing test examples"
 	@echo ""
 	@echo "Standard Tests:"
 	@echo "  test             Run pytest tests"
@@ -36,23 +41,41 @@ serve:
 test:
 	poetry run pytest
 
-# Performance testing scripts
-test-eventloop:
-	@echo "🔍 Running Event Loop Tests..."
-	poetry run python tests/quick_test.py
+# 📊 DIAGNOSTIC Scripts (collect metrics + print results)
+diag-eventloop:
+	@echo "� Running Event Loop Diagnostic..."
+	poetry run python tests/diagnostic/quick_test.py
 
-test-api-mock:
-	@echo "🚀 Starting Test API Mock on port 8001..."
+mock-api:
+	@echo "🚀 Starting Diagnostic Mock API on port 8001..."
 	@echo "Press Ctrl+C to stop"
-	poetry run python tests/test_api.py
+	poetry run python tests/diagnostic/mock_api.py
 
-test-performance:
-	@echo "📊 Running Performance Tests..."
-	@echo "Note: This requires test API running on port 8001"
-	@echo "Run 'make test-api-mock' in another terminal first"
-	poetry run python tests/load_test.py
+diag-load:
+	@echo "📊 Running Load Testing Diagnostic..."
+	@echo "Note: This requires mock API running on port 8001"
+	@echo "Run 'make mock-api' in another terminal first"
+	poetry run python tests/diagnostic/load_test.py
 
-test-all:
+diag-all:
+	@echo "🔄 Running All Diagnostic Scripts..."
+	@make diag-eventloop
+	@echo ""
+	@echo "⚠️  Next: Start mock API with 'make mock-api' and run 'make diag-load'"
+
+# ✅ PERFORMANCE Tests (pytest with assertions that can pass/fail)
+test-perf:
+	@echo "✅ Running Performance Tests with pytest..."
+	@echo "These tests have assertions and can PASS/FAIL"
+	poetry run pytest tests/performance/test_performance_real.py -v
+
+test-perf-fast:
+	@echo "⚡ Running fast performance test..."
+	poetry run pytest tests/performance/test_performance_real.py::test_event_loop_lag_within_limits -v
+
+test-examples:
+	@echo "📝 Running test examples (some will fail intentionally)..."
+	poetry run pytest tests/performance/test_examples.py -v
 	@echo "🔄 Running All Performance Tests..."
 	@make test-eventloop
 	@echo ""
@@ -63,4 +86,4 @@ test-real:
 	@echo "🎯 Testing Real API Endpoints..."
 	@echo "Note: This requires main API running on port 8000"
 	@echo "Run 'make serve' in another terminal first"
-	poetry run python -c "import asyncio; from tests.load_test import test_real_api; asyncio.run(test_real_api())"
+	poetry run python -c "import asyncio; from tests.diagnostic.load_test import test_real_api; asyncio.run(test_real_api())"

@@ -102,42 +102,51 @@ aerich upgrade
 
 ### Scripts de Performance Testing
 
-Este projeto inclui ferramentas para testar performance e detectar problemas de event loop blocking. Use os comandos do Makefile para facilitar a execução:
+Este projeto inclui duas categorias de ferramentas para análise de performance:
 
-### Comandos Disponíveis
-
+### 📊 **Scripts Diagnósticos** (Análise e Coleta de Métricas)
 ```bash
 # Ver todos os comandos disponíveis
 make help
 
-# Testes de Performance
-make test-eventloop     # Testes básicos de event loop
-make test-api-mock      # API mock para testes (porta 8001)
-make test-performance   # Testes de carga na API mock
-make test-all          # Todos os testes de performance
-make test-real         # Testa endpoints reais (requer API principal)
-
-# Comandos padrão
-make install           # Instalar dependências
-make serve            # API principal (porta 8080)
-make test             # Testes pytest padrão
-make lint             # Formatação e linting
+# Scripts de diagnóstico (sempre "passam", imprimem métricas)
+make diag-eventloop     # Event loop lag measurement
+make mock-api          # API mock para testes (porta 8001)
+make diag-load         # Load testing diagnostics
+make diag-all          # Todos os scripts diagnósticos
 ```
+
+### ✅ **Testes Performance** (Pytest com Assertions)
+```bash
+# Testes pytest (podem PASSAR ✅ ou FALHAR ❌)
+make test-perf         # Todos os testes de performance
+make test-perf-fast    # Teste rápido de event loop
+make test-examples     # Exemplos de testes que falham
+```
+
+### 🎯 **Quando usar cada tipo?**
+
+| Tipo | Uso | Características |
+|------|-----|----------------|
+| **📊 Diagnósticos** | Investigação, debugging, coleta de métricas | Sempre "passam", output detalhado |
+| **✅ Performance** | CI/CD, validação automática, SLAs | PASSAM/FALHAM, critérios específicos |
 
 ### Workflow de Testing
 
-1. **Teste básico do event loop:**
+1. **Investigação com diagnósticos:**
    ```bash
-   make test-eventloop
+   make diag-eventloop      # Baseline do sistema
+   
+   # Terminal 1: API mock
+   make mock-api
+   
+   # Terminal 2: Load testing
+   make diag-load
    ```
 
-2. **Teste com API mock:**
+2. **Validação com testes pytest:**
    ```bash
-   # Terminal 1: Inicie a API mock
-   make test-api-mock
-   
-   # Terminal 2: Execute os testes
-   make test-performance
+   make test-perf           # Validação automática
    ```
 
 3. **Teste da API real:**
@@ -151,9 +160,15 @@ make lint             # Formatação e linting
 
 ### Interpretação dos Resultados
 
+#### 📊 Diagnósticos (Console Output)
 - **Event Loop Lag**: < 10ms = ✅ Bom, 10-50ms = ⚠️ Alto, >50ms = ❌ Problema
 - **Concurrency Efficiency**: > 0.1 = ✅ Bom, valores baixos indicam blocking
 - **Response Times**: Monitore tempos elevados e timeouts
+
+#### ✅ Testes Pytest (Pass/Fail)
+- **PASSED**: Sistema atende critérios definidos
+- **FAILED**: Violação de SLA, regressão detectada
+- **SKIPPED**: Dependência não disponível (ex: API offline)
 
 ## Desenvolvimento
 
