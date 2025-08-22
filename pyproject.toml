@@ -6,9 +6,6 @@ authors = ["Gabriel Gazola Milan <gabriel.gazola@poli.ufrj.br>"]
 readme = "README.md"
 
 [tool.poetry.scripts]
-test-eventloop = "tests.quick_test:main"
-serve-test-api = "tests.test_api:serve"
-test-performance = "tests.load_test:main"
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -54,6 +51,7 @@ pytest-asyncio = "^0.23.7"
 pytest-cov = "^5.0.0"
 pytest-ordering = "^0.6"
 taskipy = "^1.12.2"
+aiohttp = "^3.12.15"
 
 [tool.aerich]
 tortoise_orm = "app.db.TORTOISE_ORM"

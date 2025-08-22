@@ -100,75 +100,23 @@ aerich upgrade
 
 ## 🏃‍♂️ Executando o Projeto
 
-### Scripts de Performance Testing
-
-Este projeto inclui duas categorias de ferramentas para análise de performance:
-
-### 📊 **Scripts Diagnósticos** (Análise e Coleta de Métricas)
 ```bash
-# Ver todos os comandos disponíveis
-make help
+# Rodar a API
+poetry run task serve
 
-# Scripts de diagnóstico (sempre "passam", imprimem métricas)
-make diag-eventloop     # Event loop lag measurement
-make mock-api          # API mock para testes (porta 8001)
-make diag-load         # Load testing diagnostics
-make diag-all          # Todos os scripts diagnósticos
+# Com as variáveis de ambiente
+INFISICAL_TOKEN=your_token INFISICAL_ADDRESS=your_address ENVIRONMENT=dev poetry run task serve
 ```
 
-### ✅ **Testes Performance** (Pytest com Assertions)
+## 🧪 Testes
+
 ```bash
-# Testes pytest (podem PASSAR ✅ ou FALHAR ❌)
-make test-perf         # Todos os testes de performance
-make test-perf-fast    # Teste rápido de event loop
-make test-examples     # Exemplos de testes que falham
+# Testes de performance (CI)
+poetry run task test
+
+# Diagnósticos locais
+poetry run task test-eventloop
 ```
-
-### 🎯 **Quando usar cada tipo?**
-
-| Tipo | Uso | Características |
-|------|-----|----------------|
-| **📊 Diagnósticos** | Investigação, debugging, coleta de métricas | Sempre "passam", output detalhado |
-| **✅ Performance** | CI/CD, validação automática, SLAs | PASSAM/FALHAM, critérios específicos |
-
-### Workflow de Testing
-
-1. **Investigação com diagnósticos:**
-   ```bash
-   make diag-eventloop      # Baseline do sistema
-   
-   # Terminal 1: API mock
-   make mock-api
-   
-   # Terminal 2: Load testing
-   make diag-load
-   ```
-
-2. **Validação com testes pytest:**
-   ```bash
-   make test-perf           # Validação automática
-   ```
-
-3. **Teste da API real:**
-   ```bash
-   # Terminal 1: API principal
-   make serve
-   
-   # Terminal 2: Testes nos endpoints reais
-   make test-real
-   ```
-
-### Interpretação dos Resultados
-
-#### 📊 Diagnósticos (Console Output)
-- **Event Loop Lag**: < 10ms = ✅ Bom, 10-50ms = ⚠️ Alto, >50ms = ❌ Problema
-- **Concurrency Efficiency**: > 0.1 = ✅ Bom, valores baixos indicam blocking
-- **Response Times**: Monitore tempos elevados e timeouts
-
-#### ✅ Testes Pytest (Pass/Fail)
-- **PASSED**: Sistema atende critérios definidos
-- **FAILED**: Violação de SLA, regressão detectada
-- **SKIPPED**: Dependência não disponível (ex: API offline)
 
 ## Desenvolvimento
 
