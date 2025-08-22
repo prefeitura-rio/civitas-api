@@ -229,9 +229,6 @@ aerich upgrade
 
 Este projeto é propriedade da Prefeitura do Rio de Janeiro.
 
-## 👥 Time
-
-- **Gabriel Gazola Milan** - _Desenvolvedor Principal_ - gabriel.gazola@poli.ufrj.br
 
 ---
 
