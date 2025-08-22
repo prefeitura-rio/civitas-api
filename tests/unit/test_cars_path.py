@@ -64,7 +64,7 @@ async def test_path_building_logic():
             path.append(path_item)
         return path
     
-    # Simular 1000 pontos de GPS
+    # Usar dados expandidos baseados na fixture
     raw_points = [
         {
             "lat": -22.9068 + (i * 0.0001), 
