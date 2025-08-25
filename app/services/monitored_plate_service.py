@@ -145,7 +145,7 @@ class MonitoredPlateService:
             raise HTTPException(status_code=404, detail="Operation not found")
 
         notification_channels = []
-        for channel_id in plate_data.notification_channel_ids:
+        for channel_id in plate_data.notification_channels or []:
             channel = await NotificationChannel.get_or_none(id=channel_id)
             if not channel:
                 raise HTTPException(
@@ -154,13 +154,18 @@ class MonitoredPlateService:
                 )
             notification_channels.append(channel)
 
+        # Check if plate already exists
+        if await MonitoredPlate.filter(plate=plate_data.plate.upper()).exists():
+            raise HTTPException(status_code=409, detail="Plate already monitored")
+
         # Create monitored plate
         monitored_plate = await MonitoredPlate.create(
             plate=plate_data.plate.upper(),
             operation=operation,
+            active=plate_data.active,
+            contact_info=plate_data.contact_info,
             notes=plate_data.notes,
             additional_info=plate_data.additional_info,
-            created_by=user,
         )
 
         # Add notification channels
@@ -210,16 +215,39 @@ class MonitoredPlateService:
         if not monitored_plate:
             raise HTTPException(status_code=404, detail="Plate not found")
 
-        # Update fields
-        if update_data.active is not None:
-            monitored_plate.active = update_data.active
-        if update_data.notes is not None:
-            monitored_plate.notes = update_data.notes
-        if update_data.additional_info is not None:
-            monitored_plate.additional_info = update_data.additional_info
+        async with in_transaction():
+            # Update simple fields
+            if update_data.active is not None:
+                monitored_plate.active = update_data.active
+            if update_data.notes is not None:
+                monitored_plate.notes = update_data.notes
+            if update_data.additional_info is not None:
+                monitored_plate.additional_info = update_data.additional_info
+            if update_data.contact_info is not None:
+                monitored_plate.contact_info = update_data.contact_info
+                
+            # Update operation if provided
+            if update_data.operation_id is not None:
+                operation = await Operation.get_or_none(id=update_data.operation_id)
+                if not operation:
+                    raise HTTPException(status_code=404, detail="Operation not found")
+                monitored_plate.operation = operation
+                
+            # Update notification channels if provided
+            if update_data.notification_channels is not None:
+                # Clear existing channels
+                await monitored_plate.notification_channels.clear()
+                # Add new channels
+                for channel_id in update_data.notification_channels:
+                    channel = await NotificationChannel.get_or_none(id=channel_id)
+                    if not channel:
+                        raise HTTPException(
+                            status_code=404,
+                            detail=f"Notification channel {channel_id} not found"
+                        )
+                    await monitored_plate.notification_channels.add(channel)
 
-        monitored_plate.updated_by = user
-        await monitored_plate.save()
+            await monitored_plate.save()
 
         return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
 

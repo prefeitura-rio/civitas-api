@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
-import asyncio
 from typing import Annotated, List
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 
 from app.decorators import router_request
 from app.dependencies import has_cpf, is_user
-from app.models import CompanyData, User
+from app.models import User
 from app.pydantic_models import CortexCompaniesIn, CortexCompanyOut, CortexCreditsOut
-from app.utils import get_company_details as utils_get_company_details
-from app.utils import validate_cnpj
+from app.services import CompanyService
 
 router = APIRouter(
     prefix="/companies",
@@ -32,23 +30,12 @@ async def get_multiple_companies_details(
     user: Annotated[User, Depends(has_cpf)],
     request: Request,
 ):
-    # Validate CNPJs
-    for cnpj in cnpjs.cnpjs:
-        if not validate_cnpj(cnpj):
-            raise HTTPException(status_code=400, detail=f"Invalid CNPJ format: {cnpj}")
-
-    # Await for all companies in batches of 10
-    cnpjs_list = cnpjs.cnpjs
-    cnpjs_details = []
-    for i in range(0, len(cnpjs_list), 10):
-        cnpjs_details += await asyncio.gather(
-            *[
-                utils_get_company_details(cnpj=cnpj, cpf=user.cpf)
-                for cnpj in cnpjs_list[i : i + 10]
-            ]
-        )
-
-    return cnpjs_details
+    """
+    Get details for multiple companies by CNPJ.
+    """
+    return await CompanyService.get_multiple_companies_details(
+        cnpjs=cnpjs.cnpjs, requester_cpf=user.cpf
+    )
 
 
 @router_request(
@@ -62,12 +49,11 @@ async def get_necessary_credits(
     user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
-    # Check, using the provided list of CNPJs, how many aren't in our database
-    cnpjs_data = await CompanyData.filter(cnpj__in=cnpjs.cnpjs).values_list(
-        "cnpj", flat=True
-    )
-    missing_cnpjs = list(set(cnpjs.cnpjs) - set(cnpjs_data))
-    return CortexCreditsOut(credits=len(missing_cnpjs))
+    """
+    Calculate how many credits are needed for the given CNPJs.
+    """
+    credits_needed = await CompanyService.calculate_credits_needed(cnpjs.cnpjs)
+    return CortexCreditsOut(credits=credits_needed)
 
 
 @router_request(
@@ -85,9 +71,9 @@ async def get_company_details(
     user: Annotated[User, Depends(has_cpf)],
     request: Request,
 ):
-    # Validate CNPJ
-    if not validate_cnpj(cnpj):
-        raise HTTPException(status_code=400, detail="Invalid CNPJ format")
-
-    # Get CNPJ details
-    return await utils_get_company_details(cnpj=cnpj, cpf=user.cpf)
+    """
+    Get details for a company by CNPJ.
+    """
+    return await CompanyService.get_company_details(
+        cnpj=cnpj, requester_cpf=user.cpf
+    )

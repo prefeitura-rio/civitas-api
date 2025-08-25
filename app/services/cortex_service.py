@@ -11,7 +11,7 @@ import aiohttp
 from loguru import logger
 
 from app import config
-from app.utils import cortex_request
+import app.utils as utils
 
 
 class CortexService:
@@ -31,7 +31,7 @@ class CortexService:
         """
         logger.debug(f"Fetching vehicle data for plate {plate} from Cortex API")
         
-        return await cortex_request(
+        return await utils.cortex_request(
             method="GET",
             url=f"{config.CORTEX_VEICULOS_BASE_URL}/emplacamentos/placa/{plate}",
             cpf=cpf,
@@ -52,7 +52,7 @@ class CortexService:
         """
         logger.debug(f"Fetching person data for CPF {lookup_cpf} from Cortex API")
         
-        return await cortex_request(
+        return await utils.cortex_request(
             method="GET",
             url=f"{config.CORTEX_PESSOAS_BASE_URL}/pessoas/cpf/{lookup_cpf}",
             cpf=requester_cpf,
@@ -73,7 +73,7 @@ class CortexService:
         """
         logger.debug(f"Fetching company data for CNPJ {cnpj} from Cortex API")
         
-        return await cortex_request(
+        return await utils.cortex_request(
             method="GET", 
             url=f"{config.CORTEX_PESSOAS_BASE_URL}/empresas/cnpj/{cnpj}",
             cpf=cpf,

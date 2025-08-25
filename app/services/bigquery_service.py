@@ -223,6 +223,95 @@ class BigQueryService:
         """
 
     @staticmethod
+    async def get_vehicle_hints_raw(
+        plate: str,
+        start_time: pendulum.DateTime,
+        end_time: pendulum.DateTime,
+        latitude_min: Optional[float] = None,
+        latitude_max: Optional[float] = None,
+        longitude_min: Optional[float] = None,
+        longitude_max: Optional[float] = None,
+    ) -> List[str]:
+        """
+        Get vehicle plate hints using raw utils function (for backward compatibility).
+        
+        This method maintains the exact same interface as the utils.get_hints function
+        but organizes it within the service layer pattern.
+        """
+        from app.utils import get_hints
+        
+        return await get_hints(
+            placa=plate,
+            min_datetime=start_time,
+            max_datetime=end_time,
+            latitude_min=latitude_min,
+            latitude_max=latitude_max,
+            longitude_min=longitude_min,
+            longitude_max=longitude_max,
+        )
+
+    @staticmethod
+    async def get_vehicle_path_raw(
+        plate: str,
+        start_time: pendulum.DateTime,
+        end_time: pendulum.DateTime,
+        max_time_interval: int = 3600,
+        polyline: bool = False,
+    ) -> List[dict]:
+        """
+        Get vehicle path using raw utils function (for backward compatibility).
+        """
+        from app.utils import get_path
+        
+        return await get_path(
+            placa=plate,
+            min_datetime=start_time,
+            max_datetime=end_time,
+            max_time_interval=max_time_interval,
+            polyline=polyline,
+        )
+
+    @staticmethod
+    def get_plates_before_after_raw(
+        plate: str,
+        start_time: pendulum.DateTime,
+        end_time: pendulum.DateTime,
+        n_minutes: int,
+        n_plates: int = 10,
+    ) -> List[NPlatesBeforeAfterOut]:
+        """
+        Get plates before/after using raw utils function (for backward compatibility).
+        """
+        from app.utils import get_n_plates_before_and_after
+        
+        return get_n_plates_before_and_after(
+            placa=plate,
+            min_datetime=start_time,
+            max_datetime=end_time,
+            n_minutes=n_minutes,
+            n_plates=n_plates,
+        )
+
+    @staticmethod
+    async def get_cars_by_radar_raw(
+        radar_id: str,
+        start_time: pendulum.DateTime,
+        end_time: pendulum.DateTime,
+        plate_hint: Optional[str] = None,
+    ) -> List[CarPassageOut]:
+        """
+        Get cars by radar using raw utils function (for backward compatibility).
+        """
+        from app.utils import get_car_by_radar
+        
+        return await get_car_by_radar(
+            codcet=radar_id,
+            min_datetime=start_time,
+            max_datetime=end_time,
+            plate_hint=plate_hint,
+        )
+
+    @staticmethod
     def _build_location_filter(
         latitude_min: Optional[float],
         latitude_max: Optional[float], 
