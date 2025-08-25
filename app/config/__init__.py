@@ -109,13 +109,16 @@ def inject_environment_variables(environment: str):
 
 
 environment = getenv_or_action("ENVIRONMENT", action="warn", default="dev")
-if environment not in ["dev", "staging", "prod"]:
-    raise ValueError("ENVIRONMENT must be one of 'dev', 'staging' or 'prod'")
+if environment not in ["dev", "staging", "prod", "test"]:
+    raise ValueError("ENVIRONMENT must be one of 'dev', 'staging', 'prod' or 'test'")
 
-inject_environment_variables(environment=environment)
+# Skip Infisical for test environment
+if environment != "test":
+    inject_environment_variables(environment=environment)
 
 if environment == "dev":
     from app.config.dev import *  # noqa: F401, F403
-
+elif environment == "test":
+    from app.config.dev import *  # noqa: F401, F403  # Use dev config for testing
 else:
     from app.config.prod import *  # noqa: F401, F403

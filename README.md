@@ -110,6 +110,15 @@ INFISICAL_TOKEN=your_token INFISICAL_ADDRESS=your_address ENVIRONMENT=dev poetry
 
 ## 🧪 Testes
 
+### Comando Principal
+
+```bash
+# Todos os testes unitários isolados (rápido, sem configuração de ambiente)
+poetry run task test-unit-isolated
+```
+
+### Outros Testes
+
 ```bash
 # Testes de performance (CI)
 poetry run task test
@@ -204,6 +213,90 @@ poetry run flake8
 # Executar todos os checks
 poetry run pre-commit run --all-files
 ```
+
+### 🧪 Testes
+
+O projeto possui uma suíte de testes abrangente com **82+ testes** cobrindo diferentes aspectos da aplicação:
+
+#### Tipos de Testes
+
+**🚀 Testes Unitários Isolados (`tests/unit/*_isolated.py`) - NOVOS**
+- **Validação de CPF/CNPJ/Placas**: 17 testes cobrindo toda lógica de validação brasileira
+- **Funções Auxiliares**: 24 testes para utilitários (chunking, comparação, etc.)
+- **Execução Rápida**: Sem dependências externas, execução em ~0.02 segundos
+- **Auto-contidos**: Não requerem configuração de ambiente
+
+**📊 Testes de Performance (`tests/performance/`)**
+- **Testes de Performance Assíncrona**: 13 testes verificando comportamento concorrente real
+- **Operações de Banco**: Simulação de consultas, escritas e transações assíncronas
+- **Chamadas API Externas**: Testes de concorrência para requisições HTTP
+- **Comparação Sequencial vs Concorrente**: Medição de speedup (2-10x mais rápido)
+- **Pool de Conexões**: Simulação realística de pools de banco e API
+- **Tratamento de Exceções**: Verificação que erros não quebram concorrência
+- **Processamento em Lotes**: Validação de estratégias de batch processing
+
+**🔧 Testes Unitários Tradicionais (`tests/unit/`)**
+- **Validação de Placas**: Testa a lógica real de validação (`validate_plate`) extraída de `app.utils`
+- **Tratamento de Erros da API**: Simula cenários de erro (400, 404, 500, 429) com mocking
+- **Lógica de Negócio Real**: Testa as funções reais dos endpoints sem carregar a aplicação completa
+- **Casos Extremos**: Unicode, caracteres especiais, performance sob carga
+
+**🏗️ Testes de Integração de Negócio**
+- **Fluxo Completo de Endpoints**: Simula o comportamento real dos endpoints de placas
+- **Normalização de Dados**: Valida conversão para maiúsculas e formatação
+- **Múltiplas Placas**: Testa processamento em lote com validação individual
+
+#### Executando os Testes
+
+```bash
+# Testes isolados (recomendado para desenvolvimento)
+poetry run task test-unit-isolated    # Todos os 41 testes isolados
+
+# Todos os testes do projeto
+poetry run task test
+
+# Apenas testes unitários tradicionais
+poetry run task test-unit
+
+# Apenas testes de performance (13 testes concorrentes)
+poetry run task test-performance
+
+# Testes específicos
+poetry run task test-plates    # Validação de placas
+poetry run task test-errors    # Tratamento de erros
+poetry run task test-path      # Lógica de rotas
+
+# Com cobertura de código
+poetry run task test-coverage
+```
+
+#### Funcionalidades Testadas
+
+**✅ Validação de Documentos Brasileiros (Novos Testes Isolados)**
+- **CPF**: Validação completa com dígitos verificadores, formatos com/sem máscara
+- **CNPJ**: Validação empresarial brasileira, suporte a formatação automática
+- **Placas de Veículos**:
+  - **Formato Antigo**: ABC1234 (3 letras + 4 dígitos)
+  - **Formato Mercosul**: ABC1D23 (3 letras + 1 dígito + 1 letra + 2 dígitos)
+  - **Normalização**: Conversão automática para maiúsculas
+  - **Casos Inválidos**: Formatos incorretos, caracteres especiais, tamanhos errados
+
+**🔧 Funções Auxiliares (Novos Testes Isolados)**
+- **Processamento de Localização**: Chunking, agrupamento por viagem
+- **Comparação de Esquemas**: Validação profunda de estruturas de dados
+- **Mapeamento HTTP**: Conversão de métodos para ações CRUD
+
+**⚡ Performance e Concorrência**
+- **Processamento Assíncrono**: Até 50 consultas simultâneas
+- **Validação em Lote**: 1000+ placas em menos de 1 segundo
+- **Pool de Conexões**: Simulação de ambiente de produção
+
+**🛡️ Tratamento de Erros**
+- **HTTP 400**: Formato de placa inválido
+- **HTTP 404**: Placa não encontrada
+- **HTTP 429**: Rate limiting
+- **HTTP 500**: Erros de servidor/banco
+- **Timeout**: Simulação de timeouts de rede
 
 ### Testes
 
