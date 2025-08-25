@@ -18,6 +18,57 @@ class _FakeRedis:
 
     async def ping(self):
         return True
+    
+    def pipeline(self):
+        return _FakeRedisPipeline()
+    
+    async def get(self, key):
+        return None
+    
+    async def set(self, key, value, ex=None):
+        return True
+    
+    async def incr(self, key):
+        return 1
+    
+    async def expire(self, key, seconds):
+        return True
+
+
+class _FakeRedisPipeline:
+    def __init__(self):
+        pass
+    
+    async def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+    
+    def get(self, key):
+        return self
+    
+    def incr(self, key):
+        return self
+    
+    def expire(self, key, seconds):
+        return self
+    
+    def set(self, key, value, ex=None):
+        return self
+    
+    async def watch(self, key):
+        # Mock watch method for Redis pipeline
+        pass
+    
+    def multi(self):
+        return self
+    
+    def unwatch(self):
+        return self
+    
+    async def execute(self):
+        return [None, 1, True]
 
 
 @pytest.fixture(scope="session")
@@ -32,11 +83,20 @@ def app_instance():
                 return getattr(func, "__wrapped__", func)
             return _decorator
     limiter_patcher = patch("app.decorators.limiter", new=_NoOpLimiter())
+    
+    # Mock CPF rate limiter
+    class _MockCPFRateLimiter:
+        async def check(self, cpf: str) -> bool:
+            return True  # Always allow requests in tests
+    
+    cpf_limiter_patcher = patch("app.utils.cpf_limiter", new=_MockCPFRateLimiter())
+    
     for p in (
         redis_patcher,
         cache_patcher,
         weaviate_schema_patcher,
         limiter_patcher,
+        cpf_limiter_patcher,
     ):
         p.start()
 
@@ -83,6 +143,7 @@ def app_instance():
         cache_patcher,
         weaviate_schema_patcher,
         limiter_patcher,
+        cpf_limiter_patcher,
     ):
         p.stop()
 
