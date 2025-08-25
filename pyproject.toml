@@ -62,11 +62,19 @@ src_folder = "./."
 [tool.taskipy.tasks]
 lint = "black . && isort . && flake8 ."
 serve = "uvicorn app.main:app --reload --port 8080"
-test = "pytest"
-# Event loop and performance testing scripts
+test = "pytest tests/ --tb=short"
+test-fast = "pytest tests/ -k 'not timeout' --tb=no"
+test-unit = "pytest tests/unit/ -v"
+test-performance = "pytest tests/performance/ -v"
+test-plates = "pytest tests/unit/test_cars_plates.py -v"
+test-errors = "pytest tests/unit/test_api_errors.py -v"
+test-path = "pytest tests/unit/test_cars_path.py -v"
+test-coverage = "pytest tests/ --cov=app --cov-report=html"
+test-quiet = "pytest tests/ -q"
+# Legacy testing scripts
 test-eventloop = "python tests/quick_test.py"
 test-api-mock = "uvicorn tests.test_api:app --host 0.0.0.0 --port 8001"
-test-performance = "python tests/load_test.py"
+test-old-performance = "python tests/load_test.py"
 test-all-performance = "python tests/quick_test.py && python tests/load_test.py"
 # Production testing (requires API running on port 8000)
 test-prod-cars = "python -c \"import asyncio; from tests.load_test import test_real_api; asyncio.run(test_real_api())\""
