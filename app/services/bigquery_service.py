@@ -19,10 +19,10 @@ from app.pydantic_models import (
     Path,
 )
 from app.utils import (
-    build_hints_query,
+    build_hint_query,
     build_n_plates_query,
     build_positions_query,
-    build_radar_query,
+    build_get_car_by_radar_query,
     get_bigquery_client,
 )
 
@@ -57,7 +57,7 @@ class BigQueryService:
         """
         logger.debug(f"Getting vehicle hints for plate {plate}")
         
-        query = build_hints_query(
+        query = build_hint_query(
             placa=plate,
             min_datetime=start_time,
             max_datetime=end_time,
@@ -184,7 +184,7 @@ class BigQueryService:
         """
         logger.debug(f"Getting cars by radar: {data.radar_id}")
         
-        query = build_radar_query(
+        query = build_get_car_by_radar_query(
             radar_id=data.radar_id,
             start_time=data.start_time,
             end_time=data.end_time,
