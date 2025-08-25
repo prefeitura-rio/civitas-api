@@ -34,6 +34,7 @@ from app.pydantic_models import (
     NPlatesBeforeAfterOut,
     Path,
 )
+from app.services import PlateService, BigQueryService
 from app.utils import (
     get_car_by_radar,
     get_hints,
@@ -585,13 +586,8 @@ async def get_plate_details(
     user: Annotated[User, Depends(has_cpf)],
     request: Request,
 ):
-    # Validate plate
-    plate = plate.upper()
-    if not validate_plate(plate):
-        raise HTTPException(status_code=400, detail="Invalid plate format")
-
-    # Get plate details
-    return await utils_get_plate_details(plate=plate, cpf=user.cpf)
+    # Use the new PlateService instead of utils function
+    return await PlateService.get_plate_details(plate=plate, cpf=user.cpf)
 
 
 @router_request(
@@ -605,30 +601,12 @@ async def get_multiple_plates_details(
     user: Annotated[User, Depends(has_cpf)],
     request: Request,
 ):
-    # Validate plates
-    for plate in plates.plates:
-        plate = plate.upper()
-        if not validate_plate(plate):
-            raise HTTPException(
-                status_code=400, detail=f"Invalid plate format: {plate}"
-            )
-
-    # Get plates from our database
-    plates_list = plates.plates
-
-    # Await for all plates in batches of 10
-    plates_details = []
-    for i in range(0, len(plates_list), 10):
-        plates_details += await asyncio.gather(
-            *[
-                utils_get_plate_details(
-                    plate=plate, cpf=user.cpf, raise_for_errors=plates.raise_for_errors
-                )
-                for plate in plates_list[i : i + 10]
-            ]
-        )
-
-    return plates_details
+    # Use the new PlateService for batch processing
+    return await PlateService.get_multiple_plates_details(
+        plates=plates.plates, 
+        cpf=user.cpf, 
+        raise_for_errors=plates.raise_for_errors
+    )
 
 
 @router_request(
@@ -642,12 +620,9 @@ async def get_necessary_credits(
     user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
-    # Check, using the provided list of plates, how many aren't in our database
-    plates_data = await PlateData.filter(plate__in=plates.plates).values_list(
-        "plate", flat=True
-    )
-    missing_plates = list(set(plates.plates) - set(plates_data))
-    return CortexCreditsOut(credits=len(missing_plates))
+    # Use the new PlateService for credit calculation
+    credits_needed = await PlateService.calculate_credits_needed(plates.plates)
+    return CortexCreditsOut(credits=credits_needed)
 
 
 @router_request(
