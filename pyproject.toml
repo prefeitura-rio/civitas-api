@@ -53,6 +53,7 @@ pytest-ordering = "^0.6"
 taskipy = "^1.12.2"
 aiohttp = "^3.12.15"
 pytest = "^8.4.1"
+aiosqlite = "^0.17.0"
 
 [tool.aerich]
 tortoise_orm = "app.db.TORTOISE_ORM"
@@ -72,6 +73,8 @@ test-errors = "pytest tests/unit/test_api_errors.py -v"
 test-path = "pytest tests/unit/test_cars_path.py -v"
 test-coverage = "pytest tests/ --cov=app --cov-report=html"
 test-quiet = "pytest tests/ -q"
+# Integration tests
+test-integration = "pytest tests/integration -vv -s"
 # Legacy testing scripts
 test-eventloop = "python tests/quick_test.py"
 test-api-mock = "uvicorn tests.test_api:app --host 0.0.0.0 --port 8001"
