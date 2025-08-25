@@ -80,8 +80,7 @@ def router_request(
                     if report_id:
                         await ReportHistory.create(
                             user=user,
-                            id_report=report_id,
-                            method=request.method,
+                            id_report=report_id, method=request.method,
                             path=full_path,
                             query_params=query_params,
                             body=body,
