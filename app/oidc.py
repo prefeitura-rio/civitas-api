@@ -42,6 +42,12 @@ async def get_user_token(username: str, password: str) -> tuple[str, str, float]
 
 
 async def authenticate_user(form_data: OAuth2PasswordRequestForm) -> Token:
+    # Mock authentication for test environment
+    import os
+    env = os.getenv("ENVIRONMENT", "dev")
+    if env == "test":
+        return await authenticate_user_test(form_data)
+    
     token, token_type, expires_at = await get_user_token(
         username=form_data.username, password=form_data.password
     )
@@ -51,7 +57,64 @@ async def authenticate_user(form_data: OAuth2PasswordRequestForm) -> Token:
     )
 
 
+async def authenticate_user_test(form_data: OAuth2PasswordRequestForm) -> Token:
+    """Mock authentication for test environment."""
+    from app.models import User
+    
+    # Check if user exists in database
+    user = await User.filter(username=form_data.username).first()
+    if not user:
+        raise AuthError(
+            {"code": "invalid_credentials", "description": "Invalid username or password"},
+            401,
+        )
+    
+    # In test mode, accept any password
+    # Generate a mock JWT token
+    mock_payload = {
+        "sub": str(user.id),
+        "preferred_username": user.username,
+        "name": user.full_name,
+        "email": user.email,
+        "cpf": user.cpf,
+        "groups": []
+    }
+    
+    # Add groups based on user permissions
+    if user.is_admin:
+        mock_payload["groups"].append(config.AUTH_PROVIDER_GROUP_ADMIN)
+    if user.is_user:
+        mock_payload["groups"].append(config.AUTH_PROVIDER_GROUP_USER)
+    if user.is_agent:
+        mock_payload["groups"].append(config.AUTH_PROVIDER_GROUP_AGENT)
+    
+    # Create a simple mock token (not a real JWT, just for testing)
+    mock_token = f"test_token_{user.username}_{user.id}"
+    
+    return Token(
+        access_token=mock_token,
+        token_type="Bearer",
+        expires_in=3600  # 1 hour
+    )
+
+
 async def get_current_user(authorization_header: Annotated[str, Depends(oidc_scheme)]):
+    # Mock user validation for test environment (only for manual testing, not integration tests)
+    import os
+    import sys
+    env = os.getenv("ENVIRONMENT", "dev")
+    
+    # Check if we're running in pytest (integration tests use dependency overrides)
+    is_pytest = "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ
+    
+    # Only use manual test authentication if we're in test mode but NOT in pytest
+    if env == "test" and not is_pytest:
+        return await get_current_user_test(authorization_header)
+    elif env == "test" and is_pytest:
+        # In integration tests, let the dependency override handle this
+        # This will fall through to the normal JWT validation which will be overridden
+        pass
+    
     try:
         unverified_header = jwt.get_unverified_header(authorization_header)
     except Exception:
@@ -122,3 +185,41 @@ async def get_current_user(authorization_header: Annotated[str, Depends(oidc_sch
         )
 
     return OIDCUser(**payload)
+
+
+async def get_current_user_test(authorization_header: str):
+    """Mock user validation for test environment."""
+    from app.pydantic_models import OIDCUser
+    from datetime import datetime
+    
+    print("DEBUG: get_current_user_test called")
+    print(f"DEBUG: Authorization header = {authorization_header}")
+    
+    # Always return a mock user for test environment
+    print("DEBUG: Creating mock user")
+    
+    mock_user = OIDCUser(
+        iss="http://localhost:8080",
+        sub="9140579b-e4e2-4c2f-a399-4b55ce03c175",
+        aud="test-client",
+        exp=int(datetime.now().timestamp()) + 3600,
+        iat=int(datetime.now().timestamp()),
+        auth_time=int(datetime.now().timestamp()),
+        acr="1",
+        azp="test-client",
+        uid="9140579b-e4e2-4c2f-a399-4b55ce03c175",
+        email="test.user@example.com",
+        email_verified=True,
+        name="Test User",
+        given_name="Test",
+        preferred_username="test.user",
+        nickname="test.user",
+        groups=["test-admin", "test-user"],
+        matricula="12345",
+        orgao="Test Agency",
+        setor="Test Sector",
+        cpf="12345678901"
+    )
+    
+    print("DEBUG: Mock user created successfully")
+    return mock_user

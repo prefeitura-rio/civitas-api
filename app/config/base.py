@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import traceback
 from pathlib import Path
 from typing import Dict
@@ -31,8 +32,13 @@ OIDC_TOKEN_URL = getenv_or_action("OIDC_TOKEN_URL")
 OIDC_GET_USER_TOKEN_CACHE_TTL = int(
     getenv_or_action("OIDC_GET_USER_TOKEN_CACHE_TTL", default=60 * 45)
 )
-jwksurl = urlopen(OIDC_ISSUER_URL + "/jwks/")
-JWS = json.loads(jwksurl.read())
+
+# Don't make HTTP requests during testing
+if os.getenv("ENVIRONMENT") == "test":
+    JWS = {"keys": []}  # Mock JWKS response for testing
+else:
+    jwksurl = urlopen(OIDC_ISSUER_URL + "/jwks/")
+    JWS = json.loads(jwksurl.read())
 
 # Auth provider groups
 AUTH_PROVIDER_GROUP_ADMIN = getenv_or_action(

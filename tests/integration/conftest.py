@@ -127,7 +127,7 @@ def app_instance():
             given_name="Test",
             preferred_username="test.user",
             nickname="test.user",
-            groups=[os.getenv("AUTH_PROVIDER_GROUP_USER", "civitas")],
+            groups=["test-user", "test-agent", "test-admin"],  # Include all groups for maximum test coverage
             cpf="11144477735",
             matricula="000000",
             orgao="SMDE",

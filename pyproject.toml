@@ -63,6 +63,7 @@ src_folder = "./."
 [tool.taskipy.tasks]
 lint = "black . && isort . && flake8 ."
 serve = "uvicorn app.main:app --reload --port 8080"
+serve-test = "ENVIRONMENT=test uvicorn app.main:app --reload --port 8080"
 test = "pytest tests/ --tb=short"
 test-unit = "pytest tests/unit/ -v"
 test-performance = "pytest tests/performance/ -v"

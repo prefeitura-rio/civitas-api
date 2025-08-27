@@ -119,6 +119,6 @@ if environment != "test":
 if environment == "dev":
     from app.config.dev import *  # noqa: F401, F403
 elif environment == "test":
-    from app.config.dev import *  # noqa: F401, F403  # Use dev config for testing
+    from app.config.test import *  # noqa: F401, F403  # Use dedicated test config
 else:
     from app.config.prod import *  # noqa: F401, F403

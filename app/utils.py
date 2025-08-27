@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import asyncio
+import os
 import base64
 from datetime import datetime
 from pathlib import Path
@@ -1099,6 +1100,10 @@ def create_update_weaviate_schema():
     """
     Create or update the Weaviate schema.
     """
+    # Avoid making network requests during tests
+    if os.getenv("ENVIRONMENT") == "test":
+        logger.info("Skipping Weaviate schema creation in test environment")
+        return
     schema = config.WEAVIATE_SCHEMA
     # Check if class name already exists
     response = requests.get(

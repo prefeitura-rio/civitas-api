@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import asyncio
+import os
 from typing import Dict, List, Tuple
 
 import aiohttp
@@ -167,6 +168,10 @@ class Cache:
         Returns:
             str: The Data Relay token.
         """
+        # During tests, avoid network calls and return a fake token
+        if os.getenv("ENVIRONMENT") == "test":
+            return "test-data-relay-token"
+
         # Get token from cache
         token: bytes = await self._cache.get(self._data_relay_token_key)
         if token:
@@ -201,6 +206,10 @@ class Cache:
         Returns:
             str: The Fogo Cruzado API token.
         """
+        # During tests, avoid network calls and return a fake token
+        if os.getenv("ENVIRONMENT") == "test":
+            return "test-fogocruzado-token"
+
         # Get token from cache
         token: bytes = await self._cache.get(self._fogocruzado_token_key)
         if token:
@@ -235,6 +244,10 @@ class Cache:
         Returns:
             str: The Cortex API token.
         """
+        # During tests, avoid network calls and return a fake token
+        if os.getenv("ENVIRONMENT") == "test":
+            return "test-cortex-token"
+
         # Get token from cache
         token: bytes = await self._cache.get(self._cortex_token_key)
 
