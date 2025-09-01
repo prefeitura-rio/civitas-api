@@ -1491,7 +1491,7 @@ class PdfService():
             correlated_detections[correlated_detections["placa"] != correlated_detections["placa_target"]][
                 [
                     "detection_index",
-                    "datahora_captura",
+                    "datahora_local",
                     "placa",
                     "placa_target",
                     "codcet",
@@ -1504,7 +1504,7 @@ class PdfService():
                 ]
             ]
             .drop_duplicates()
-            .sort_values(by=["datahora_captura"], ascending=True)
+            .sort_values(by=["datahora_local"], ascending=True)
         )
 
         logger.info("Grouping codcets by latitude and longitude.")
@@ -1546,7 +1546,7 @@ class PdfService():
             ].copy()
 
             # Create a new column with the formatted dates
-            filtered_df['datahora_captura'] = filtered_df['datahora_captura'].dt.strftime('%d/%m/%Y %H:%M:%S')
+            filtered_df['datahora_local'] = filtered_df['datahora_local'].dt.strftime('%d/%m/%Y %H:%M:%S')
             
             # For each group, we will build the desired JSON structure
             location_data = {
@@ -1556,7 +1556,7 @@ class PdfService():
                 "sentido": filtered_df["sentido"].iloc[0],
                 "latitude": filtered_df["latitude"].iloc[0],
                 "longitude": filtered_df["longitude"].iloc[0],
-                "data": filtered_df[["detection_index", "datahora_captura", "placa", "placa_target", "velocidade"]].to_dict(orient="records")
+                "data": filtered_df[["detection_index", "datahora_local", "placa", "placa_target", "velocidade"]].to_dict(orient="records")
             }
 
             # # Store the filtered DataFrame in the dictionary
