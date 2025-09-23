@@ -138,3 +138,5 @@ dmypy.json
 # User files
 tmp/
 .cursor/
+venv*/
+test_cloning_endpoint.py
