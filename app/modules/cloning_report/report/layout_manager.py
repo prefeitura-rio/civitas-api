@@ -45,7 +45,7 @@ class PDFLayoutManager:
     def _draw_header_border(self, layout):
         """Draw header border"""
         self.pdf.set_xy(layout['margin'], layout['y_start'])
-        self.pdf.set_font("LiberationSans", "B", 14)
+        self.pdf.set_font("Helvetica", "B", 14)
         self.pdf.set_draw_color(0, 0, 0)
         self.pdf.cell(layout['col1_width'], layout['row1_height'], "", border=1)
     
@@ -87,14 +87,14 @@ class PDFLayoutManager:
     def _add_title(self, layout):
         """Add title to header"""
         self.pdf.set_xy(layout['margin'] + layout['col1_width'], layout['y_start'])
-        self.pdf.set_font("LiberationSans", "B", 14)
+        self.pdf.set_font("Helvetica", "B", 14)
         self.pdf.cell(layout['col2_width'], layout['row1_height'], 
                      "RELATÓRIO DE SUSPEITA DE CLONAGEM", border=1, align="C")
     
     def _add_id_line(self, report_id, layout):
         """Add ID line to header"""
         self.pdf.set_xy(layout['margin'], layout['y_start'] + layout['row1_height'])
-        self.pdf.set_font("LiberationSans", "", 10)
+        self.pdf.set_font("Helvetica", "", 10)
         self.pdf.cell(layout['usable_width'], layout['row2_height'], 
                      f"ID: {report_id}", border=1, align="C")
     
@@ -105,12 +105,12 @@ class PDFLayoutManager:
     def setup_footer(self):
         """Setup PDF footer"""
         self.pdf.set_y(-15)
-        self.pdf.set_font('LiberationSans', 'I', 8)
+        self.pdf.set_font('Helvetica', 'I', 8)
         disclaimer = (
             "Este relatório foi gerado automaticamente a partir dos dados do sistema Cerco Digital. "
             "Como material de apoio, é também disponibilizado automaticamente um arquivo HTML "
             "com mapas interativos."
         )
         self.pdf.multi_cell(0, 5, disclaimer, align='C')
-        self.pdf.set_font('LiberationSans', '', 8)
+        self.pdf.set_font('Helvetica', '', 8)
         self.pdf.cell(0, 5, f"Página {self.pdf.page_no()} / {{nb}}", align='C')

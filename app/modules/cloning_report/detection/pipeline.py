@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-pipeline.py — Main detection pipeline orchestrator
+pipeline.py - Main detection pipeline orchestrator
 """
 from typing import Dict, Any
 import pandas as pd

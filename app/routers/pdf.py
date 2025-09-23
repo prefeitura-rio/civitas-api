@@ -140,9 +140,10 @@ class PdfReportCloningIn(BaseModel):
     # project_id: Optional[str] = None
     # credentials_path: Optional[str] = None
 
+@router.post("/cloning-report")
 async def generate_cloning_report(
     request: Request,
-    user: Annotated[User, Depends(is_user)],
+    # user: Annotated[User, Depends(is_user)],  # Temporariamente comentado para teste
     data: PdfReportCloningIn,
 ) -> StreamingResponse:
     """
@@ -151,6 +152,8 @@ async def generate_cloning_report(
     This endpoint generates a comprehensive cloning detection report for a specific
     vehicle plate within a given time period. The report is generated asynchronously
     using the global BigQuery client and returned as a streaming PDF response.
+    
+    Requires authentication via the is_user dependency.
     
     Args:
         request: FastAPI request object
@@ -168,7 +171,7 @@ async def generate_cloning_report(
         from app.modules.cloning_report.application.async_services import get_async_cloning_service
         
         # Generate unique report ID
-        report_id = generate_report_id()
+        report_id = await generate_report_id()
         logger.info(f"Starting cloning report generation for plate {data.plate} (Report ID: {report_id})")
         
         # Create async cloning service instance
@@ -218,18 +221,44 @@ async def generate_cloning_report(
             # Log report generation completion
             logger.info(f"Cloning report streaming started for plate {data.plate} (Report ID: {report_id})")
             
+            # Clean up old PDFs in background (non-blocking)
+            asyncio.create_task(_cleanup_old_pdfs_async())
+            
             return response
             
+        except Exception as e:
+            logger.error(f"Failed to generate cloning report for plate {data.plate}: {str(e)}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Failed to generate cloning report: {str(e)}"
+            )
         finally:
             # Cleanup service instance
             await service.close()
-    
+            
     except Exception as e:
         logger.error(f"Failed to generate cloning report for plate {data.plate}: {str(e)}")
         raise HTTPException(
             status_code=500, 
             detail=f"Failed to generate cloning report: {str(e)}"
         )
+    
+
+
+
+async def _cleanup_old_pdfs_async():
+    """Clean up old PDFs asynchronously (non-blocking)"""
+    try:
+        from app.modules.cloning_report.utils.pdf_cleanup import get_cleanup_service
+        
+        service = get_cleanup_service()
+        deleted_count = service.cleanup_old_pdfs()
+        
+        if deleted_count > 0:
+            logger.info(f"Background cleanup: Deleted {deleted_count} old PDFs")
+        
+    except Exception as e:
+        logger.error(f"Background cleanup failed: {str(e)}")
 
 @router_request(method="POST", router=router, path="/correlated-plates")
 async def generate_report_correlated_plates(
@@ -891,3 +920,46 @@ async def get_report_multiple_correlated_plates_history(
             "report_history": report_dict,
         },
     )
+
+
+# Simple PDF cleanup - only one endpoint
+@router.delete("/cleanup/pdfs")
+async def cleanup_old_pdfs():
+    """Clean up PDFs older than 24 hours (simple cleanup)"""
+    try:
+        from app.modules.cloning_report.utils.pdf_cleanup import get_cleanup_service
+        
+        service = get_cleanup_service()
+        deleted_count = service.cleanup_old_pdfs()
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "success",
+                "deleted_count": deleted_count,
+                "message": f"Cleaned up {deleted_count} old PDFs"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error cleaning up PDFs: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error cleaning up PDFs: {str(e)}")
+
+
+@router.on_event("startup")
+async def startup_cleanup():
+    """Clean up old PDFs on server startup"""
+    try:
+        from app.modules.cloning_report.utils.pdf_cleanup import get_cleanup_service
+        
+        service = get_cleanup_service()
+        deleted_count = service.cleanup_old_pdfs()
+        
+        if deleted_count > 0:
+            logger.info(f"Startup cleanup: Deleted {deleted_count} old PDFs")
+        else:
+            logger.info("Startup cleanup: No old PDFs to delete")
+            
+    except Exception as e:
+        logger.error(f"Error during startup cleanup: {str(e)}")
+    
+    

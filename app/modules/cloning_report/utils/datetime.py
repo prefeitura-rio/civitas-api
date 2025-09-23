@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-datetime.py — Date and time operations
+datetime.py - Date and time operations
 -------------------------------------
 Single responsibility: Handle datetime conversions and formatting
 """

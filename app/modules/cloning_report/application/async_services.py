@@ -65,7 +65,7 @@ class AsyncCloningReportService:
             
             # Generate report (this part can also be made async if needed)
             generator = ClonagemReportGenerator(df, plate, date_start, date_end)
-            report_path = await self._generate_report_async(generator, plate, output_dir)
+            report_path = self._generate_report_sync(generator, plate, output_dir)
             
             return self._create_report_entity(generator, plate, date_start, date_end, report_path)
             
@@ -89,7 +89,13 @@ class AsyncCloningReportService:
                             plate: str, output_dir: str) -> str:
         """Generate report synchronously (runs in thread pool)"""
         try:
-            report_path = generator.generate_report(output_dir)
+            # Create full output path with filename
+            import os
+            os.makedirs(output_dir, exist_ok=True)
+            report_filename = f"relatorio_clonagem_{plate}_{generator.periodo_inicio.strftime('%Y%m%d')}_{generator.periodo_fim.strftime('%Y%m%d')}.pdf"
+            report_path = os.path.join(output_dir, report_filename)
+            
+            report_path = generator.generate(report_path)
             logger.info(f"Report generated: {report_path}")
             return report_path
         except Exception as e:
@@ -102,12 +108,11 @@ class AsyncCloningReportService:
         """Create CloningReport entity from generator results"""
         return CloningReport(
             plate=plate,
-            start_date=date_start,
-            end_date=date_end,
+            period_start=date_start,
+            period_end=date_end,
             report_path=report_path,
             total_detections=len(generator.df),
-            suspicious_pairs=generator.get_suspicious_pairs(),
-            analysis_summary=generator.get_analysis_summary()
+            suspicious_pairs=generator.get_suspicious_pairs()
         )
     
     async def close(self):
