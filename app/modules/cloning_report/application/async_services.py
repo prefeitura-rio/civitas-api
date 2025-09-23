@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from concurrent.futures import ThreadPoolExecutor
 
-from ..container import Container, get_container
+from ..container import Container, get_container, get_async_container
 from ..repositories.async_bigquery_detection_repository import AsyncBigQueryDetectionRepository, AsyncDetectionRepositoryFactory
 from ..repositories.detection_repository import DetectionMapper
 
@@ -27,12 +27,15 @@ class AsyncCloningReportService:
         """
         self.executor = executor or ThreadPoolExecutor(max_workers=4)
         self._repository = None
+        self._container = None
     
     @property
     def repository(self) -> AsyncBigQueryDetectionRepository:
-        """Lazy initialization of async BigQuery repository"""
+        """Lazy initialization of async BigQuery repository using container"""
         if self._repository is None:
-            self._repository = AsyncDetectionRepositoryFactory.create_async_bigquery_repository(self.executor)
+            if self._container is None:
+                self._container = get_async_container(self.executor)
+            self._repository = self._container.async_detection_repository
         return self._repository
     
     async def execute(self, plate: str, date_start: datetime, date_end: datetime, 
@@ -119,7 +122,9 @@ class AsyncCloningReportService:
         """Close the service and cleanup resources"""
         if self._repository:
             await self._repository.close()
-        if self.executor:
+        if self._container and self._container.executor:
+            self._container.executor.shutdown(wait=True)
+        elif self.executor:
             self.executor.shutdown(wait=True)
         logger.info("Async cloning report service closed")
 
