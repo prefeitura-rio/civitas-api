@@ -95,7 +95,7 @@ class KPIRenderer:
 
     def _draw_kpi_title(self, title, layout):
         """Draw KPI title"""
-        self.pdf.set_font('LiberationSans', '', 10)
+        self.pdf.set_font('Helvetica', '', 10)
         self.pdf.set_xy(layout['inner_x'], layout['cur_y'])
         self.pdf.multi_cell(layout['inner_w'], 5, title, border=0, align='C', max_line_height=5)
         layout['cur_y'] = self.pdf.get_y() + 2
@@ -110,7 +110,7 @@ class KPIRenderer:
     def _draw_suspicious_value(self, value, num_suspeitos, layout):
         """Draw suspicious detection value with color coding"""
         self.pdf.set_text_color(0, 0, 0)
-        self.pdf.set_font('LiberationSans', 'B', 9)
+        self.pdf.set_font('Helvetica', 'B', 9)
         self.pdf.set_xy(layout['inner_x'], layout['cur_y'])
         self.pdf.multi_cell(layout['inner_w'], 5, str(value), border=0, align='C', max_line_height=5)
         layout['cur_y'] = self.pdf.get_y() + 2
@@ -118,7 +118,7 @@ class KPIRenderer:
         label_h = 6
         layout['cur_y'] = min(layout['cur_y'], layout['bottom_limit'] - label_h)
         self._set_suspicious_color(num_suspeitos)
-        self.pdf.set_font('LiberationSans', 'B', 11)
+        self.pdf.set_font('Helvetica', 'B', 11)
         self.pdf.set_xy(layout['inner_x'], layout['cur_y'])
         self.pdf.multi_cell(layout['inner_w'], label_h, 'SUSPEITO DE CLONAGEM', border=0, align='C', max_line_height=label_h)
         self.pdf.set_text_color(0, 0, 0)
@@ -132,6 +132,6 @@ class KPIRenderer:
 
     def _draw_normal_value(self, value, layout):
         """Draw normal KPI value"""
-        self.pdf.set_font('LiberationSans', 'B', 12)
+        self.pdf.set_font('Helvetica', 'B', 12)
         self.pdf.set_xy(layout['inner_x'], layout['cur_y'])
         self.pdf.multi_cell(layout['inner_w'], 6, str(value), border=0, align='C', max_line_height=6)

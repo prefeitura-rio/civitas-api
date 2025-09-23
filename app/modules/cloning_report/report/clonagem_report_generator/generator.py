@@ -17,7 +17,7 @@ from ...report import ReportPDF
 
 
 # =========================================================
-# GERADOR — estrutura com KPIs de clonagem
+# GERADOR - estrutura com KPIs de clonagem
 # =========================================================
 class ClonagemReportGenerator:
     def __init__(self, df: pd.DataFrame, placa: str, periodo_inicio: pd.Timestamp, periodo_fim: pd.Timestamp):
@@ -112,7 +112,7 @@ class ClonagemReportGenerator:
 
     def _add_title_section(self, pdf):
         pdf.add_page()
-        pdf.set_font('LiberationSans', 'B', 16)
+        pdf.set_font('Helvetica', 'B', 16)
         pdf.cell(0, 10, 'Relatório de Suspeita de Clonagem de Placa', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
         pdf.ln(5)
 
@@ -121,10 +121,10 @@ class ClonagemReportGenerator:
         self._add_objective_content(pdf)
 
     def _add_objective_title(self, pdf):
-        pdf.set_font('LiberationSans', 'B', 13)
+        pdf.set_font('Helvetica', 'B', 13)
         pdf.cell(0, 10, '1. Objetivo', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
-        pdf.set_font('LiberationSans', '', 10)
+        pdf.set_font('Helvetica', '', 10)
 
     def _add_objective_content(self, pdf):
         pdf.chapter_body("    Este relatório tem como objetivo identificar e analisar indícios de possível clonagem "
@@ -156,14 +156,14 @@ class ClonagemReportGenerator:
         self._add_daily_maps_methodology_section(pdf)
 
     def _add_methodology_title(self, pdf):
-        pdf.set_font('LiberationSans', 'B', 13)
+        pdf.set_font('Helvetica', 'B', 13)
         pdf.cell(0, 10, '2. Metodologia', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
-        pdf.set_font('LiberationSans', '', 10)
+        pdf.set_font('Helvetica', '', 10)
 
     def _add_data_section(self, pdf):
         pdf.chapter_body("2.1 Dados utilizados neste relatório:")
-        pdf.chapter_body("• Registros de leitura de OCR de placas dos radares da cidade do Rio de Janeiro. Estas "
+        pdf.chapter_body("- Registros de leitura de OCR de placas dos radares da cidade do Rio de Janeiro. Estas "
             "informações contêm placa, data, hora, latitude e longitude da detecção em um radar."
         )
         pdf.ln(1)
@@ -257,15 +257,15 @@ class ClonagemReportGenerator:
         pdf.chapter_body("2.4.2 Condições para aplicação da separação")
 
     def _add_separation_conditions_content(self, pdf):
-        pdf.chapter_body("• Em dias com apenas um par de detecções, a separação é automática: um ponto é "
+        pdf.chapter_body("- Em dias com apenas um par de detecções, a separação é automática: um ponto é "
             "atribuído ao Veículo 1 e o outro ao Veículo 2."
         )
-        pdf.chapter_body("• Em dias com múltiplos pares, a separação somente é realizada quando há ao menos "
+        pdf.chapter_body("- Em dias com múltiplos pares, a separação somente é realizada quando há ao menos "
             "04 pares de registros com suspeitas de clone e todas as distâncias entre radares "
             "envolvidos superam 2 km. Esse critério evita segmentações artificiais em trajetos "
             "muito curtos ou pouco representativos."
         )
-        pdf.chapter_body("• Em situações com dados insuficientes ou inconsistentes para reconstrução de "
+        pdf.chapter_body("- Em situações com dados insuficientes ou inconsistentes para reconstrução de "
             "trajetos confiáveis, a separação não é realizada."
         )
         pdf.ln(1)
@@ -298,13 +298,13 @@ class ClonagemReportGenerator:
         pdf.chapter_body("2.4.4 Limitações da separação de veículos em trilhas")
 
     def _add_separation_limitations_content(self, pdf):
-        pdf.chapter_body("• Os métodos são aproximações baseadas em regras práticas, não garantindo acerto "
+        pdf.chapter_body("- Os métodos são aproximações baseadas em regras práticas, não garantindo acerto "
             "total."
         )
-        pdf.chapter_body("• Podem ser impactados por erros de horário, coordenadas ou falhas de OCR dos "
+        pdf.chapter_body("- Podem ser impactados por erros de horário, coordenadas ou falhas de OCR dos "
             "radares."
         )
-        pdf.chapter_body("• O limite de 2 km é um parâmetro de segurança para evitar separações artificiais, "
+        pdf.chapter_body("- O limite de 2 km é um parâmetro de segurança para evitar separações artificiais, "
             "mas pode ser ajustado conforme o contexto urbano."
         )
         pdf.ln(2)
@@ -323,10 +323,10 @@ class ClonagemReportGenerator:
         self._add_daily_analysis_section(pdf)
 
     def _add_structure_title(self, pdf):
-        pdf.set_font('LiberationSans', 'B', 13)
+        pdf.set_font('Helvetica', 'B', 13)
         pdf.cell(0, 10, '3. Estrutura do Relatório', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
-        pdf.set_font('LiberationSans', '', 10)
+        pdf.set_font('Helvetica', '', 10)
 
     def _add_structure_intro(self, pdf):
         pdf.chapter_body("    O relatório está organizado da seguinte forma:")
@@ -335,17 +335,17 @@ class ClonagemReportGenerator:
     def _add_analysis_parameters_section(self, pdf):
         pdf.chapter_body("3.1 Parâmetros da Análise")
         pdf.chapter_body(            "    Tabela com as informações de referência da análise, incluindo:\n"
-            "     • Placa consultada\n"
-            "     • Data de início e data de fim do período analisado"
+            "     - Placa consultada\n"
+            "     - Data de início e data de fim do período analisado"
         )
         pdf.ln(1)
 
     def _add_summary_section(self, pdf):
         pdf.chapter_body("3.2 Quadro Resumo Inicial")
         pdf.chapter_body(            "    Panorama geral da análise, reunindo os principais indicadores:\n"
-            "     • Número total de passagens analisadas.\n"
-            "     • Quantidade de pares classificados como suspeitos.\n"
-            "     • Dia com mais registros de suspeita de clonagem"
+            "     - Número total de passagens analisadas.\n"
+            "     - Quantidade de pares classificados como suspeitos.\n"
+            "     - Dia com mais registros de suspeita de clonagem"
         )
         pdf.ln(1)
 
@@ -380,10 +380,10 @@ class ClonagemReportGenerator:
         self._add_limitations_content(pdf)
 
     def _add_limitations_title(self, pdf):
-        pdf.set_font('LiberationSans', 'B', 13)
+        pdf.set_font('Helvetica', 'B', 13)
         pdf.cell(0, 10, '4. Limitações da análise', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
-        pdf.set_font('LiberationSans', '', 10)
+        pdf.set_font('Helvetica', '', 10)
 
     def _add_limitations_content(self, pdf):
         self._add_detection_limitations(pdf)
@@ -391,19 +391,19 @@ class ClonagemReportGenerator:
         self._add_data_limitations(pdf)
 
     def _add_detection_limitations(self, pdf):
-        pdf.chapter_body("• A ausência de detecção não implica ausência de passagem (falhas de OCR, "
+        pdf.chapter_body("- A ausência de detecção não implica ausência de passagem (falhas de OCR, "
             "obstruções, manutenção ou indisponibilidade do equipamento)."
         )
-        pdf.chapter_body("• Falhas de OCR (ex.: confusão entre caracteres como \"O/0\" ou \"B/8\").")
-        pdf.chapter_body("• Erro de sincronização de relógio entre equipamentos.")
+        pdf.chapter_body("- Falhas de OCR (ex.: confusão entre caracteres como \"O/0\" ou \"B/8\").")
+        pdf.chapter_body("- Erro de sincronização de relógio entre equipamentos.")
 
     def _add_technical_limitations(self, pdf):
-        pdf.chapter_body("• Distâncias são calculadas em linha reta — não correspondem ao trajeto real percorrido.")
-        pdf.chapter_body("• Parâmetros fixos de velocidade podem não contemplar situações excepcionais (ex.: deslocamentos de emergência).")
+        pdf.chapter_body("- Distâncias são calculadas em linha reta - não correspondem ao trajeto real percorrido.")
+        pdf.chapter_body("- Parâmetros fixos de velocidade podem não contemplar situações excepcionais (ex.: deslocamentos de emergência).")
 
     def _add_data_limitations(self, pdf):
-        pdf.chapter_body("• Dependência da qualidade e integridade dos dados capturados pelos radares, sujeitos a variações técnicas ou climáticas.")
-        pdf.chapter_body("• Histórico de dados disponível apenas a partir de 01/06/2024.")
+        pdf.chapter_body("- Dependência da qualidade e integridade dos dados capturados pelos radares, sujeitos a variações técnicas ou climáticas.")
+        pdf.chapter_body("- Histórico de dados disponível apenas a partir de 01/06/2024.")
         pdf.ln(2)
 
     def _add_summary_page(self, pdf: ReportPDF):
@@ -412,7 +412,7 @@ class ClonagemReportGenerator:
 
     def _add_parameters_section(self, pdf: ReportPDF):
         pdf.add_page()
-        pdf.set_font('LiberationSans', 'B', 22)
+        pdf.set_font('Helvetica', 'B', 22)
         pdf.cell(0, 10, 'Parâmetros de Busca', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
         pdf.ln(4)
         self._add_parameters_table(pdf)
@@ -435,7 +435,7 @@ class ClonagemReportGenerator:
         pdf.add_params_table(rows)
 
     def _add_kpi_section(self, pdf: ReportPDF):
-        pdf.set_font('LiberationSans', 'B', 22)
+        pdf.set_font('Helvetica', 'B', 22)
         pdf.cell(0, 10, 'Quadro Resumo', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
         pdf.ln(6)
         self._add_kpi_boxes(pdf)
@@ -519,10 +519,10 @@ class ClonagemReportGenerator:
     def _add_dashed_lines_explanation(self, pdf: ReportPDF):
         pdf.sub_title("Linhas tracejadas conectando pontos nos mapas")
         pdf.chapter_html(
-            "• Representam pares de detecções consecutivas que sugerem um deslocamento improvável para um único veículo, "
+            "- Representam pares de detecções consecutivas que sugerem um deslocamento improvável para um único veículo, "
             "em função da distância e do tempo entre registros.<br>"
-            "• Indicam velocidades médias calculadas que superam limites plausíveis em área urbana.<br>"
-            "• Funcionam como <b>sinalizadores de inconsistências</b>."
+            "- Indicam velocidades médias calculadas que superam limites plausíveis em área urbana.<br>"
+            "- Funcionam como <b>sinalizadores de inconsistências</b>."
         )
 
     def _add_color_interpretation(self, pdf: ReportPDF):
@@ -546,9 +546,9 @@ class ClonagemReportGenerator:
     def _add_trail_criteria(self, pdf: ReportPDF):
         pdf.chapter_html(
             "Critérios adotados para a construção das trilhas:<br><br>"
-            "• <b>Ordenação temporal</b>: registros organizados conforme data e hora.<br>"
-            "• <b>Coerência espacial</b>: pontos sucessivos devem compor trajetos viáveis, sem deslocamentos impossíveis.<br>"
-            "• <b>Velocidade plausível</b>: as médias calculadas precisam estar dentro de limites compatíveis com a mobilidade urbana."
+            "- <b>Ordenação temporal</b>: registros organizados conforme data e hora.<br>"
+            "- <b>Coerência espacial</b>: pontos sucessivos devem compor trajetos viáveis, sem deslocamentos impossíveis.<br>"
+            "- <b>Velocidade plausível</b>: as médias calculadas precisam estar dentro de limites compatíveis com a mobilidade urbana."
         )
 
     def _add_conclusion(self, pdf: ReportPDF):
@@ -578,8 +578,8 @@ class ClonagemReportGenerator:
         )
         pdf.chapter_html(
             """Neste exemplo, os pontos foram divididos em duas trilhas distintas, marcadas em <b>azul claro</b> e <b>azul escuro</b>.<br><br>
-            • <b>Azul claro</b>: Representa possível veículo 1.<br>
-            • <b>Azul escuro</b>: Representa possível veículo 2.<br>"""
+            - <b>Azul claro</b>: Representa possível veículo 1.<br>
+            - <b>Azul escuro</b>: Representa possível veículo 2.<br>"""
         )
 
     def _add_non_separable_example(self, pdf: ReportPDF):
@@ -591,8 +591,8 @@ class ClonagemReportGenerator:
         )
         pdf.chapter_html(
             """Neste caso, os pontos, marcados em <b>cinza</b>, indicam deslocamentos improváveis, mas não foi possível separá-los em trilhas distintas. Isso ocorre quando os dados são insuficientes para confirmar a presença de dois veículos.<br><br>
-            • <b>Cinza</b>: Sinaliza que o padrão de deslocamento é suspeito, mas não permite divisão clara em dois veículos.<br>
-            • Resultado: Indica uma possível clonagem ou erro nos dados, exigindo investigação adicional."""
+            - <b>Cinza</b>: Sinaliza que o padrão de deslocamento é suspeito, mas não permite divisão clara em dois veículos.<br>
+            - Resultado: Indica uma possível clonagem ou erro nos dados, exigindo investigação adicional."""
         )
 
     def _add_cloning_section(self, pdf: ReportPDF):
@@ -624,33 +624,33 @@ class ClonagemReportGenerator:
 
             "Métodos empregados:\n\n"
 
-            "• Método baseado no tempo (Temporal Viável): os registros são avaliados em ordem cronológica. "
+            "- Método baseado no tempo (Temporal Viável): os registros são avaliados em ordem cronológica. "
             "Se a inclusão de um ponto em determinado veículo gera uma trajetória inviável, esse ponto é atribuído "
             "ao outro veículo. Além disso, cada par de origem e destino é sempre separado entre os dois veículos.\n\n"
 
-            "• Método baseado na localização (Espacial com Reparo): os registros são agrupados em dois conjuntos "
+            "- Método baseado na localização (Espacial com Reparo): os registros são agrupados em dois conjuntos "
             "de acordo com a proximidade geográfica. Em seguida, são feitos ajustes para corrigir casos em que "
             "origem e destino do mesmo par tenham sido colocados no mesmo grupo.\n\n"
 
             "Quando aplicamos a separação:\n"
-            "• Em dias com apenas um par, a separação é feita automaticamente (um ponto em cada veículo).\n"
-            "• Em dias com vários pares, a separação só ocorre quando há quantidade suficiente de registros "
+            "- Em dias com apenas um par, a separação é feita automaticamente (um ponto em cada veículo).\n"
+            "- Em dias com vários pares, a separação só ocorre quando há quantidade suficiente de registros "
             "e todas as distâncias entre os radares ultrapassam 2 km. Esse critério evita separações artificiais "
             "em situações muito curtas ou pouco representativas.\n\n"
 
             "Critério de escolha:\n"
-            "• Quando a separação é possível, ambos os métodos (tempo e localização) são testados, e utiliza-se "
+            "- Quando a separação é possível, ambos os métodos (tempo e localização) são testados, e utiliza-se "
             "aquele que gera menos inconsistências, como evitar que origem e destino do mesmo par fiquem atribuídos "
             "ao mesmo veículo.\n\n"
 
             "Quando a separação não é aplicada (marcadores em cinza):\n"
-            "• Em dias com poucos registros ou quando ao menos um par apresenta distância de até 2 km.\n"
-            "• Em situações com dados insuficientes ou inconsistentes para formar trajetos confiáveis.\n\n"
+            "- Em dias com poucos registros ou quando ao menos um par apresenta distância de até 2 km.\n"
+            "- Em situações com dados insuficientes ou inconsistentes para formar trajetos confiáveis.\n\n"
 
             "Limitações:\n"
-            "• Os métodos são aproximados, baseados em regras práticas, e não garantem acerto total.\n"
-            "• Podem ser afetados por erros de horário, coordenadas ou falhas de leitura dos radares.\n"
-            "• O limite de 2 km é um parâmetro de segurança para evitar separações artificiais, mas pode ser ajustado "
+            "- Os métodos são aproximados, baseados em regras práticas, e não garantem acerto total.\n"
+            "- Podem ser afetados por erros de horário, coordenadas ou falhas de leitura dos radares.\n"
+            "- O limite de 2 km é um parâmetro de segurança para evitar separações artificiais, mas pode ser ajustado "
             "conforme o contexto urbano.\n\n"
 
             "Nas próximas páginas, apresentamos recortes diários com mapas e tabelas, aplicando essa lógica sempre que apropriado."
@@ -658,7 +658,7 @@ class ClonagemReportGenerator:
 
     def _add_general_map_section(self, pdf: ReportPDF, suspeitos):
         pdf.add_page()
-        pdf.sub_title('1.1 Mapa geral do período — todas as detecções suspeitas')
+        pdf.sub_title('1.1 Mapa geral do período - todas as detecções suspeitas')
         if isinstance(suspeitos, pd.DataFrame) and not suspeitos.empty:
             png_all = render_overall_map_png(suspeitos)
             if png_all:
@@ -717,7 +717,7 @@ class ClonagemReportGenerator:
             pdf.chapter_body("Sem registros suspeitos para tabular neste dia.")
 
     def _add_day_map(self, pdf: ReportPDF, item, day_key):
-        titulo = f"Mapa do dia de registros suspeitos — {day_key}"
+        titulo = f"Mapa do dia de registros suspeitos - {day_key}"
         pdf.add_figure(item['path'], titulo, text=None)
 
     def _get_day_data(self, daily_tables, day_key, df_sus_all):
@@ -746,7 +746,7 @@ class ClonagemReportGenerator:
         
         pdf.add_table(
             df_print[['Data', 'Origem', 'Destino', 'Km', 's', 'Km/h']],
-            title=f'Registros suspeitos do dia — {day_key}',
+            title=f'Registros suspeitos do dia - {day_key}',
             text=None
         )
 
@@ -779,7 +779,7 @@ class ClonagemReportGenerator:
 
     def _add_multiple_tracks(self, pdf: ReportPDF, day_key, tracks, df_c1, df_c2):
         pdf.add_page()
-        pdf.sub_title(f"Trilhas (clusters) — {day_key}")
+        pdf.sub_title(f"Trilhas (clusters) - {day_key}")
         
         pngs = self._generate_trail_maps(day_key, tracks)
         
@@ -816,6 +816,20 @@ class ClonagemReportGenerator:
         self._add_all_pages(pdf)
         pdf.output(output_path)
         return output_path
+    
+    def get_suspicious_pairs(self):
+        """Get suspicious pairs data"""
+        return self.results.get('dataframe', pd.DataFrame()).to_dict('records')
+    
+    def get_analysis_summary(self):
+        """Get analysis summary data"""
+        return {
+            'total_detections': getattr(self, 'total_deteccoes', 0),
+            'suspicious_pairs_count': getattr(self, 'num_suspeitos', 0),
+            'period_start': self.periodo_inicio.isoformat(),
+            'period_end': self.periodo_fim.isoformat(),
+            'plate': self.placa
+        }
 
     def _create_pdf(self):
         pdf = ReportPDF()
@@ -824,9 +838,8 @@ class ClonagemReportGenerator:
         return pdf
 
     def _setup_pdf_fonts(self, pdf):
-        pdf.add_font('LiberationSans', '', 'fonts/LiberationSans-Regular.ttf')
-        pdf.add_font('LiberationSans', 'B', 'fonts/LiberationSans-Bold.ttf')
-        pdf.add_font('LiberationSans', 'I', 'fonts/LiberationSans-Italic.ttf')
+        # Use default fonts directly - no need to add them
+        pass
 
     def _add_all_pages(self, pdf):
         self._add_instructions_page(pdf)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-filesystem.py — File system operations
+filesystem.py - File system operations
 -------------------------------------
 Single responsibility: Handle file system operations
 """

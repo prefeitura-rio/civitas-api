@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-detection package — Clean detection pipeline
+detection package - Clean detection pipeline
 -------------------------------------------
 Refactored detection components following SOLID principles
 """

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-preprocessing.py — Data preprocessing for detection
+preprocessing.py - Data preprocessing for detection
 -------------------------------------------------
 Single responsibility: Preprocess detection data
 """
