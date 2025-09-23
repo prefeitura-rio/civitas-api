@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-daily_processing.py — Daily data processing
+daily_processing.py - Daily data processing
 """
 from typing import Dict, List, Any
 import pandas as pd
@@ -71,6 +71,7 @@ class DailyProcessor:
         import sys
         sys.path.append('.')
         # from ..clustering import build_daily_track_tables
-        from src.civitas_cloning_detector.clustering.clustering_pipeline import ClusteringPipeline
+        from ..clustering.clustering_pipeline import ClusteringPipeline
         # return build_daily_track_tables(suspicious_pairs, vmax_kmh=speed_limit)
         return ClusteringPipeline.build_daily_tracks(suspicious_pairs, vmax_kmh=speed_limit)
+        # return []  # Temporariamente retorna lista vazia

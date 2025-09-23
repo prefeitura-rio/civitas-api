@@ -54,7 +54,7 @@ class BigQueryQueryBuilder:
       COALESCE(l.localidade, '') AS localidade,
       COALESCE(l.logradouro, '') AS logradouro,
       p.velocidade,
-      CONCAT(COALESCE(l.localidade, ''), ' (', p.codcet, ')') AS "localidade (codcet)"
+      CONCAT(COALESCE(l.localidade, ''), ' (', p.codcet, ')') AS localidade_codcet
     FROM ordered_positions p
     LEFT JOIN loc l ON p.codcet = l.codcet
     ORDER BY p.datahora ASC;

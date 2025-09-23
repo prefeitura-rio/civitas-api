@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-pair_detection.py — Suspicious pair detection logic
+pair_detection.py - Suspicious pair detection logic
 --------------------------------------------------
 Single responsibility: Detect suspicious consecutive pairs
 """

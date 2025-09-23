@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-validation.py — Input validation for detection pipeline
+validation.py - Input validation for detection pipeline
 ----------------------------------------------------
 Single responsibility: Validate detection input data
 """

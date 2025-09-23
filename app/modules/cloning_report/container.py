@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from src.civitas_cloning_detector.repositories.csv_detection_repository import CSVDetectionRepository
-from src.civitas_cloning_detector.repositories.detection_repository import DetectionRepository
+from .repositories.csv_detection_repository import CSVDetectionRepository
+from .repositories.detection_repository import DetectionRepository
 
 
 @dataclass

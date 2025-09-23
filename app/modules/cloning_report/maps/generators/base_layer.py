@@ -119,7 +119,7 @@ class BaseLayer:
         return folium.Popup(
             "<br>".join([
                 f"<b>Localidade:</b> {local}",
-                f"<b>Detecção {relation}:</b> {other_local if other_local else '—'}",
+                f"<b>Detecção {relation}:</b> {other_local if other_local else '-'}",
                 f"<b>Data/hora:</b> {format_timestamp(timestamp)}",
                 f"<b>Velocidade (implícita):</b> {velocity_str}",
             ]), max_width=360

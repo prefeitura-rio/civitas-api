@@ -58,6 +58,6 @@ class DetectionMapper:
                 'bairro': detection.neighborhood,
                 'localidade': detection.locality,
                 'logradouro': detection.street,
-                'localidade (codcet)': detection.location_display
+                'localidade_codcet': detection.location_display
             })
         return pd.DataFrame(data)

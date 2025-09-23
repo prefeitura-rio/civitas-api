@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-graph.py — Graph analysis operations
+graph.py - Graph analysis operations
 -----------------------------------
 Single responsibility: Handle graph-related calculations
 """

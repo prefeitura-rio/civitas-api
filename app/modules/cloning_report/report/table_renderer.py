@@ -26,14 +26,14 @@ class TableRenderer:
 
     def _add_table_header(self, title: str, text: str | None):
         """Add table title and optional text"""
-        self.pdf.set_font('LiberationSans', 'B', 13)
+        self.pdf.set_font('Helvetica', 'B', 13)
         self.pdf.cell(0, 10, title, new_x=XPos.CENTER, new_y=YPos.NEXT)
         self.pdf.ln(2)
         if text is not None:
-            self.pdf.set_font('LiberationSans', '', 10)
+            self.pdf.set_font('Helvetica', '', 10)
             self.pdf.multi_cell(0, 5, text)
             self.pdf.ln(2)
-        self.pdf.set_font('LiberationSans', '', 10)
+        self.pdf.set_font('Helvetica', '', 10)
 
     def _process_table_data(self, df: pd.DataFrame, table_type: str) -> pd.DataFrame:
         """Process table data based on table type"""
@@ -205,7 +205,7 @@ class TableRenderer:
 
     def _draw_params_table(self, rows: list, layout: dict, row_height: float):
         """Draw the parameters table"""
-        self.pdf.set_font('LiberationSans', '', 11)
+        self.pdf.set_font('Helvetica', '', 11)
         self.pdf.set_draw_color(0, 0, 0)
         bottom_limit = self.pdf.h - max(self.pdf.b_margin, 17)
         y = self.pdf.get_y()

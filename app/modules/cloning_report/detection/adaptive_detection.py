@@ -1,5 +1,5 @@
 """
-adaptive_detection.py — Adaptive detection with intelligent parallel/sequential selection
+adaptive_detection.py - Adaptive detection with intelligent parallel/sequential selection
 ---------------------------------------------------------------------------------------
 Automatically chooses the best detection method based on dataset characteristics
 """

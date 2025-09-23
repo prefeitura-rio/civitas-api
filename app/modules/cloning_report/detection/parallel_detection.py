@@ -1,5 +1,5 @@
 """
-parallel_detection.py — High-performance parallel detection pipeline
+parallel_detection.py - High-performance parallel detection pipeline
 ------------------------------------------------------------------
 Implements chunk-based parallelism for suspicious pair detection
 """
