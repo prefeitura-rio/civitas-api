@@ -1,10 +1,13 @@
 import asyncio
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from fpdf import FPDF
+from pendulum import now
+from pydantic import BaseModel
 
 from app import config
 from app.decorators import router_request
@@ -129,6 +132,104 @@ router = APIRouter(
     },
 )
 
+class PdfReportCloningIn(BaseModel):
+    plate: str
+    date_start: datetime
+    date_end: datetime
+    output_dir: str
+    # project_id: Optional[str] = None
+    # credentials_path: Optional[str] = None
+
+async def generate_cloning_report(
+    request: Request,
+    user: Annotated[User, Depends(is_user)],
+    data: PdfReportCloningIn,
+) -> StreamingResponse:
+    """
+    Generate cloning detection report as PDF using async BigQuery service
+    
+    This endpoint generates a comprehensive cloning detection report for a specific
+    vehicle plate within a given time period. The report is generated asynchronously
+    using the global BigQuery client and returned as a streaming PDF response.
+    
+    Args:
+        request: FastAPI request object
+        user: Authenticated user (from dependency injection)
+        data: Cloning report parameters including plate, date range, and output directory
+        
+    Returns:
+        StreamingResponse: PDF report as streaming response
+        
+    Raises:
+        HTTPException: If report generation fails or BigQuery connection issues
+    """
+    try:
+        # Import async service
+        from app.modules.cloning_report.application.async_services import get_async_cloning_service
+        
+        # Generate unique report ID
+        report_id = generate_report_id()
+        logger.info(f"Starting cloning report generation for plate {data.plate} (Report ID: {report_id})")
+        
+        # Create async cloning service instance
+        service = get_async_cloning_service()
+        
+        try:
+            # Generate cloning report asynchronously
+            report = await service.execute(
+                plate=data.plate,
+                date_start=data.date_start,
+                date_end=data.date_end,
+                output_dir=data.output_dir
+            )
+            
+            logger.info(f"Cloning report generated successfully: {report.report_path}")
+            
+            # Read the generated PDF file
+            def generate_pdf_stream():
+                """Generator function to stream PDF content"""
+                try:
+                    with open(report.report_path, 'rb') as pdf_file:
+                        while True:
+                            chunk = pdf_file.read(8192)  # Read in 8KB chunks
+                            if not chunk:
+                                break
+                            yield chunk
+                except FileNotFoundError:
+                    logger.error(f"PDF file not found: {report.report_path}")
+                    raise HTTPException(status_code=500, detail="Generated PDF file not found")
+                except Exception as e:
+                    logger.error(f"Error reading PDF file: {str(e)}")
+                    raise HTTPException(status_code=500, detail="Error reading generated PDF")
+            
+            # Create streaming response
+            response = StreamingResponse(
+                generate_pdf_stream(),
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f"attachment; filename=cloning_report_{data.plate}_{report_id}.pdf",
+                    "X-Report-ID": report_id,
+                    "X-Plate": data.plate,
+                    "X-Total-Detections": str(report.total_detections),
+                    "X-Suspicious-Pairs": str(len(report.suspicious_pairs))
+                }
+            )
+            
+            # Log report generation completion
+            logger.info(f"Cloning report streaming started for plate {data.plate} (Report ID: {report_id})")
+            
+            return response
+            
+        finally:
+            # Cleanup service instance
+            await service.close()
+    
+    except Exception as e:
+        logger.error(f"Failed to generate cloning report for plate {data.plate}: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to generate cloning report: {str(e)}"
+        )
 
 @router_request(method="POST", router=router, path="/correlated-plates")
 async def generate_report_correlated_plates(
