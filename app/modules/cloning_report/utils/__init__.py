@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils package — Clean architecture utilities
+utils package - Clean architecture utilities
 -------------------------------------------
 Organized by single responsibility principle with backward compatibility
 """

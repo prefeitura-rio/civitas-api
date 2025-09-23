@@ -37,7 +37,7 @@ class ReportPDF(FPDF):
         """Render chapter body"""
         self.content_renderer.render_chapter_body(body)
 
-    def chapter_html(self, html_body: str, *, font_family: str = "LiberationSans", 
+    def chapter_html(self, html_body: str, *, font_family: str = "Helvetica", 
                     font_size_pt: int = 10, line_step_mm: float = 5.0) -> None:
         """Render HTML content"""
         self.content_renderer.render_chapter_html(html_body, font_family=font_family,

@@ -14,23 +14,23 @@ class ContentRenderer:
     
     def render_chapter_title(self, title):
         """Render chapter title"""
-        self.pdf.set_font('LiberationSans', 'B', 18)
+        self.pdf.set_font('Helvetica', 'B', 18)
         self.pdf.cell(0, 10, title, new_x=XPos.CENTER, new_y=YPos.NEXT)
         self.pdf.ln(2)
 
     def render_sub_title(self, title):
         """Render sub title"""
-        self.pdf.set_font('LiberationSans', 'B', 13)
+        self.pdf.set_font('Helvetica', 'B', 13)
         self.pdf.cell(0, 10, title, new_x=XPos.CENTER, new_y=YPos.NEXT)
         self.pdf.ln(2)
 
     def render_chapter_body(self, body: str):
         """Render chapter body text"""
-        self.pdf.set_font('LiberationSans', '', 10)
+        self.pdf.set_font('Helvetica', '', 10)
         self.pdf.multi_cell(0, 5, body)
         self.pdf.ln(2)
 
-    def render_chapter_html(self, html_body: str, *, font_family: str = "LiberationSans", 
+    def render_chapter_html(self, html_body: str, *, font_family: str = "Helvetica", 
                            font_size_pt: int = 10, line_step_mm: float = 5.0) -> None:
         """Render HTML content with consistent formatting"""
         lh_factor = line_step_mm / (font_size_pt * 0.3527777778)
@@ -73,7 +73,7 @@ class ContentRenderer:
     def _render_file_figure(self, fig_path, x_pos, img_width):
         """Render figure from file path"""
         if not os.path.exists(fig_path):
-            self.pdf.set_font('LiberationSans', 'I', 10)
+            self.pdf.set_font('Helvetica', 'I', 10)
             self.pdf.multi_cell(0, 5, f"Figura não encontrada: {fig_path}")
             self.pdf.ln(4)
             return
