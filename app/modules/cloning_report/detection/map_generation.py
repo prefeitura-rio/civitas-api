@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-map_generation.py — Map generation for detection results
+map_generation.py - Map generation for detection results
 ------------------------------------------------------
 Single responsibility: Generate maps and visualizations
 """

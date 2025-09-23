@@ -3,7 +3,7 @@ import folium
 import pandas as pd
 from typing import Optional, Set, Tuple, Dict
 
-from src.civitas_cloning_detector.clustering.clustering_validator import ClusteringValidator
+from ...clustering.clustering_validator import ClusteringValidator
 
 from ...utils import VMAX_KMH
 # from ...clustering import is_clusterizable_day

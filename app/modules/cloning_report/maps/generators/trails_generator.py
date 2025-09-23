@@ -7,7 +7,7 @@ from typing import Dict, Optional, Tuple
 from pathlib import Path
 from folium.plugins import BeautifyIcon
 
-from src.civitas_cloning_detector.clustering.graph_builder import GraphBuilder
+from ...clustering.graph_builder import GraphBuilder
 
 from ...utils import BLUE_LIGHT, BLUE_DARK
 # from ...clustering import graph_from_pairs_day
@@ -151,7 +151,7 @@ class TrailsMapGenerator:
         """Adiciona um marcador individual"""
         label = str(row.get('Local') or '').strip()
         ts_str = format_timestamp(row.get('DataHora'))
-        tooltip_txt = f"{label} • {ts_str}"
+        tooltip_txt = f"{label} - {ts_str}"
         popup_txt = tooltip_txt
         text_color = '#000000' if color_hex.lower() == BLUE_LIGHT.lower() else '#ffffff'
         

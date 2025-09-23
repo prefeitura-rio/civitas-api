@@ -109,8 +109,8 @@ class OtherDetectionsLayer:
     def _create_tooltip(self, label: str, horas_fmt: list) -> str:
         """Cria tooltip para marcador"""
         if len(horas_fmt) <= 1:
-            return f"{label} • {horas_fmt[0]}"
-        return f"{label} • {horas_fmt[0]} – {horas_fmt[-1]} ({len(horas_fmt)} detecções)"
+            return f"{label} - {horas_fmt[0]}"
+        return f"{label} - {horas_fmt[0]} – {horas_fmt[-1]} ({len(horas_fmt)} detecções)"
     
     def _create_popup_text(self, label: str, horas_str: str, vels: list) -> str:
         """Cria texto do popup"""
