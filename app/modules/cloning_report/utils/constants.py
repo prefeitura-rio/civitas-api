@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-constants.py — Project constants
+constants.py - Project constants
 -------------------------------
 Single responsibility: Hold project-wide constants
 """

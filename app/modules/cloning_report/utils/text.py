@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-text.py — Text formatting operations
+text.py - Text formatting operations
 -----------------------------------
 Single responsibility: Handle text formatting and abbreviations
 """

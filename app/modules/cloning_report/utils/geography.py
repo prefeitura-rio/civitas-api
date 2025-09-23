@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-geography.py — Geographic calculations
+geography.py - Geographic calculations
 -------------------------------------
 Single responsibility: Handle geographic distance calculations
 """
