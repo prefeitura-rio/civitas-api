@@ -22,9 +22,6 @@ class UnifiedMapBatchProcessor:
         if not self.enable_parallel:
             return self._process_sequential(df_sus, trails_tables)
         
-        print("🚀 UNIFIED BATCH PROCESSOR: Processing all maps in parallel...")
-        start_time = time.time()
-        
         # Step 1: Generate all HTML content
         html_tasks = self._generate_all_html(df_sus, trails_tables)
         
@@ -41,17 +38,6 @@ class UnifiedMapBatchProcessor:
         
         # Step 3: Process results
         output = self._process_batch_results(html_tasks, result)
-        
-        total_time = time.time() - start_time
-        successful = sum(1 for r in result['results'] if r['success'])
-        
-        print(f"📊 UNIFIED BATCH PERFORMANCE:")
-        print(f"   🎯 ALL map types processed together!")
-        print(f"   ✅ Successful: {successful}/{len(screenshot_tasks)} screenshots")
-        print(f"   ⏱️  Total time: {total_time:.2f}s")
-        print(f"   ⚡ Avg per screenshot: {result['avg_time_per_screenshot']:.2f}s")
-        print(f"   🔥 MAXIMUM EFFICIENCY ACHIEVED!")
-        
         return output
     
     def _generate_all_html(self, df_sus: pd.DataFrame, trails_tables: Dict[str, Any]) -> List[Dict[str, Any]]:
