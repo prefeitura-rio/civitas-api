@@ -1,20 +1,29 @@
 """Analytics facade - maintains backward compatibility during refactoring"""
-from typing import Dict, Any
+
+from typing import Any
 import pandas as pd
 
-from .calculators.kpi_calculator import KpiCalculator
-from .calculators.neighborhood_analyzer import NeighborhoodAnalyzer  
-from .calculators.time_analyzer import TimeAnalyzer
-from .visualizers.neighborhood_visualizer import NeighborhoodVisualizer
-from .visualizers.time_visualizer import TimeVisualizer
+from app.modules.cloning_report.analytics.calculators.kpi_calculator import (
+    KpiCalculator,
+)
+from app.modules.cloning_report.analytics.calculators.neighborhood_analyzer import (
+    NeighborhoodAnalyzer,
+)
+from app.modules.cloning_report.analytics.calculators.time_analyzer import TimeAnalyzer
+from app.modules.cloning_report.analytics.visualizers.neighborhood_visualizer import (
+    NeighborhoodVisualizer,
+)
+from app.modules.cloning_report.analytics.visualizers.time_visualizer import (
+    TimeVisualizer,
+)
 
 
-def compute_clonagem_kpis(results: Dict[str, Any]) -> Dict[str, Any]:
+def compute_clonagem_kpis(results: dict[str, Any]) -> dict[str, Any]:
     """Compute main cloning detection KPIs - delegates to KpiCalculator"""
     return KpiCalculator.compute_clonagem_kpis(results)
 
 
-def compute_bairro_pair_stats(results: Dict[str, Any]) -> pd.DataFrame:
+def compute_bairro_pair_stats(results: dict[str, Any]) -> pd.DataFrame:
     """Groups pairs by neighborhood and returns counts - delegates to NeighborhoodAnalyzer"""
     return NeighborhoodAnalyzer.compute_bairro_pair_stats(results)
 
@@ -24,7 +33,7 @@ def plot_bairro_pair_stats(df: pd.DataFrame, top_n: int = 12) -> str | None:
     return NeighborhoodVisualizer.plot_bairro_pair_stats(df, top_n)
 
 
-def compute_hourly_profile(results: Dict[str, Any]) -> pd.DataFrame:
+def compute_hourly_profile(results: dict[str, Any]) -> pd.DataFrame:
     """Count records by hour - delegates to TimeAnalyzer"""
     return TimeAnalyzer.compute_hourly_profile(results)
 
