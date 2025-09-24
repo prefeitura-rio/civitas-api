@@ -18,7 +18,8 @@ class ReportPDF(FPDF):
 
     def header(self):
         """Build PDF header using layout manager"""
-        self.layout_manager.setup_header()
+        report_id = getattr(self, "report_id", None)
+        self.layout_manager.setup_header(report_id)
 
     def footer(self):
         """Build PDF footer using layout manager"""
