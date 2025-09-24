@@ -2,17 +2,17 @@
 
 import pandas as pd
 from fpdf.enums import XPos, YPos
-from .data_formatter import DataFormatter
-from .style_manager import StyleManager
+from app.modules.cloning_report.report.data_formatter import DataFormatter
+from app.modules.cloning_report.report.style_manager import StyleManager
 
 
 class TableRenderer:
     """Handles table rendering in PDF."""
-    
+
     def __init__(self, pdf_instance):
         self.pdf = pdf_instance
         self.style_manager = StyleManager(pdf_instance)
-    
+
     def render_table(self, df: pd.DataFrame, title: str, text: str | None = None):
         """Render table with proper formatting"""
         self._add_table_header(title, text)
@@ -26,29 +26,29 @@ class TableRenderer:
 
     def _add_table_header(self, title: str, text: str | None):
         """Add table title and optional text"""
-        self.pdf.set_font('Helvetica', 'B', 13)
+        self.pdf.set_font("Helvetica", "B", 13)
         self.pdf.cell(0, 10, title, new_x=XPos.CENTER, new_y=YPos.NEXT)
         self.pdf.ln(2)
         if text is not None:
-            self.pdf.set_font('Helvetica', '', 10)
+            self.pdf.set_font("Helvetica", "", 10)
             self.pdf.multi_cell(0, 5, text)
             self.pdf.ln(2)
-        self.pdf.set_font('Helvetica', '', 10)
+        self.pdf.set_font("Helvetica", "", 10)
 
     def _process_table_data(self, df: pd.DataFrame, table_type: str) -> pd.DataFrame:
         """Process table data based on table type"""
-        if table_type == 'clonagem':
+        if table_type == "clonagem":
             return DataFormatter.process_clonagem_data(df)
-        elif table_type == 'trilha':
+        elif table_type == "trilha":
             return DataFormatter.process_trilha_data(df)
         else:
             return df
 
     def _calculate_column_widths(self, df: pd.DataFrame, table_type: str) -> dict:
         """Calculate column widths based on table type"""
-        if table_type == 'clonagem':
+        if table_type == "clonagem":
             return self._get_clonagem_column_widths(df)
-        elif table_type == 'trilha':
+        elif table_type == "trilha":
             return self._get_trilha_column_widths()
         else:
             return self._get_generic_column_widths(df)
@@ -56,24 +56,31 @@ class TableRenderer:
     def _get_clonagem_column_widths(self, df: pd.DataFrame) -> dict:
         """Get column widths for clonagem table"""
         cols_set = set(df.columns)
-        if {'Latitude','Longitude'}.issubset(cols_set):
+        if {"Latitude", "Longitude"}.issubset(cols_set):
             return {
-                'Data': self.pdf.epw * 0.12, 'Primeira Detecção': self.pdf.epw * 0.27,
-                'Detecção Seguinte': self.pdf.epw * 0.27, 'Latitude': self.pdf.epw * 0.17,
-                'Longitude': self.pdf.epw * 0.17, 'Km/h': self.pdf.epw * 0.10,
+                "Data": self.pdf.epw * 0.12,
+                "Primeira Detecção": self.pdf.epw * 0.27,
+                "Detecção Seguinte": self.pdf.epw * 0.27,
+                "Latitude": self.pdf.epw * 0.17,
+                "Longitude": self.pdf.epw * 0.17,
+                "Km/h": self.pdf.epw * 0.10,
             }
         else:
             return {
-                'Data': self.pdf.epw * 0.16, 'Primeira Detecção': self.pdf.epw * 0.37,
-                'Detecção Seguinte': self.pdf.epw * 0.37, 'Km/h': self.pdf.epw * 0.10,
+                "Data": self.pdf.epw * 0.16,
+                "Primeira Detecção": self.pdf.epw * 0.37,
+                "Detecção Seguinte": self.pdf.epw * 0.37,
+                "Km/h": self.pdf.epw * 0.10,
             }
 
     def _get_trilha_column_widths(self) -> dict:
         """Get column widths for trilha table"""
         return {
-            'DataHora': self.pdf.epw * 0.20, 'Local': self.pdf.epw * 0.42,
-            'Bairro': self.pdf.epw * 0.16, 'Latitude': self.pdf.epw * 0.11,
-            'Longitude': self.pdf.epw * 0.11,
+            "DataHora": self.pdf.epw * 0.20,
+            "Local": self.pdf.epw * 0.42,
+            "Bairro": self.pdf.epw * 0.16,
+            "Latitude": self.pdf.epw * 0.11,
+            "Longitude": self.pdf.epw * 0.11,
         }
 
     def _get_generic_column_widths(self, df: pd.DataFrame) -> dict:
@@ -85,13 +92,21 @@ class TableRenderer:
         """Draw table header"""
         header_map = DataFormatter.get_header_mapping()
         headers = [header_map.get(col, col) for col in df.columns]
-        
+
         header_h = 8
         self.style_manager.apply_table_header_style()
 
         for i, col in enumerate(df.columns):
-            self.pdf.cell(col_widths[col], header_h, headers[i], border=1, align='C',
-                          fill=True, new_x=XPos.RIGHT, new_y=YPos.TOP)
+            self.pdf.cell(
+                col_widths[col],
+                header_h,
+                headers[i],
+                border=1,
+                align="C",
+                fill=True,
+                new_x=XPos.RIGHT,
+                new_y=YPos.TOP,
+            )
         self.pdf.ln(header_h)
 
     def _draw_table_data(self, df: pd.DataFrame, col_widths: dict):
@@ -122,8 +137,13 @@ class TableRenderer:
             val = "" if pd.isna(row[col]) else str(row[col])
             vals.append(val)
             parts = self.pdf.multi_cell(
-                col_widths[col], line_h, val, border=0, align='C',
-                dry_run=True, output='LINES'
+                col_widths[col],
+                line_h,
+                val,
+                border=0,
+                align="C",
+                dry_run=True,
+                output="LINES",
             )
             nlines.append(max(1, len(parts) if isinstance(parts, (list, tuple)) else 1))
         return vals, nlines
@@ -146,14 +166,14 @@ class TableRenderer:
         x0 = self.pdf.get_x()
 
         try:
-            self.pdf.rect(x0, y0, w, row_h, style='')
+            self.pdf.rect(x0, y0, w, row_h, style="")
         except TypeError:
             self.pdf.rect(x0, y0, w, row_h)
 
         content_h = n * line_h
         y_txt = y0 + max(0, (row_h - content_h) / 2.0)
         self.pdf.set_xy(x0, y_txt)
-        self.pdf.multi_cell(w, line_h, val, border=0, align='C')
+        self.pdf.multi_cell(w, line_h, val, border=0, align="C")
         self.pdf.set_xy(x0 + w, y0)
 
     def _handle_page_break(self, columns, col_widths):
@@ -162,10 +182,18 @@ class TableRenderer:
         self.style_manager.apply_table_header_style()
         header_map = DataFormatter.get_header_mapping()
         headers = [header_map.get(col, col) for col in columns]
-        
+
         for i, col in enumerate(columns):
-            self.pdf.cell(col_widths[col], 8, headers[i], border=1, align='C',
-                          fill=True, new_x=XPos.RIGHT, new_y=YPos.TOP)
+            self.pdf.cell(
+                col_widths[col],
+                8,
+                headers[i],
+                border=1,
+                align="C",
+                fill=True,
+                new_x=XPos.RIGHT,
+                new_y=YPos.TOP,
+            )
         self.pdf.ln(8)
         self.style_manager.apply_table_data_style()
 
@@ -178,34 +206,43 @@ class TableRenderer:
     def _calculate_params_table_layout(self, label_w_ratio: float) -> dict:
         """Calculate parameters table layout"""
         return {
-            'line_h': 4.0, 'pad_x': 2, 'pad_y': 2, 'x0': self.pdf.l_margin,
-            'w': self.pdf.epw, 'wL': self.pdf.epw * float(label_w_ratio),
-            'wR': self.pdf.epw - (self.pdf.epw * float(label_w_ratio))
+            "line_h": 4.0,
+            "pad_x": 2,
+            "pad_y": 2,
+            "x0": self.pdf.l_margin,
+            "w": self.pdf.epw,
+            "wL": self.pdf.epw * float(label_w_ratio),
+            "wR": self.pdf.epw - (self.pdf.epw * float(label_w_ratio)),
         }
 
     def _calculate_row_height(self, rows: list, layout: dict) -> float:
         """Calculate uniform row height for all rows"""
         max_content_h = 0.0
         for lbl, val in rows:
-            lbl_h = self._measure_content_height(lbl, layout['wL'], layout)
-            val_h = self._measure_content_height(val, layout['wR'], layout)
+            lbl_h = self._measure_content_height(lbl, layout["wL"], layout)
+            val_h = self._measure_content_height(val, layout["wR"], layout)
             max_content_h = max(max_content_h, lbl_h, val_h)
-        
-        row_h = max_content_h + 2 * layout['pad_y']
+
+        row_h = max_content_h + 2 * layout["pad_y"]
         return max(row_h, 12.0)
 
-    def _measure_content_height(self, text: str, cell_width: float, layout: dict) -> float:
+    def _measure_content_height(
+        self, text: str, cell_width: float, layout: dict
+    ) -> float:
         """Measure content height for a cell"""
         parts = self.pdf.multi_cell(
-            cell_width - 2 * layout['pad_x'], layout['line_h'], str(text), 
-            dry_run=True, output='LINES'
+            cell_width - 2 * layout["pad_x"],
+            layout["line_h"],
+            str(text),
+            dry_run=True,
+            output="LINES",
         )
         n = max(1, len(parts) if isinstance(parts, (list, tuple)) else 1)
-        return n * layout['line_h']
+        return n * layout["line_h"]
 
     def _draw_params_table(self, rows: list, layout: dict, row_height: float):
         """Draw the parameters table"""
-        self.pdf.set_font('Helvetica', '', 11)
+        self.pdf.set_font("Helvetica", "", 11)
         self.pdf.set_draw_color(0, 0, 0)
         bottom_limit = self.pdf.h - max(self.pdf.b_margin, 17)
         y = self.pdf.get_y()
@@ -215,28 +252,45 @@ class TableRenderer:
 
         self.pdf.set_y(y + 3)
 
-    def _draw_params_row(self, label: str, value: str, layout: dict, row_height: float, y: float, bottom_limit: float) -> float:
+    def _draw_params_row(
+        self,
+        label: str,
+        value: str,
+        layout: dict,
+        row_height: float,
+        y: float,
+        bottom_limit: float,
+    ) -> float:
         """Draw a single parameters table row"""
         if y + row_height > bottom_limit:
             self.pdf.add_page()
             y = self.pdf.get_y()
 
-        self.pdf.rect(layout['x0'], y, layout['wL'], row_height)
-        self.pdf.rect(layout['x0'] + layout['wL'], y, layout['wR'], row_height)
-        
-        lbl_h = self._measure_content_height(label, layout['wL'], layout)
-        val_h = self._measure_content_height(value, layout['wR'], layout)
-        
+        self.pdf.rect(layout["x0"], y, layout["wL"], row_height)
+        self.pdf.rect(layout["x0"] + layout["wL"], y, layout["wR"], row_height)
+
+        lbl_h = self._measure_content_height(label, layout["wL"], layout)
+        val_h = self._measure_content_height(value, layout["wR"], layout)
+
         y_lbl = y + (row_height - lbl_h) / 2.0
         y_val = y + (row_height - val_h) / 2.0
 
-        self._draw_cell_content(label, layout['x0'], y_lbl, layout['wL'], layout)
-        self._draw_cell_content(value, layout['x0'] + layout['wL'], y_val, layout['wR'], layout)
-        
+        self._draw_cell_content(label, layout["x0"], y_lbl, layout["wL"], layout)
+        self._draw_cell_content(
+            value, layout["x0"] + layout["wL"], y_val, layout["wR"], layout
+        )
+
         return y + row_height
 
-    def _draw_cell_content(self, text: str, x: float, y: float, width: float, layout: dict):
+    def _draw_cell_content(
+        self, text: str, x: float, y: float, width: float, layout: dict
+    ):
         """Draw cell content"""
-        self.pdf.set_xy(x + layout['pad_x'], y)
-        self.pdf.multi_cell(width - 2 * layout['pad_x'], layout['line_h'], 
-                           str(text), border=0, align='L')
+        self.pdf.set_xy(x + layout["pad_x"], y)
+        self.pdf.multi_cell(
+            width - 2 * layout["pad_x"],
+            layout["line_h"],
+            str(text),
+            border=0,
+            align="L",
+        )

@@ -1,7 +1,7 @@
 """Clonagem Report Generator"""
 
-from .generator import ClonagemReportGenerator
+from app.modules.cloning_report.report.clonagem_report_generator.generator import (
+    ClonagemReportGenerator,
+)
 
-__all__ = [
-    'ClonagemReportGenerator'
-]
+__all__ = ["ClonagemReportGenerator"]
