@@ -746,7 +746,7 @@ async def generate_report_multiple_correlated_plates(
     )
 
     # Handle the case where no correlated plates were found
-    if correlated_detections[not correlated_detections["target"]].empty:
+    if correlated_detections[~correlated_detections["target"]].empty:
         # Get the context data for the template
         template_context = await pdf_service.get_template_context()
 
