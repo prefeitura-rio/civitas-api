@@ -1,6 +1,7 @@
 """Application services for cloning detection"""
 
 from datetime import datetime
+import pandas as pd
 
 from app.modules.cloning_report.container import Container, get_container
 
@@ -37,7 +38,9 @@ class CloningReportService:
         )
         df = DetectionMapper.detections_to_dataframe(detections)
 
-        generator = ClonagemReportGenerator(df, plate, date_start, date_end)
+        periodo_inicio = pd.Timestamp(date_start, tz="UTC")
+        periodo_fim = pd.Timestamp(date_end, tz="UTC")
+        generator = ClonagemReportGenerator(df, plate, periodo_inicio, periodo_fim)
         report_path = CloningReportService._generate_report(
             generator, plate, output_dir
         )
