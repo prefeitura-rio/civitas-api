@@ -67,18 +67,17 @@ class AsyncCloningReportService:
         logger.info(f"Executing async cloning detection for plate {plate}")
 
         try:
-            # Test connection first
             if not await self.repository.test_connection():
                 logger.warning("BigQuery connection failed, this might cause issues")
 
-            # Load detections asynchronously
             detections = await self.repository.find_by_plate_and_period(
                 plate, date_start, date_end
             )
             df = DetectionMapper.detections_to_dataframe(detections)
 
-            # Generate report (this part can also be made async if needed)
-            generator = ClonagemReportGenerator(df, plate, date_start, date_end)
+            periodo_inicio = pd.Timestamp(date_start, tz="UTC")
+            periodo_fim = pd.Timestamp(date_end, tz="UTC")
+            generator = ClonagemReportGenerator(df, plate, periodo_inicio, periodo_fim)
             report_path = self._generate_report_sync(generator, plate, output_dir)
 
             return self._create_report_entity(
@@ -103,7 +102,6 @@ class AsyncCloningReportService:
     ) -> str:
         """Generate report synchronously (runs in thread pool)"""
         try:
-            # Create full output path with filename
             import os
 
             os.makedirs(output_dir, exist_ok=True)
@@ -128,13 +126,11 @@ class AsyncCloningReportService:
         """Create CloningReport entity from generator results"""
         from app.modules.cloning_report.domain.entities import SuspiciousPair, Detection
 
-        # Convert DataFrame records to SuspiciousPair objects
         suspicious_pairs = []
         pairs_data = generator.get_suspicious_pairs()
 
         for pair_data in pairs_data:
             try:
-                # Create Detection objects for origin and destination
                 origin = Detection(
                     plate=plate,
                     timestamp=pd.to_datetime(pair_data["Data"]),
@@ -151,7 +147,6 @@ class AsyncCloningReportService:
                     location=str(pair_data["Destino"]),
                 )
 
-                # Create SuspiciousPair
                 suspicious_pair = SuspiciousPair(
                     origin=origin,
                     destination=destination,
@@ -186,7 +181,6 @@ class AsyncCloningReportService:
         logger.info("Async cloning report service closed")
 
 
-# Dependency injection for async service
 def get_async_cloning_service() -> AsyncCloningReportService:
     """Create new async cloning service instance (no global state)"""
     return AsyncCloningReportService()

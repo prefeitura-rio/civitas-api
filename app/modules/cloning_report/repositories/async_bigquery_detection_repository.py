@@ -16,7 +16,6 @@ from app.modules.cloning_report.data.query_builder import (
 )
 from app.modules.cloning_report.utils import get_logger
 
-# Import the global BigQuery client from the main app
 from app.utils import get_bigquery_client
 
 logger = get_logger()
