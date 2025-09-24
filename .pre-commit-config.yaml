@@ -1,16 +1,27 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v6.0.0
     hooks:
       - id: check-added-large-files # prevents adding large files
       - id: detect-private-key # detects private keys
       - id: fix-byte-order-marker # fixes BOM
-      - id: fix-encoding-pragma # fixes encoding pragma
       - id: no-commit-to-branch # prevents committing to protected branches
       - id: trailing-whitespace # prevents trailing whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.2
+    rev: v0.13.1
     hooks:
       - id: ruff
       - id: ruff-format
+
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.20.0 # or run `pre-commit autoupdate` to use the latest
+    hooks:
+      - id: pyupgrade
+        args: [--py311-plus] # consistent with your project (Python 3.11+)
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        # args: ["--baseline", ".secrets.baseline"]
