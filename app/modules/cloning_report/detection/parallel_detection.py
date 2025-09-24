@@ -11,8 +11,8 @@ from typing import Any
 from dataclasses import dataclass
 import time
 
-from ..utils import get_logger
-from .pair_detection import PairDetector
+from app.modules.cloning_report.utils import get_logger
+from app.modules.cloning_report.detection.pair_detection import PairDetector
 
 
 logger = get_logger()
