@@ -1,43 +1,50 @@
-# -*- coding: utf-8 -*-
 import asyncio
-from typing import Annotated, Optional
+from typing import Annotated
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fpdf import FPDF
-from pendulum import now
 
 from app import config
 from app.decorators import router_request
 from app.dependencies import is_user
 from app.models import ReportHistory, User
-from app.pydantic_models import PdfReportCorrelatedPlatesIn, PdfReportMultipleCorrelatedPlatesIn
-from app.services.pdf.multiple_correlated_plates import DataService, GraphService, PdfService
+from app.pydantic_models import (
+    PdfReportCorrelatedPlatesIn,
+    PdfReportMultipleCorrelatedPlatesIn,
+)
+from app.services.pdf.multiple_correlated_plates import (
+    DataService,
+    GraphService,
+    PdfService,
+)
 from app.utils import generate_report_id
 
 from loguru import logger
 
+
 class CustomPDF(FPDF):
     """
     Custom PDF class extending FPDF for standardized report generation.
-    
+
     This class provides customized header formatting for PDF reports generated
     by the application. It includes consistent branding elements such as logos,
     report titles, and unique report identifiers.
-    
+
     The class ensures all PDF reports maintain a consistent look and feel while
     providing specific information relevant to each report type.
-    
+
     Attributes:
     -----------
     _report_id : str, optional
         The unique identifier for the report, displayed in the header.
     """
-    def __init__(self, report_id: Optional[str] = None, *args, **kwargs):
+
+    def __init__(self, report_id: str | None = None, *args, **kwargs):
         """
         Initialize the CustomPDF with optional report ID.
-        
+
         Parameters:
         -----------
         report_id : str, optional
@@ -51,12 +58,12 @@ class CustomPDF(FPDF):
     def header(self):
         """
         Define the standard header for all pages in the PDF.
-        
+
         The header includes:
         - Two logos (Prefeitura and Civitas) in the left cell
         - Report title in the center/right cell
         - Report ID in a row beneath the logos and title
-        
+
         This method is automatically called by FPDF when rendering each page.
         """
         # Set position
@@ -285,6 +292,13 @@ async def generate_report_correlated_plates(
     )
 
     pdf.ln(1)
+    pdf.multi_cell(
+        0,
+        5,
+        text=f"{chr(149)} Quando um radar não possui informações completas de localização (rua, faixa e sentido), as passagens registradas ficam ocultas do relatório. isso pode ocorrer porque a base de referência que relaciona cada radar ao seu código oficial ainda não está totalmente atualizada. Até que a atualização seja concluída, parte das leituras não poderá ser exibida corretamente e, portanto, é temporariamente desconsiderada. Essa medida é necessária para garantir a consistência da análise de correlação, que depende da correspondência de localização completa do equipamento.",
+    )
+
+    pdf.ln(1)
 
     pdf.set_font("Times", style="B", size=10)
     pdf.cell(0, 5, text="Distância entre radares", new_x="LMARGIN", new_y="NEXT")
@@ -308,8 +322,8 @@ async def generate_report_correlated_plates(
         },
         {"label": "Limite de placas antes e depois:", "value": data.params.n_plates},
         {
-            "label": "Intervalo de tempo:", 
-            "value": f"{data.params.n_minutes} minuto{'s' if data.params.n_minutes > 1 else ''}"
+            "label": "Intervalo de tempo:",
+            "value": f"{data.params.n_minutes} minuto{'s' if data.params.n_minutes > 1 else ''}",
         },
         {
             "label": "Total de detecções da placa monitorada:",
@@ -495,9 +509,7 @@ async def generate_report_correlated_plates(
                     fill=fill,
                 )
                 pdf.cell(25, 7, text=detection.plate, border=1, align="C", fill=fill)
-                pdf.cell(
-                    25, 7, text=detection.codcet, border=1, align="C", fill=fill
-                )
+                pdf.cell(25, 7, text=detection.codcet, border=1, align="C", fill=fill)
                 pdf.cell(15, 7, text=detection.lane, border=1, align="C", fill=fill)
                 pdf.cell(
                     40, 7, text=str(detection.speed), border=1, align="C", fill=fill
@@ -557,17 +569,17 @@ async def generate_report_multiple_correlated_plates(
 ) -> str:
     """
     Generate a comprehensive report of correlated vehicle plate detections.
-    
+
     This endpoint processes a request to generate a detailed report showing correlations
     between multiple vehicle plates detected by traffic radars. The report includes
     both visual representations (graphs) and detailed data tables.
-    
+
     The endpoint performs several CPU-intensive operations:
     1. Fetches and processes correlation data from BigQuery
     2. Creates network graphs showing plate relationships
     3. Generates PDF reports with the findings
     4. Packages results into a ZIP file with both PDF and interactive HTML
-    
+
     Parameters:
     -----------
     request : Request
@@ -580,14 +592,14 @@ async def generate_report_multiple_correlated_plates(
         - Time windows for analysis
         - Correlation parameters (n_minutes, n_plates)
         - Filtering options
-        
+
     Returns:
     --------
     StreamingResponse
         - If correlations are found: A ZIP file containing both PDF report and HTML graph
         - If no correlations are found: A PDF report indicating no correlations detected
     """
-    
+
     # Initialize the required services
     data_service = DataService()
     pdf_service = PdfService()
@@ -595,7 +607,7 @@ async def generate_report_multiple_correlated_plates(
 
     # Set up the PDF service with the input data
     await pdf_service.initialize(data=data)
-    
+
     # Query for correlated plate detections
     # This is a computationally expensive operation that queries BigQuery
     correlated_detections = await data_service.get_correlations(
@@ -603,42 +615,48 @@ async def generate_report_multiple_correlated_plates(
     )
 
     # Handle the case where no correlated plates were found
-    if correlated_detections[correlated_detections['target'] == False].empty:
+    if correlated_detections[not correlated_detections["target"]].empty:
         # Get the context data for the template
         template_context = await pdf_service.get_template_context()
-        
+
         # Add parameters about the search to the context
         template_context["no_detections"] = True
         template_context["search_parameters"] = {
             "plates": [p.plate for p in data.requested_plates_data],
-            "start_time": min(p.start for p in data.requested_plates_data).strftime("%d/%m/%Y %H:%M:%S"),
-            "end_time": max(p.end for p in data.requested_plates_data).strftime("%d/%m/%Y %H:%M:%S"),
+            "start_time": min(p.start for p in data.requested_plates_data).strftime(
+                "%d/%m/%Y %H:%M:%S"
+            ),
+            "end_time": max(p.end for p in data.requested_plates_data).strftime(
+                "%d/%m/%Y %H:%M:%S"
+            ),
             "n_minutes": data.n_minutes,
-            "n_plates": data.n_plates
+            "n_plates": data.n_plates,
         }
-        
+
         # Generate the PDF report with a template for no data
         file_path = await pdf_service.generate_pdf_report_from_html_template(
             context=template_context,
             template_relative_path="pdf/multiple_correlated_plates_no_data.html",
         )
-        
+
         # Helper function to stream the file content
         def iterfile(path: str):
             """Stream file contents from disk in chunks."""
-            logger.info(f"Streaming PDF file.")
+            logger.info("Streaming PDF file.")
             with open(path, mode="rb") as f:
                 yield from f
-                
-            logger.info(f"PDF file streamed.")
+
+            logger.info("PDF file streamed.")
 
         # Return the PDF file as a streaming response
         return StreamingResponse(
             iterfile(file_path),
             media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename={template_context['report_id']}.pdf"},
+            headers={
+                "Content-Disposition": f"attachment; filename={template_context['report_id']}.pdf"
+            },
         )
-        
+
     else:
         # Process correlated detections found - run operations concurrently
         # 1. Create a graph with limited nodes for visualization
@@ -647,52 +665,61 @@ async def generate_report_multiple_correlated_plates(
         await asyncio.gather(
             graph_service.create_graph(dataframe=correlated_detections, limit_nodes=20),
             pdf_service.set_detections(correlated_detections=correlated_detections),
-            pdf_service.set_detailed_detections(correlated_detections=correlated_detections)
+            pdf_service.set_detailed_detections(
+                correlated_detections=correlated_detections
+            ),
         )
-        
+
         # Save the limited nodes graph as both PNG and HTML
-        await graph_service.save_graph(png_file_name="grafo_limited_nodes.png", html_file_name="grafo_limited_nodes.html")
-        
+        await graph_service.save_graph(
+            png_file_name="grafo_limited_nodes.png",
+            html_file_name="grafo_limited_nodes.html",
+        )
+
         # Generate a full graph without node limits for the interactive HTML view
         await graph_service.create_graph(dataframe=correlated_detections)
         html_path_full, png_path_full = await graph_service.save_graph(
-            png_file_name="grafo.png", 
-            html_file_name="grafo.html", 
-            delay=15  # Extra delay to ensure complete rendering of larger graph
+            png_file_name="grafo.png",
+            html_file_name="grafo.html",
+            delay=15,  # Extra delay to ensure complete rendering of larger graph
         )
-        
+
         # Get the context data for the template and generate the PDF
         template_context = await pdf_service.get_template_context()
         pdf_path = await pdf_service.generate_pdf_report_from_html_template(
             context=template_context,
             template_relative_path="pdf/multiple_correlated_plates.html",
         )
-        
+
         # Create a ZIP file containing both the PDF report and the interactive HTML graph
         import zipfile
         import io
-        
+
         # Use an in-memory buffer for the ZIP file
         zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             # Add the PDF report to the ZIP
-            with open(pdf_path, 'rb') as f:
+            with open(pdf_path, "rb") as f:
                 pdf_data = f.read()
                 zip_file.writestr(f"{template_context['report_id']}.pdf", pdf_data)
-            
+
             # Add the interactive HTML graph to the ZIP
-            with open(html_path_full, 'rb') as f:
+            with open(html_path_full, "rb") as f:
                 html_data = f.read()
-                zip_file.writestr(f"{template_context['report_id']}_grafo.html", html_data)
-        
+                zip_file.writestr(
+                    f"{template_context['report_id']}_grafo.html", html_data
+                )
+
         # Reset the buffer pointer to the beginning for reading
         zip_buffer.seek(0)
-        
+
         # Return the ZIP file as a streaming response
         return StreamingResponse(
             zip_buffer,
             media_type="application/zip",
-            headers={"Content-Disposition": f"attachment; filename={template_context['report_id']}.zip"},
+            headers={
+                "Content-Disposition": f"attachment; filename={template_context['report_id']}.zip"
+            },
         )
 
 
@@ -704,11 +731,11 @@ async def get_report_multiple_correlated_plates_history(
 ) -> str:
     """
     Retrieve the history of a specific multiple correlated plates report.
-    
+
     This endpoint fetches historical data for a previously generated report of
-    correlated vehicle plates. It searches the ReportHistory database for the 
+    correlated vehicle plates. It searches the ReportHistory database for the
     specified report ID and returns the report's metadata and content.
-    
+
     Parameters:
     -----------
     request : Request
@@ -717,7 +744,7 @@ async def get_report_multiple_correlated_plates_history(
         The authenticated user requesting the report history.
     report_id : str
         The unique identifier of the report to retrieve.
-        
+
     Returns:
     --------
     JSONResponse
@@ -725,7 +752,7 @@ async def get_report_multiple_correlated_plates_history(
         - Status 200 with the report's history data if found
         - Status 404 if the report with the given ID doesn't exist
     """
-    
+
     # Dynamically find the route path for the report generation endpoint
     # This ensures we're looking for the correct path even if routes change
     for route in router.routes:
@@ -737,35 +764,29 @@ async def get_report_multiple_correlated_plates_history(
         path = "/pdf/multiple-correlated-plates"
 
     # Query the database for the report history
-    report_history = await ReportHistory.filter(
-        path=path,
-        id_report=report_id
-    ).first()
-    
+    report_history = await ReportHistory.filter(path=path, id_report=report_id).first()
+
     # Return 404 if the report doesn't exist
     if not report_history:
         return JSONResponse(
-            status_code=404,
-            content={"status_code": 404, "detail": "Report not found"}
+            status_code=404, content={"status_code": 404, "detail": "Report not found"}
         )
-    
+
     # Convert the report history to a serializable dictionary
     # This includes metadata and the original request content
     report_dict = {
         "id_report": report_history.id_report,
         "timestamp": report_history.timestamp.isoformat(),
         "query_params": report_history.query_params,
-        "body": report_history.body
+        "body": report_history.body,
     }
-    
+
     # Return the report history as a JSON response
     return JSONResponse(
         status_code=200,
         content={
             "status_code": 200,
             "detail": "Report found",
-            "report_history": report_dict
-        }
+            "report_history": report_dict,
+        },
     )
-    
-    
