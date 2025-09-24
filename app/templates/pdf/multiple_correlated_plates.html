@@ -37,7 +37,7 @@
 
             <li><b>Intervalo de Tempo Relativo</b>
                 <p>As buscas por veículos próximos da placa monitorada podem ser realizadas no intervalo de até <b>vinte minutos antes e vinte minutos depois</b> da passagem da placa monitorada. Os parâmetros são definidos pelo solicitante ou assumem valores padrão quando não especificados.</p>
-                
+
                 <p><b>Padrão:</b> 3 minutos antes e 3 minutos depois, conforme diretrizes operacionais internas, quando não especificado na solicitação.</p>
             </li>
 
@@ -86,6 +86,7 @@
                     <li style="margin-bottom: -10px;">Período de inatividade do equipamento;</li>
                     <li>Falhas técnicas.</li>
                 </ul>
+                <p>Quando um radar não possui informações completas de localização (rua, faixa e sentido), as passagens registradas ficam ocultas do relatório. isso pode ocorrer porque a base de referência que relaciona cada radar ao seu código oficial ainda não está totalmente atualizada. Até que a atualização seja concluída, parte das leituras não poderá ser exibida corretamente e, portanto, é temporariamente desconsiderada. Essa medida é necessária para garantir a consistência da análise de correlação, que depende da correspondência de localização completa do equipamento.</p>
                 <p>Isto significa que os dados apresentados neste relatório <b>não são exaustivos</b> e a ausência de uma placa não é determinante para comprovar que não houve a passagem naquela localidade.</p>
             </li>
 
@@ -138,12 +139,12 @@
                     style="display: inline-block; height: 3px; width: 20px; background-color: black;"></span> <span
                     style="display: inline-block; height: 9px; width: 20px; background-color: black;"></span> Quanto mais grossa
                 a aresta, maior a frequência de detecção conjunta entre as placas conectadas.</p>
-            <p><b>Direção das setas</b>: 
-                <span style="display: inline-block; font-size: 20px;">←</span> 
-                <span style="display: inline-block; font-size: 20px;">→</span> 
+            <p><b>Direção das setas</b>:
+                <span style="display: inline-block; font-size: 20px;">←</span>
+                <span style="display: inline-block; font-size: 20px;">→</span>
                 A seta aponta do veículo correlato para as placas demandadas, indicando que esse veículo passou perto das placas monitoradas (demandadas).</p>
         </div>
-        
+
     </div>
 
     <div class="grafo-container">
@@ -160,14 +161,14 @@
         <h3><b>Tabela de Veículos Correlatos com Detecção Próxima a Múltiplas placas Monitoradas</b></h3>
         <p>A tabela a seguir apresenta os veículos identificados em proximidade com duas ou mais placas demandadas (monitoradas), com base nas detecções realizadas por radares. Cada linha representa um veículo identificado e o número de vezes que ele foi registrado por um radar, além das placas demandadas que passaram próximo a ele, de acordo com os parâmetros definidos na busca.</p>
         <p>Abaixo, a descrição das colunas apresentadas:</p>
-        
+
         <ul style="margin-top: 0px;">
             <li><b>Placa Correlata</b>: Placa do veículo identificada na análise por ter múltiplas passagens perto de placas monitoradas.
             <ul style="margin-top: 0px;"><b>Exemplo:</b> ABC1D23 — Trata-se de um veículo que, durante o período analisado, foi detectado diversas vezes próximo a diferentes placas monitoradas.</ul></li>
 
             <li><b>Número de Placas Monitoradas</b>: Quantidade de placas monitoradas diferentes com as quais a placa correlata foi identificada.
             <ul style="margin-top: 0px;"><b>Exemplo:</b> 3 — A placa ABC1D23 foi identificada em proximidade com três placas monitoradas distintas — por exemplo: XXX1234, YYY1234 e ZZZ1234.</ul></li>
-            
+
             <li><b>Número de Detecções Conjuntas</b>: quantidade de vezes em que a placa correlata foi detectado próximo às placas monitoradas.
             <ul style="margin-top: 0px;"><b>Exemplo:</b> 12 — O veículo com placa ABC1D23 foi detectado 12 vezes próximo às  placas monitoradas com as quais teve detecção conjuntas. Essas detecções podem ter ocorrido em horários e locais diferentes.</ul></li>
 
