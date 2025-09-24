@@ -1,8 +1,11 @@
 """Data loading and management module"""
 
-from .query_builder import BigQueryQueryBuilder, QueryParameters
+from app.modules.cloning_report.data.query_builder import (
+    BigQueryQueryBuilder,
+    QueryParameters,
+)
 
 __all__ = [
-    'BigQueryQueryBuilder',
-    'QueryParameters',
+    "BigQueryQueryBuilder",
+    "QueryParameters",
 ]
