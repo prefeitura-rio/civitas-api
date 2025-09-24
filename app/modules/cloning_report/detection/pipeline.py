@@ -6,13 +6,16 @@ from typing import Any
 import pandas as pd
 from app.modules.cloning_report.utils import VMAX_KMH
 
-from .validation import DetectionValidator
-from .preprocessing import DetectionPreprocessor
-from .pair_detection import PairDetector
-from .parallel_detection import ParallelPairDetector
-from .adaptive_detection import AdaptiveDetector, HighPerformanceDetector
-from .map_generation import MapGenerator
-from .daily_processing import DailyProcessor
+from app.modules.cloning_report.detection.validation import DetectionValidator
+from app.modules.cloning_report.detection.preprocessing import DetectionPreprocessor
+from app.modules.cloning_report.detection.pair_detection import PairDetector
+from app.modules.cloning_report.detection.parallel_detection import ParallelPairDetector
+from app.modules.cloning_report.detection.adaptive_detection import (
+    AdaptiveDetector,
+    HighPerformanceDetector,
+)
+from app.modules.cloning_report.detection.map_generation import MapGenerator
+from app.modules.cloning_report.detection.daily_processing import DailyProcessor
 
 
 class DetectionPipeline:
