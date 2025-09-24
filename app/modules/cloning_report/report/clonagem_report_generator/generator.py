@@ -1,31 +1,44 @@
-
 from __future__ import annotations
 
 import os
-from typing import Dict, Any
+from datetime import datetime
+from typing import Any
 
 import pandas as pd
 from fpdf.enums import XPos, YPos
-from datetime import datetime
-from ...detection.preprocessing import DetectionPreprocessor
-from ...detection.pipeline import DetectionPipeline
-from ...analytics import (
-    compute_clonagem_kpis, compute_bairro_pair_stats, plot_bairro_pair_stats,
+from app.modules.cloning_report.detection.preprocessing import DetectionPreprocessor
+from app.modules.cloning_report.detection.pipeline import DetectionPipeline
+from app.modules.cloning_report.analytics import (
+    compute_clonagem_kpis,
+    compute_bairro_pair_stats,
+    plot_bairro_pair_stats,
 )
-from ...maps import render_overall_map_png,generate_trails_map
-from ...report import ReportPDF
+from app.modules.cloning_report.maps import render_overall_map_png, generate_trails_map
+from app.modules.cloning_report.report import ReportPDF
 
 
 # =========================================================
 # GERADOR - estrutura com KPIs de clonagem
 # =========================================================
 class ClonagemReportGenerator:
-    def __init__(self, df: pd.DataFrame, placa: str, periodo_inicio: pd.Timestamp, periodo_fim: pd.Timestamp):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        placa: str,
+        periodo_inicio: pd.Timestamp,
+        periodo_fim: pd.Timestamp,
+    ):
         self._initialize_parameters(df, placa, periodo_inicio, periodo_fim)
         self._initialize_attributes()
         self._setup()
 
-    def _initialize_parameters(self, df: pd.DataFrame, placa: str, periodo_inicio: pd.Timestamp, periodo_fim: pd.Timestamp):
+    def _initialize_parameters(
+        self,
+        df: pd.DataFrame,
+        placa: str,
+        periodo_inicio: pd.Timestamp,
+        periodo_fim: pd.Timestamp,
+    ):
         self.df_raw = df
         self.placa = placa
         self.periodo_inicio = periodo_inicio
@@ -33,7 +46,7 @@ class ClonagemReportGenerator:
 
     def _initialize_attributes(self):
         self.df = pd.DataFrame()
-        self.results: Dict[str, Any] = {}
+        self.results: dict[str, Any] = {}
 
     # ---------- preparação ----------
     def _setup(self):
@@ -44,24 +57,29 @@ class ClonagemReportGenerator:
 
     def _prepare_dataframe(self):
         dfx = DetectionPreprocessor.prepare_dataframe(self.df_raw.copy())
-        self.df = dfx[(dfx['datahora'] >= self.periodo_inicio) & (dfx['datahora'] <= self.periodo_fim)].copy()
+        self.df = dfx[
+            (dfx["datahora"] >= self.periodo_inicio)
+            & (dfx["datahora"] <= self.periodo_fim)
+        ].copy()
         self.total_deteccoes = int(len(self.df))
 
     def _set_metadata(self):
         self.meta_marca_modelo = (
-            (str(self.df['marca'].iloc[0]) + '/' + str(self.df['modelo'].iloc[0]))
-            if {'marca','modelo'}.issubset(self.df.columns) and not self.df[['marca','modelo']].isna().any().any()
-            else 'CHEV/TRACKER 12T A PR'   # mock do exemplo
+            (str(self.df["marca"].iloc[0]) + "/" + str(self.df["modelo"].iloc[0]))
+            if {"marca", "modelo"}.issubset(self.df.columns)
+            and not self.df[["marca", "modelo"]].isna().any().any()
+            else "CHEV/TRACKER 12T A PR"  # mock do exemplo
         )
         self.meta_cor = (
-            str(self.df['cor'].iloc[0]).upper()
-            if 'cor' in self.df.columns and pd.notna(self.df['cor'].iloc[0])
-            else 'PRETA'                   # mock do exemplo
+            str(self.df["cor"].iloc[0]).upper()
+            if "cor" in self.df.columns and pd.notna(self.df["cor"].iloc[0])
+            else "PRETA"  # mock do exemplo
         )
         self.meta_ano_modelo = (
-            int(self.df['ano_modelo'].iloc[0])
-            if 'ano_modelo' in self.df.columns and pd.notna(self.df['ano_modelo'].iloc[0])
-            else 2021                      # mock do exemplo
+            int(self.df["ano_modelo"].iloc[0])
+            if "ano_modelo" in self.df.columns
+            and pd.notna(self.df["ano_modelo"].iloc[0])
+            else 2021  # mock do exemplo
         )
 
     def _run_analysis(self):
@@ -78,10 +96,10 @@ class ClonagemReportGenerator:
         self._assign_advanced_kpis(k)
 
     def _assign_basic_kpis(self, k):
-        self.num_suspeitos = k['num_suspeitos']
-        self.max_vel = k['max_vel']
-        self.dia_mais_sus = k['dia_mais_sus']
-        self.sus_dia_mais_sus = k['sus_dia_mais_sus']
+        self.num_suspeitos = k["num_suspeitos"]
+        self.max_vel = k["max_vel"]
+        self.dia_mais_sus = k["dia_mais_sus"]
+        self.sus_dia_mais_sus = k["sus_dia_mais_sus"]
 
     def _assign_advanced_kpis(self, k):
         self._assign_turn_kpis(k)
@@ -89,16 +107,16 @@ class ClonagemReportGenerator:
         self._assign_pair_kpis(k)
 
     def _assign_turn_kpis(self, k):
-        self.turno_mais_sus = k['turno_mais_sus']
-        self.turno_mais_sus_count = k['turno_mais_sus_count']
+        self.turno_mais_sus = k["turno_mais_sus"]
+        self.turno_mais_sus_count = k["turno_mais_sus_count"]
 
     def _assign_place_kpis(self, k):
-        self.place_lider = k['place_lider']
-        self.place_lider_count = k['place_lider_count']
+        self.place_lider = k["place_lider"]
+        self.place_lider_count = k["place_lider_count"]
 
     def _assign_pair_kpis(self, k):
-        self.top_pair_str = k['top_pair_str']
-        self.top_pair_count = k['top_pair_count']
+        self.top_pair_str = k["top_pair_str"]
+        self.top_pair_count = k["top_pair_count"]
 
     # =====================================================
     # Páginas
@@ -112,8 +130,15 @@ class ClonagemReportGenerator:
 
     def _add_title_section(self, pdf):
         pdf.add_page()
-        pdf.set_font('Helvetica', 'B', 16)
-        pdf.cell(0, 10, 'Relatório de Suspeita de Clonagem de Placa', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+        pdf.set_font("Helvetica", "B", 16)
+        pdf.cell(
+            0,
+            10,
+            "Relatório de Suspeita de Clonagem de Placa",
+            new_x=XPos.LMARGIN,
+            new_y=YPos.NEXT,
+            align="C",
+        )
         pdf.ln(5)
 
     def _add_objective_section(self, pdf):
@@ -121,13 +146,14 @@ class ClonagemReportGenerator:
         self._add_objective_content(pdf)
 
     def _add_objective_title(self, pdf):
-        pdf.set_font('Helvetica', 'B', 13)
-        pdf.cell(0, 10, '1. Objetivo', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font("Helvetica", "B", 13)
+        pdf.cell(0, 10, "1. Objetivo", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
-        pdf.set_font('Helvetica', '', 10)
+        pdf.set_font("Helvetica", "", 10)
 
     def _add_objective_content(self, pdf):
-        pdf.chapter_body("    Este relatório tem como objetivo identificar e analisar indícios de possível clonagem "
+        pdf.chapter_body(
+            "    Este relatório tem como objetivo identificar e analisar indícios de possível clonagem "
             "de placas de veículos a partir dos registros de passagem capturados pelos radares da "
             "cidade. O foco está na detecção de pares suspeitos, ou seja, situações em que a mesma "
             "placa é registrada em pontos distintos em um intervalo de tempo que tornaria inviável um "
@@ -156,21 +182,25 @@ class ClonagemReportGenerator:
         self._add_daily_maps_methodology_section(pdf)
 
     def _add_methodology_title(self, pdf):
-        pdf.set_font('Helvetica', 'B', 13)
-        pdf.cell(0, 10, '2. Metodologia', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font("Helvetica", "B", 13)
+        pdf.cell(0, 10, "2. Metodologia", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
-        pdf.set_font('Helvetica', '', 10)
+        pdf.set_font("Helvetica", "", 10)
 
     def _add_data_section(self, pdf):
         pdf.chapter_body("2.1 Dados utilizados neste relatório:")
-        pdf.chapter_body("- Registros de leitura de OCR de placas dos radares da cidade do Rio de Janeiro. Estas "
+        pdf.chapter_body(
+            "- Registros de leitura de OCR de placas dos radares da cidade do Rio de Janeiro. Estas "
             "informações contêm placa, data, hora, latitude e longitude da detecção em um radar."
         )
         pdf.ln(1)
 
     def _add_analysis_criteria_section(self, pdf):
-        pdf.chapter_body("2.2 Critério de análise para identificação da suspeita de clone:")
-        pdf.chapter_body("    Para identificar uma suspeita de clonagem, primeiro calcula-se a distância em linha "
+        pdf.chapter_body(
+            "2.2 Critério de análise para identificação da suspeita de clone:"
+        )
+        pdf.chapter_body(
+            "    Para identificar uma suspeita de clonagem, primeiro calcula-se a distância em linha "
             "reta entre duas detecções consecutivas, utilizando a fórmula de Haversine. Em seguida, é "
             "realizado o cálculo de intervalo de tempo entre essas detecções para identificar o tempo "
             "entre duas detecções consecutivas. A partir disso, estima-se a velocidade média necessária "
@@ -185,7 +215,8 @@ class ClonagemReportGenerator:
 
     def _add_suspicious_pairs_section(self, pdf):
         pdf.chapter_body("2.3 Par de Detecções Suspeitas")
-        pdf.chapter_body("    Um par de detecção corresponde a duas passagens consecutivas de um mesmo "
+        pdf.chapter_body(
+            "    Um par de detecção corresponde a duas passagens consecutivas de um mesmo "
             "veículo registradas pelos radares da cidade, contendo informações de placa, data, hora e "
             "localização (latitude/longitude). Esse par é considerado suspeito quando, ao calcular a "
             "distância em linha reta entre os dois pontos de detecção e dividir pelo intervalo de tempo "
@@ -199,7 +230,8 @@ class ClonagemReportGenerator:
 
     def _add_general_map_methodology_section(self, pdf):
         pdf.chapter_body("2.4 Metodologia do mapa Geral da análise")
-        pdf.chapter_body("    Indica todos os pares de detecções classificadas como suspeita no período "
+        pdf.chapter_body(
+            "    Indica todos os pares de detecções classificadas como suspeita no período "
             "analisado."
         )
         pdf.ln(1)
@@ -212,7 +244,8 @@ class ClonagemReportGenerator:
 
     def _add_daily_maps_intro(self, pdf):
         pdf.chapter_body("2.4 Metodologia da Separação em trilhas nos Mapas Diários")
-        pdf.chapter_body("    Os mapas diários apresentam os pares de detecção suspeita identificados em cada "
+        pdf.chapter_body(
+            "    Os mapas diários apresentam os pares de detecção suspeita identificados em cada "
             "dia do período analisado. Isso significa que, ainda que existam outras detecções do veículo "
             "ao longo dia, elas apenas aparecem no mapa se for constatada no seu par a suspeita de "
             "clonagem.\n\n"
@@ -230,11 +263,14 @@ class ClonagemReportGenerator:
         self._add_geographic_method(pdf)
 
     def _add_separation_methods_intro(self, pdf):
-        pdf.chapter_body("2.4.1 Para a separação em trilhas, são empregadas duas metodologias:")
+        pdf.chapter_body(
+            "2.4.1 Para a separação em trilhas, são empregadas duas metodologias:"
+        )
         pdf.chapter_body("São aplicados dois métodos principais:")
 
     def _add_temporal_method(self, pdf):
-        pdf.chapter_body("1. Método Temporal: baseado no tempo, os registros de detecção são analisados em "
+        pdf.chapter_body(
+            "1. Método Temporal: baseado no tempo, os registros de detecção são analisados em "
             "ordem cronológica. Quando a inclusão de um ponto de detecção em determinada "
             "trilha gera um deslocamento considerado inviável, esse ponto de detecção é "
             "atribuído ao outro veículo."
@@ -242,7 +278,8 @@ class ClonagemReportGenerator:
         pdf.ln(1)
 
     def _add_geographic_method(self, pdf):
-        pdf.chapter_body("2. Método Geográfico: baseado na localização: os registros são agrupados de acordo "
+        pdf.chapter_body(
+            "2. Método Geográfico: baseado na localização: os registros são agrupados de acordo "
             "com a proximidade geográfica. Em seguida, são realizados ajustes para evitar que "
             "origem e destino de um mesmo par fiquem no mesmo grupo."
         )
@@ -257,21 +294,25 @@ class ClonagemReportGenerator:
         pdf.chapter_body("2.4.2 Condições para aplicação da separação")
 
     def _add_separation_conditions_content(self, pdf):
-        pdf.chapter_body("- Em dias com apenas um par de detecções, a separação é automática: um ponto é "
+        pdf.chapter_body(
+            "- Em dias com apenas um par de detecções, a separação é automática: um ponto é "
             "atribuído ao Veículo 1 e o outro ao Veículo 2."
         )
-        pdf.chapter_body("- Em dias com múltiplos pares, a separação somente é realizada quando há ao menos "
+        pdf.chapter_body(
+            "- Em dias com múltiplos pares, a separação somente é realizada quando há ao menos "
             "04 pares de registros com suspeitas de clone e todas as distâncias entre radares "
             "envolvidos superam 2 km. Esse critério evita segmentações artificiais em trajetos "
             "muito curtos ou pouco representativos."
         )
-        pdf.chapter_body("- Em situações com dados insuficientes ou inconsistentes para reconstrução de "
+        pdf.chapter_body(
+            "- Em situações com dados insuficientes ou inconsistentes para reconstrução de "
             "trajetos confiáveis, a separação não é realizada."
         )
         pdf.ln(1)
 
     def _add_separation_conditions_conclusion(self, pdf):
-        pdf.chapter_body("    Quando os dados permitem separar os registros em duas trilhas consistentes, isso "
+        pdf.chapter_body(
+            "    Quando os dados permitem separar os registros em duas trilhas consistentes, isso "
             "sugere a presença de dois veículos distintos usando a mesma placa. Quando não é possível "
             "estabelecer duas trilhas coerentes, os registros permanecem em cinza, sinalizando suspeita "
             "que requer investigação adicional."
@@ -283,8 +324,11 @@ class ClonagemReportGenerator:
         self._add_separation_limitations(pdf)
 
     def _add_method_choice_criteria(self, pdf):
-        pdf.chapter_body("2.4.3 Critério de escolha entre o método temporal e o método geográfico")
-        pdf.chapter_body("    Quando a separação é possível, ambos os métodos (temporal e espacial) são "
+        pdf.chapter_body(
+            "2.4.3 Critério de escolha entre o método temporal e o método geográfico"
+        )
+        pdf.chapter_body(
+            "    Quando a separação é possível, ambos os métodos (temporal e espacial) são "
             "testados, e adota-se aquele que não gere inconsistências, como a ocorrência de origem e "
             "destino de um mesmo par sendo atribuídos ao mesmo veículo."
         )
@@ -298,13 +342,16 @@ class ClonagemReportGenerator:
         pdf.chapter_body("2.4.4 Limitações da separação de veículos em trilhas")
 
     def _add_separation_limitations_content(self, pdf):
-        pdf.chapter_body("- Os métodos são aproximações baseadas em regras práticas, não garantindo acerto "
+        pdf.chapter_body(
+            "- Os métodos são aproximações baseadas em regras práticas, não garantindo acerto "
             "total."
         )
-        pdf.chapter_body("- Podem ser impactados por erros de horário, coordenadas ou falhas de OCR dos "
+        pdf.chapter_body(
+            "- Podem ser impactados por erros de horário, coordenadas ou falhas de OCR dos "
             "radares."
         )
-        pdf.chapter_body("- O limite de 2 km é um parâmetro de segurança para evitar separações artificiais, "
+        pdf.chapter_body(
+            "- O limite de 2 km é um parâmetro de segurança para evitar separações artificiais, "
             "mas pode ser ajustado conforme o contexto urbano."
         )
         pdf.ln(2)
@@ -323,10 +370,12 @@ class ClonagemReportGenerator:
         self._add_daily_analysis_section(pdf)
 
     def _add_structure_title(self, pdf):
-        pdf.set_font('Helvetica', 'B', 13)
-        pdf.cell(0, 10, '3. Estrutura do Relatório', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font("Helvetica", "B", 13)
+        pdf.cell(
+            0, 10, "3. Estrutura do Relatório", new_x=XPos.LMARGIN, new_y=YPos.NEXT
+        )
         pdf.ln(1)
-        pdf.set_font('Helvetica', '', 10)
+        pdf.set_font("Helvetica", "", 10)
 
     def _add_structure_intro(self, pdf):
         pdf.chapter_body("    O relatório está organizado da seguinte forma:")
@@ -334,7 +383,8 @@ class ClonagemReportGenerator:
 
     def _add_analysis_parameters_section(self, pdf):
         pdf.chapter_body("3.1 Parâmetros da Análise")
-        pdf.chapter_body(            "    Tabela com as informações de referência da análise, incluindo:\n"
+        pdf.chapter_body(
+            "    Tabela com as informações de referência da análise, incluindo:\n"
             "     - Placa consultada\n"
             "     - Data de início e data de fim do período analisado"
         )
@@ -342,7 +392,8 @@ class ClonagemReportGenerator:
 
     def _add_summary_section(self, pdf):
         pdf.chapter_body("3.2 Quadro Resumo Inicial")
-        pdf.chapter_body(            "    Panorama geral da análise, reunindo os principais indicadores:\n"
+        pdf.chapter_body(
+            "    Panorama geral da análise, reunindo os principais indicadores:\n"
             "     - Número total de passagens analisadas.\n"
             "     - Quantidade de pares classificados como suspeitos.\n"
             "     - Dia com mais registros de suspeita de clonagem"
@@ -351,14 +402,16 @@ class ClonagemReportGenerator:
 
     def _add_reading_guide_section(self, pdf):
         pdf.chapter_body("3.3 Introdução: como ler este relatório")
-        pdf.chapter_body(            "    Seção que tem como finalidade orientar a interpretação das informações "
+        pdf.chapter_body(
+            "    Seção que tem como finalidade orientar a interpretação das informações "
             "apresentadas."
         )
         pdf.ln(1)
 
     def _add_general_analysis_section(self, pdf):
         pdf.chapter_body("3.4 Mapa e Tabela Geral da Análise")
-        pdf.chapter_body(            "     Representação consolidada de todas as ocorrências suspeitas identificadas ao longo "
+        pdf.chapter_body(
+            "     Representação consolidada de todas as ocorrências suspeitas identificadas ao longo "
             "do período. Permite observar a distribuição espacial dos registros e identificar "
             "concentrações de ocorrências em determinadas regiões da cidade."
         )
@@ -366,7 +419,8 @@ class ClonagemReportGenerator:
 
     def _add_daily_analysis_section(self, pdf):
         pdf.chapter_body("3.5 Mapas e Tabelas Diários")
-        pdf.chapter_body(            "    Detalham, dia a dia, os pares de detecção suspeitos. Quando há condições mínimas "
+        pdf.chapter_body(
+            "    Detalham, dia a dia, os pares de detecção suspeitos. Quando há condições mínimas "
             "para reconstrução de duas trilhas distintas (Veículo 1 e Veículo 2), os pontos são "
             "representados em cores diferentes (azul escuro e azul claro), evidenciando os trajetos "
             "alternativos. Quando a separação não é possível, os registros aparecem em cinza, indicando "
@@ -380,10 +434,10 @@ class ClonagemReportGenerator:
         self._add_limitations_content(pdf)
 
     def _add_limitations_title(self, pdf):
-        pdf.set_font('Helvetica', 'B', 13)
-        pdf.cell(0, 10, '4. Limitações da análise', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font("Helvetica", "B", 13)
+        pdf.cell(0, 10, "4. Limitações da análise", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
-        pdf.set_font('Helvetica', '', 10)
+        pdf.set_font("Helvetica", "", 10)
 
     def _add_limitations_content(self, pdf):
         self._add_detection_limitations(pdf)
@@ -391,19 +445,30 @@ class ClonagemReportGenerator:
         self._add_data_limitations(pdf)
 
     def _add_detection_limitations(self, pdf):
-        pdf.chapter_body("- A ausência de detecção não implica ausência de passagem (falhas de OCR, "
+        pdf.chapter_body(
+            "- A ausência de detecção não implica ausência de passagem (falhas de OCR, "
             "obstruções, manutenção ou indisponibilidade do equipamento)."
         )
-        pdf.chapter_body("- Falhas de OCR (ex.: confusão entre caracteres como \"O/0\" ou \"B/8\").")
+        pdf.chapter_body(
+            '- Falhas de OCR (ex.: confusão entre caracteres como "O/0" ou "B/8").'
+        )
         pdf.chapter_body("- Erro de sincronização de relógio entre equipamentos.")
 
     def _add_technical_limitations(self, pdf):
-        pdf.chapter_body("- Distâncias são calculadas em linha reta - não correspondem ao trajeto real percorrido.")
-        pdf.chapter_body("- Parâmetros fixos de velocidade podem não contemplar situações excepcionais (ex.: deslocamentos de emergência).")
+        pdf.chapter_body(
+            "- Distâncias são calculadas em linha reta - não correspondem ao trajeto real percorrido."
+        )
+        pdf.chapter_body(
+            "- Parâmetros fixos de velocidade podem não contemplar situações excepcionais (ex.: deslocamentos de emergência)."
+        )
 
     def _add_data_limitations(self, pdf):
-        pdf.chapter_body("- Dependência da qualidade e integridade dos dados capturados pelos radares, sujeitos a variações técnicas ou climáticas.")
-        pdf.chapter_body("- Histórico de dados disponível apenas a partir de 01/06/2024.")
+        pdf.chapter_body(
+            "- Dependência da qualidade e integridade dos dados capturados pelos radares, sujeitos a variações técnicas ou climáticas."
+        )
+        pdf.chapter_body(
+            "- Histórico de dados disponível apenas a partir de 01/06/2024."
+        )
         pdf.ln(2)
 
     def _add_summary_page(self, pdf: ReportPDF):
@@ -412,8 +477,10 @@ class ClonagemReportGenerator:
 
     def _add_parameters_section(self, pdf: ReportPDF):
         pdf.add_page()
-        pdf.set_font('Helvetica', 'B', 22)
-        pdf.cell(0, 10, 'Parâmetros de Busca', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
+        pdf.set_font("Helvetica", "B", 22)
+        pdf.cell(
+            0, 10, "Parâmetros de Busca", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L"
+        )
         pdf.ln(4)
         self._add_parameters_table(pdf)
 
@@ -422,21 +489,21 @@ class ClonagemReportGenerator:
             f"De {self.periodo_inicio:%d/%m/%Y às %H:%M:%S} "
             f"até {self.periodo_fim:%d/%m/%Y às %H:%M:%S}"
         )
-        suspeita_txt = 'Sim' if getattr(self, 'num_suspeitos', 0) > 0 else 'Não'
+        suspeita_txt = "Sim" if getattr(self, "num_suspeitos", 0) > 0 else "Não"
         rows = [
-            ('Placa monitorada:',         self.placa),
-            ('Marca/Modelo:',             self.meta_marca_modelo),
-            ('Cor:',                      self.meta_cor),
-            ('Ano Modelo:',               str(self.meta_ano_modelo)),
-            ('Período analisado:',        periodo_txt),
-            ('Total de pontos detectados:', str(self.total_deteccoes)),
-            ('Suspeita de placa clonada:', suspeita_txt),
+            ("Placa monitorada:", self.placa),
+            ("Marca/Modelo:", self.meta_marca_modelo),
+            ("Cor:", self.meta_cor),
+            ("Ano Modelo:", str(self.meta_ano_modelo)),
+            ("Período analisado:", periodo_txt),
+            ("Total de pontos detectados:", str(self.total_deteccoes)),
+            ("Suspeita de placa clonada:", suspeita_txt),
         ]
         pdf.add_params_table(rows)
 
     def _add_kpi_section(self, pdf: ReportPDF):
-        pdf.set_font('Helvetica', 'B', 22)
-        pdf.cell(0, 10, 'Quadro Resumo', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='L')
+        pdf.set_font("Helvetica", "B", 22)
+        pdf.cell(0, 10, "Quadro Resumo", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.ln(6)
         self._add_kpi_boxes(pdf)
 
@@ -454,12 +521,20 @@ class ClonagemReportGenerator:
         cols = 3
         box_w = (pdf.epw - (cols - 1) * col_gap) / cols
         row_h1 = 50
-        self._kpi_dims = {'col_gap': col_gap, 'cols': cols, 'box_w': box_w, 'row_h1': row_h1}
+        self._kpi_dims = {
+            "col_gap": col_gap,
+            "cols": cols,
+            "box_w": box_w,
+            "row_h1": row_h1,
+        }
 
     def _calculate_kpi_positions(self, pdf: ReportPDF):
         y0 = pdf.get_y()
-        col_x = [pdf.l_margin + i * (self._kpi_dims['box_w'] + self._kpi_dims['col_gap']) for i in range(self._kpi_dims['cols'])]
-        self._kpi_pos = {'y0': y0, 'col_x': col_x}
+        col_x = [
+            pdf.l_margin + i * (self._kpi_dims["box_w"] + self._kpi_dims["col_gap"])
+            for i in range(self._kpi_dims["cols"])
+        ]
+        self._kpi_pos = {"y0": y0, "col_x": col_x}
 
     def _store_kpi_layout(self):
         self._kpi_layout = {**self._kpi_dims, **self._kpi_pos}
@@ -471,19 +546,39 @@ class ClonagemReportGenerator:
         self._add_most_suspicious_day_box(pdf, layout)
 
     def _add_total_records_box(self, pdf: ReportPDF, layout):
-        pdf.add_kpi_box('Número total de registros', str(self.total_deteccoes), layout['col_x'][0], layout['y0'], layout['box_w'], layout['row_h1'])
+        pdf.add_kpi_box(
+            "Número total de registros",
+            str(self.total_deteccoes),
+            layout["col_x"][0],
+            layout["y0"],
+            layout["box_w"],
+            layout["row_h1"],
+        )
 
     def _add_suspicious_records_box(self, pdf: ReportPDF, layout):
-        num_txt = str(self.num_suspeitos) if self.num_suspeitos > 0 else '0'
-        pdf.add_kpi_box('Número de registros suspeitos', num_txt, layout['col_x'][1], layout['y0'], layout['box_w'], layout['row_h1'])
+        num_txt = str(self.num_suspeitos) if self.num_suspeitos > 0 else "0"
+        pdf.add_kpi_box(
+            "Número de registros suspeitos",
+            num_txt,
+            layout["col_x"][1],
+            layout["y0"],
+            layout["box_w"],
+            layout["row_h1"],
+        )
 
     def _add_most_suspicious_day_box(self, pdf: ReportPDF, layout):
-        dia_txt = self.dia_mais_sus if self.dia_mais_sus != 'N/A' else 'N/A'
-        if self.dia_mais_sus != 'N/A':
+        dia_txt = self.dia_mais_sus if self.dia_mais_sus != "N/A" else "N/A"
+        if self.dia_mais_sus != "N/A":
             dia_txt = f"{self.dia_mais_sus} ({self.sus_dia_mais_sus})"
-        pdf.add_kpi_box('Dia com mais registros suspeitos', dia_txt, layout['col_x'][2], layout['y0'], layout['box_w'], layout['row_h1'])
+        pdf.add_kpi_box(
+            "Dia com mais registros suspeitos",
+            dia_txt,
+            layout["col_x"][2],
+            layout["y0"],
+            layout["box_w"],
+            layout["row_h1"],
+        )
 
-                
     def _add_how_to_read_page(self, pdf: ReportPDF):
         self._add_introduction_section(pdf)
         self._add_visual_examples_section(pdf)
@@ -574,7 +669,7 @@ class ClonagemReportGenerator:
             "figs/par_separavel.jpeg",
             "Exemplo de par separável",
             text=None,
-            width_factor=0.45
+            width_factor=0.45,
         )
         pdf.chapter_html(
             """Neste exemplo, os pontos foram divididos em duas trilhas distintas, marcadas em <b>azul claro</b> e <b>azul escuro</b>.<br><br>
@@ -587,7 +682,7 @@ class ClonagemReportGenerator:
             "figs/par_nao_separavel.png",
             "Exemplo de par não separável",
             text=None,
-            width_factor=0.45
+            width_factor=0.45,
         )
         pdf.chapter_html(
             """Neste caso, os pontos, marcados em <b>cinza</b>, indicam deslocamentos improváveis, mas não foi possível separá-los em trilhas distintas. Isso ocorre quando os dados são insuficientes para confirmar a presença de dois veículos.<br><br>
@@ -596,15 +691,15 @@ class ClonagemReportGenerator:
         )
 
     def _add_cloning_section(self, pdf: ReportPDF):
-        suspeitos = self.results.get('dataframe', pd.DataFrame())
-        daily_figs = self.results.get('daily_figures', [])
+        suspeitos = self.results.get("dataframe", pd.DataFrame())
+        daily_figs = self.results.get("daily_figures", [])
         self._add_cloning_title(pdf)
         self._add_general_analysis(pdf, suspeitos)
         self._add_daily_analysis(pdf, daily_figs, suspeitos)
 
     def _add_cloning_title(self, pdf: ReportPDF):
         pdf.add_page()
-        pdf.chapter_title('1. Análise de Possíveis Sinais de Clonagem')
+        pdf.chapter_title("1. Análise de Possíveis Sinais de Clonagem")
 
     def _add_general_analysis(self, pdf: ReportPDF, suspeitos):
         if isinstance(suspeitos, pd.DataFrame) and not suspeitos.empty:
@@ -615,54 +710,46 @@ class ClonagemReportGenerator:
             self._add_no_suspicious_records_message(pdf)
 
     def _add_methodology_section(self, pdf: ReportPDF):
-        pdf.sub_title('Metodologia de Separação de Veículos')
+        pdf.sub_title("Metodologia de Separação de Veículos")
         pdf.chapter_body(
             "A análise parte da identificação de pares de clonagem. Cada par é formado por duas detecções sucessivas "
             "da mesma placa em radares distintos: um registro considerado viável e outro cuja velocidade implícita o "
             "torna inviável. Essa comparação é o ponto de partida para indicar possíveis inconsistências e orientar "
             "a aplicação dos métodos de separação em dois veículos.\n\n"
-
             "Métodos empregados:\n\n"
-
             "- Método baseado no tempo (Temporal Viável): os registros são avaliados em ordem cronológica. "
             "Se a inclusão de um ponto em determinado veículo gera uma trajetória inviável, esse ponto é atribuído "
             "ao outro veículo. Além disso, cada par de origem e destino é sempre separado entre os dois veículos.\n\n"
-
             "- Método baseado na localização (Espacial com Reparo): os registros são agrupados em dois conjuntos "
             "de acordo com a proximidade geográfica. Em seguida, são feitos ajustes para corrigir casos em que "
             "origem e destino do mesmo par tenham sido colocados no mesmo grupo.\n\n"
-
             "Quando aplicamos a separação:\n"
             "- Em dias com apenas um par, a separação é feita automaticamente (um ponto em cada veículo).\n"
             "- Em dias com vários pares, a separação só ocorre quando há quantidade suficiente de registros "
             "e todas as distâncias entre os radares ultrapassam 2 km. Esse critério evita separações artificiais "
             "em situações muito curtas ou pouco representativas.\n\n"
-
             "Critério de escolha:\n"
             "- Quando a separação é possível, ambos os métodos (tempo e localização) são testados, e utiliza-se "
             "aquele que gera menos inconsistências, como evitar que origem e destino do mesmo par fiquem atribuídos "
             "ao mesmo veículo.\n\n"
-
             "Quando a separação não é aplicada (marcadores em cinza):\n"
             "- Em dias com poucos registros ou quando ao menos um par apresenta distância de até 2 km.\n"
             "- Em situações com dados insuficientes ou inconsistentes para formar trajetos confiáveis.\n\n"
-
             "Limitações:\n"
             "- Os métodos são aproximados, baseados em regras práticas, e não garantem acerto total.\n"
             "- Podem ser afetados por erros de horário, coordenadas ou falhas de leitura dos radares.\n"
             "- O limite de 2 km é um parâmetro de segurança para evitar separações artificiais, mas pode ser ajustado "
             "conforme o contexto urbano.\n\n"
-
             "Nas próximas páginas, apresentamos recortes diários com mapas e tabelas, aplicando essa lógica sempre que apropriado."
         )
 
     def _add_general_map_section(self, pdf: ReportPDF, suspeitos):
         pdf.add_page()
-        pdf.sub_title('1.1 Mapa geral do período - todas as detecções suspeitas')
+        pdf.sub_title("1.1 Mapa geral do período - todas as detecções suspeitas")
         if isinstance(suspeitos, pd.DataFrame) and not suspeitos.empty:
             png_all = render_overall_map_png(suspeitos)
             if png_all:
-                pdf.add_figure(png_all, title='', text=None, width_factor=0.98)
+                pdf.add_figure(png_all, title="", text=None, width_factor=0.98)
         else:
             pdf.chapter_body("Não há registros suspeitos para exibir no mapa geral.")
 
@@ -673,9 +760,9 @@ class ClonagemReportGenerator:
             "Detecção Seguinte (local e radar) e a velocidade média."
         )
         pdf.add_table(
-            suspeitos[['Data', 'Origem', 'Destino', 'Km', 's', 'Km/h']],
-            title='1.2 Tabela geral de detecções suspeitas',
-            text=table_text
+            suspeitos[["Data", "Origem", "Destino", "Km", "s", "Km/h"]],
+            title="1.2 Tabela geral de detecções suspeitas",
+            text=table_text,
         )
 
     def _add_no_suspicious_records_message(self, pdf: ReportPDF):
@@ -691,25 +778,33 @@ class ClonagemReportGenerator:
 
     def _setup_daily_analysis(self, pdf: ReportPDF):
         pdf.add_page()
-        pdf.chapter_title('2. Registros e Mapas Diários')
+        pdf.chapter_title("2. Registros e Mapas Diários")
 
     def _process_daily_figures(self, pdf: ReportPDF, daily_figs, suspeitos):
-        daily_tables = self.results.get('daily_tables', {})
-        tracks_by_day = self.results.get('daily_track_tables', {})
-        df_sus_all = suspeitos if isinstance(suspeitos, pd.DataFrame) else pd.DataFrame()
-        
-        sorted_figs = sorted(daily_figs, key=lambda x: datetime.strptime(x['date'], '%d/%m/%Y'))
-        for i, item in enumerate(sorted_figs):
-            self._process_single_day(pdf, i, item, daily_tables, tracks_by_day, df_sus_all)
+        daily_tables = self.results.get("daily_tables", {})
+        tracks_by_day = self.results.get("daily_track_tables", {})
+        df_sus_all = (
+            suspeitos if isinstance(suspeitos, pd.DataFrame) else pd.DataFrame()
+        )
 
-    def _process_single_day(self, pdf: ReportPDF, i, item, daily_tables, tracks_by_day, df_sus_all):
+        sorted_figs = sorted(
+            daily_figs, key=lambda x: datetime.strptime(x["date"], "%d/%m/%Y")
+        )
+        for i, item in enumerate(sorted_figs):
+            self._process_single_day(
+                pdf, i, item, daily_tables, tracks_by_day, df_sus_all
+            )
+
+    def _process_single_day(
+        self, pdf: ReportPDF, i, item, daily_tables, tracks_by_day, df_sus_all
+    ):
         if i != 0:
             pdf.add_page()
-        
-        day_key = item['date']
+
+        day_key = item["date"]
         self._add_day_map(pdf, item, day_key)
         df_day = self._get_day_data(daily_tables, day_key, df_sus_all)
-        
+
         if df_day is not None and not df_day.empty:
             self._add_day_table(pdf, df_day, day_key)
             self._add_day_tracks(pdf, day_key, tracks_by_day, df_day)
@@ -718,59 +813,67 @@ class ClonagemReportGenerator:
 
     def _add_day_map(self, pdf: ReportPDF, item, day_key):
         titulo = f"Mapa do dia de registros suspeitos - {day_key}"
-        pdf.add_figure(item['path'], titulo, text=None)
+        pdf.add_figure(item["path"], titulo, text=None)
 
     def _get_day_data(self, daily_tables, day_key, df_sus_all):
         df_day = None
         if isinstance(daily_tables, dict) and day_key in daily_tables:
-            df_day = daily_tables[day_key].get('todas')
-        
-        if (df_day is None or df_day.empty) and isinstance(df_sus_all, pd.DataFrame) and not df_sus_all.empty:
+            df_day = daily_tables[day_key].get("todas")
+
+        if (
+            (df_day is None or df_day.empty)
+            and isinstance(df_sus_all, pd.DataFrame)
+            and not df_sus_all.empty
+        ):
             df_day = self._extract_day_from_suspeitos(df_sus_all, day_key)
-        
+
         return df_day
 
     def _extract_day_from_suspeitos(self, df_sus_all, day_key):
         df_tmp = df_sus_all.copy()
-        dt = pd.to_datetime(df_tmp['Data'], errors='coerce')
-        mask = dt.dt.strftime('%d/%m/%Y') == day_key
-        cols = ['Data', 'Origem', 'Destino', 'Km', 's', 'Km/h']
+        dt = pd.to_datetime(df_tmp["Data"], errors="coerce")
+        mask = dt.dt.strftime("%d/%m/%Y") == day_key
+        cols = ["Data", "Origem", "Destino", "Km", "s", "Km/h"]
         return df_tmp.loc[mask, cols] if mask.any() else pd.DataFrame(columns=cols)
 
     def _add_day_table(self, pdf: ReportPDF, df_day, day_key):
         try:
             df_print = df_day.copy()
-            df_print['Km/h'] = pd.to_numeric(df_print['Km/h'], errors='coerce')
+            df_print["Km/h"] = pd.to_numeric(df_print["Km/h"], errors="coerce")
         except Exception:
             df_print = df_day
-        
+
         pdf.add_table(
-            df_print[['Data', 'Origem', 'Destino', 'Km', 's', 'Km/h']],
-            title=f'Registros suspeitos do dia - {day_key}',
-            text=None
+            df_print[["Data", "Origem", "Destino", "Km", "s", "Km/h"]],
+            title=f"Registros suspeitos do dia - {day_key}",
+            text=None,
         )
 
     def _add_day_tracks(self, pdf: ReportPDF, day_key, tracks_by_day, df_day):
         tracks = tracks_by_day.get(day_key) if isinstance(tracks_by_day, dict) else None
         df_c1, df_c2 = self._get_track_dataframes(tracks)
         tem_trilhas = self._check_tracks_exist(df_c1, df_c2)
-        
-        single_pair_with_tracks = (df_day is not None and len(df_day) == 1 and tem_trilhas)
-        
+
+        single_pair_with_tracks = (
+            df_day is not None and len(df_day) == 1 and tem_trilhas
+        )
+
         if single_pair_with_tracks:
             self._add_single_pair_tracks(pdf, df_c1, df_c2, day_key)
         elif tem_trilhas:
             self._add_multiple_tracks(pdf, day_key, tracks, df_c1, df_c2)
 
     def _get_track_dataframes(self, tracks):
-        df_c1 = tracks.get('carro1', pd.DataFrame()) if tracks else pd.DataFrame()
-        df_c2 = tracks.get('carro2', pd.DataFrame()) if tracks else pd.DataFrame()
+        df_c1 = tracks.get("carro1", pd.DataFrame()) if tracks else pd.DataFrame()
+        df_c2 = tracks.get("carro2", pd.DataFrame()) if tracks else pd.DataFrame()
         return df_c1, df_c2
 
     def _check_tracks_exist(self, df_c1, df_c2):
         return (
-            isinstance(df_c1, pd.DataFrame) and not df_c1.empty and
-            isinstance(df_c2, pd.DataFrame) and not df_c2.empty
+            isinstance(df_c1, pd.DataFrame)
+            and not df_c1.empty
+            and isinstance(df_c2, pd.DataFrame)
+            and not df_c2.empty
         )
 
     def _add_single_pair_tracks(self, pdf: ReportPDF, df_c1, df_c2, day_key):
@@ -780,55 +883,54 @@ class ClonagemReportGenerator:
     def _add_multiple_tracks(self, pdf: ReportPDF, day_key, tracks, df_c1, df_c2):
         pdf.add_page()
         pdf.sub_title(f"Trilhas (clusters) - {day_key}")
-        
+
         pngs = self._generate_trail_maps(day_key, tracks)
-        
+
         if not df_c1.empty:
             self._add_car1_track(pdf, pngs, df_c1, day_key)
-        
+
         if not df_c2.empty:
             self._add_car2_track(pdf, pngs, df_c2, day_key)
 
     def _generate_trail_maps(self, day_key, tracks):
         try:
-            return generate_trails_map(self.results['dataframe'], day_key, tracks)
+            return generate_trails_map(self.results["dataframe"], day_key, tracks)
         except Exception:
             return {}
 
     def _add_car1_track(self, pdf: ReportPDF, pngs, df_c1, day_key):
-        pdf.sub_title(f'Mapa da trilha - Carro 1 - {day_key}')
-        if 'carro1' in pngs and os.path.exists(pngs['carro1']):
-            pdf.image(pngs['carro1'], x=10, y=None, w=190)
+        pdf.sub_title(f"Mapa da trilha - Carro 1 - {day_key}")
+        if "carro1" in pngs and os.path.exists(pngs["carro1"]):
+            pdf.image(pngs["carro1"], x=10, y=None, w=190)
         pdf.add_table(df_c1, title=f"Tabela da trilha - Carro 1 - {day_key}")
 
     def _add_car2_track(self, pdf: ReportPDF, pngs, df_c2, day_key):
         pdf.add_page()
-        pdf.sub_title(f'Mapa da trilha - Carro 2 - {day_key}')
-        if 'carro2' in pngs and os.path.exists(pngs['carro2']):
-            pdf.image(pngs['carro2'], x=10, y=None, w=190)
+        pdf.sub_title(f"Mapa da trilha - Carro 2 - {day_key}")
+        if "carro2" in pngs and os.path.exists(pngs["carro2"]):
+            pdf.image(pngs["carro2"], x=10, y=None, w=190)
         pdf.add_table(df_c2, title=f"Tabela da trilha - Carro 2 - {day_key}")
 
-
     # ---------- geração ----------
-    def generate(self, output_path='report/relatorio_clonagem.pdf'):
+    def generate(self, output_path="report/relatorio_clonagem.pdf"):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         pdf = self._create_pdf()
         self._add_all_pages(pdf)
         pdf.output(output_path)
         return output_path
-    
+
     def get_suspicious_pairs(self):
         """Get suspicious pairs data"""
-        return self.results.get('dataframe', pd.DataFrame()).to_dict('records')
-    
+        return self.results.get("dataframe", pd.DataFrame()).to_dict("records")
+
     def get_analysis_summary(self):
         """Get analysis summary data"""
         return {
-            'total_detections': getattr(self, 'total_deteccoes', 0),
-            'suspicious_pairs_count': getattr(self, 'num_suspeitos', 0),
-            'period_start': self.periodo_inicio.isoformat(),
-            'period_end': self.periodo_fim.isoformat(),
-            'plate': self.placa
+            "total_detections": getattr(self, "total_deteccoes", 0),
+            "suspicious_pairs_count": getattr(self, "num_suspeitos", 0),
+            "period_start": self.periodo_inicio.isoformat(),
+            "period_end": self.periodo_fim.isoformat(),
+            "plate": self.placa,
         }
 
     def _create_pdf(self):
