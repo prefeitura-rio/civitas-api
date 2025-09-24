@@ -28,9 +28,18 @@ class ClonagemReportGenerator:
         periodo_inicio: pd.Timestamp,
         periodo_fim: pd.Timestamp,
     ):
+        self.report_id = self._generate_unique_report_id()
         self._initialize_parameters(df, placa, periodo_inicio, periodo_fim)
         self._initialize_attributes()
         self._setup()
+
+    def _generate_unique_report_id(self):
+        """Generate unique report ID"""
+        import random
+        from datetime import datetime
+
+        now = datetime.now()
+        return f"{now.strftime('%Y%m%d.%H%M%S')}{random.randint(0, 999):03d}"
 
     def _initialize_parameters(
         self,
@@ -935,6 +944,7 @@ class ClonagemReportGenerator:
 
     def _create_pdf(self):
         pdf = ReportPDF()
+        pdf.report_id = self.report_id
         self._setup_pdf_fonts(pdf)
         pdf.alias_nb_pages()
         return pdf
