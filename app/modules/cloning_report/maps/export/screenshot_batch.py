@@ -5,7 +5,14 @@ import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from ...utils.logging import get_logger
+from app.modules.cloning_report.utils.logging import get_logger
+from app.modules.cloning_report.utils.js_loader import (
+    get_layer_control_script,
+    get_map_styling_script,
+    get_worker_styling_script,
+    get_viewport_setup_script,
+    # get_basic_controls_script,
+)
 
 logger = get_logger()
 
@@ -75,22 +82,8 @@ def process_screenshot_task(task: ScreenshotTask) -> tuple[bool, str]:
         driver.set_window_size(task.width, task.height)
 
         # Set viewport and ensure proper positioning
-        driver.execute_script(f"""
-            document.body.style.zoom = '100%';
-            document.body.style.transform = 'scale(1)';
-            document.body.style.margin = '0';
-            document.body.style.padding = '0';
-            document.documentElement.style.margin = '0';
-            document.documentElement.style.padding = '0';
-
-            let viewport = document.querySelector('meta[name="viewport"]');
-            if (!viewport) {{
-                viewport = document.createElement('meta');
-                viewport.name = 'viewport';
-                document.head.appendChild(viewport);
-            }}
-            viewport.content = 'width={task.width}, height={task.height}, initial-scale=1.0, user-scalable=no';
-        """)
+        js = get_viewport_setup_script(task.width, task.height)
+        driver.execute_script(js)
 
         load_start = time.time()
         driver.get(f"file:///{os.path.abspath(task.html_path)}")
@@ -110,104 +103,13 @@ def process_screenshot_task(task: ScreenshotTask) -> tuple[bool, str]:
         load_time = time.time() - load_start
         logger.debug(f"Thread {thread_id}: Page loaded in {load_time:.2f}s")
 
-        # Setup layers
-        if task.only_layers is None:
-            js = """
-            const labels = document.querySelectorAll('.leaflet-control-layers-overlays label');
-            labels.forEach(lb => {
-                const cb = lb.querySelector('input[type="checkbox"]');
-                if (cb && !cb.checked) cb.click();
-            });
-            """
-        else:
-            js = f"""
-            const want = new Set({task.only_layers});
-            const labels = document.querySelectorAll('.leaflet-control-layers-overlays label');
-            labels.forEach(lb => {{
-                const name = lb.textContent.trim();
-                const cb = lb.querySelector('input[type="checkbox"]');
-                if (!cb) return;
-                const on = want.has(name);
-                if (cb.checked && !on) cb.click();
-                if (!cb.checked && on) cb.click();
-            }});
-            """
+        # Setup layers using external JavaScript
+        js = get_layer_control_script(task.only_layers)
         driver.execute_script(js)
 
-        driver.execute_script("""
-            // Hide controls like legacy
-            const cont = document.querySelector('.leaflet-control-container');
-            if (cont) cont.style.display = 'none';
-            const br = document.querySelector('.leaflet-bottom.leaflet-right');
-            if (br) br.style.display = 'none';
-
-            window.scrollTo(0,0);
-
-            // CRITICAL: Add significant zoom-in for much better text readability
-            const mapDiv = document.querySelector('.leaflet-container');
-            if (mapDiv) {
-                // Apply 1.5x zoom to make everything much more readable
-                mapDiv.style.transform = 'scale(1.5)';
-                mapDiv.style.transformOrigin = 'center center';
-                mapDiv.style.fontSize = '18px';  // Even larger base font
-                mapDiv.style.width = '100%';
-                mapDiv.style.height = '100%';
-                mapDiv.style.overflow = 'hidden';
-                mapDiv.style.position = 'absolute';
-                mapDiv.style.top = '0';
-                mapDiv.style.left = '0';
-                mapDiv.style.margin = '0';
-                mapDiv.style.padding = '0';
-            }
-
-            // Ensure body doesn't show scroll bars and is properly positioned
-            document.body.style.overflow = 'hidden';
-            document.body.style.margin = '0';
-            document.body.style.padding = '0';
-            document.body.style.position = 'relative';
-            document.documentElement.style.overflow = 'hidden';
-            document.documentElement.style.margin = '0';
-            document.documentElement.style.padding = '0';
-
-            // Make popup text MUCH larger and more readable
-            document.querySelectorAll('.leaflet-popup-content').forEach(popup => {
-                popup.style.fontSize = '22px';  // Increased from 18px
-                popup.style.fontWeight = 'bold';
-                popup.style.lineHeight = '1.4';
-            });
-
-            // Make marker labels much more readable
-            document.querySelectorAll('.leaflet-marker-icon').forEach(marker => {
-                marker.style.transform += ' scale(1.2)';  // Reduced from 1.5 to 1.2
-            });
-
-            // Enhance tooltip text significantly
-            document.querySelectorAll('.leaflet-tooltip').forEach(tooltip => {
-                tooltip.style.fontSize = '20px';  // Increased from 16px
-                tooltip.style.fontWeight = 'bold';
-                tooltip.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
-                tooltip.style.border = '2px solid #333';
-                tooltip.style.borderRadius = '6px';
-                tooltip.style.padding = '8px 12px';  // More padding
-                tooltip.style.minWidth = '60px';
-                tooltip.style.textAlign = 'center';
-            });
-
-            // Make speed labels MUCH more visible and larger
-            document.querySelectorAll('div[title*="km/h"]').forEach(speedLabel => {
-                speedLabel.style.fontSize = '16px';  // Reduced from 22px to 16px
-                speedLabel.style.fontWeight = 'bold';
-                speedLabel.style.color = '#000';
-                speedLabel.style.textShadow = '1px 1px 3px white';
-                speedLabel.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
-                speedLabel.style.padding = '4px 8px';  // Reduced padding
-                speedLabel.style.borderRadius = '4px';  // Smaller radius
-                speedLabel.style.border = '1px solid #333';  // Thinner border
-                speedLabel.style.minWidth = '60px';  // Smaller width
-                speedLabel.style.textAlign = 'center';
-                speedLabel.style.fontFamily = 'Arial, sans-serif';
-            });
-        """)
+        # Apply map styling using external JavaScript
+        js = get_map_styling_script()
+        driver.execute_script(js)
         time.sleep(0.3)
 
         driver.save_screenshot(task.png_path)
@@ -332,18 +234,9 @@ class ScreenshotWorker:
         scaled_height = int(height * 1.2)
         self.driver.set_window_size(scaled_width, scaled_height)
 
-        self.driver.execute_script(f"""
-            document.body.style.zoom = '100%';
-            document.body.style.transform = 'scale(1)';
-            // Set explicit viewport for better text rendering
-            let viewport = document.querySelector('meta[name="viewport"]');
-            if (!viewport) {{
-                viewport = document.createElement('meta');
-                viewport.name = 'viewport';
-                document.head.appendChild(viewport);
-            }}
-            viewport.content = 'width={width}, height={height}, initial-scale=1.0, user-scalable=no';
-        """)
+        # Set viewport using external JavaScript
+        js = get_viewport_setup_script(width, height)
+        self.driver.execute_script(js)
 
     def _load_page(self, html_path: str):
         """Load HTML page and wait for it to be ready."""
@@ -377,90 +270,15 @@ class ScreenshotWorker:
 
     def _setup_layers(self, only_layers: list[str] | None):
         """Configure map layers visibility."""
-        if only_layers is None:
-            js = """
-            const labels = document.querySelectorAll('.leaflet-control-layers-overlays label');
-            labels.forEach(lb => {
-                const cb = lb.querySelector('input[type="checkbox"]');
-                if (cb && !cb.checked) cb.click();
-            });
-            """
-        else:
-            js = f"""
-            const want = new Set({only_layers});
-            const labels = document.querySelectorAll('.leaflet-control-layers-overlays label');
-            labels.forEach(lb => {{
-                const name = lb.textContent.trim();
-                const cb = lb.querySelector('input[type="checkbox"]');
-                if (!cb) return;
-                const on = want.has(name);
-                if (cb.checked && !on) cb.click();
-                if (!cb.checked && on) cb.click();
-            }});
-            """
-
+        # Setup layers using external JavaScript
+        js = get_layer_control_script(only_layers)
         self.driver.execute_script(js)
 
     def _hide_controls(self):
         """Hide map controls for cleaner screenshot and ensure proper zoom."""
-        self.driver.execute_script("""
-            // Hide controls like legacy
-            const cont = document.querySelector('.leaflet-control-container');
-            if (cont) cont.style.display = 'none';
-            const br = document.querySelector('.leaflet-bottom.leaflet-right');
-            if (br) br.style.display = 'none';
-
-            // Ensure proper zoom and positioning like legacy
-            window.scrollTo(0,0);
-
-            // CRITICAL: Force readable text sizes for map elements
-            const mapDiv = document.querySelector('.leaflet-container');
-            if (mapDiv) {
-                // Scale the entire map for better readability
-                mapDiv.style.transform = 'scale(1.2)';
-                mapDiv.style.transformOrigin = 'top left';
-                mapDiv.style.fontSize = '16px';
-            }
-
-            // Make popup text MUCH larger and more readable
-            document.querySelectorAll('.leaflet-popup-content').forEach(popup => {
-                popup.style.fontSize = '22px';  // Increased from 18px
-                popup.style.fontWeight = 'bold';
-                popup.style.lineHeight = '1.4';
-            });
-
-            // Make marker labels much more readable
-            document.querySelectorAll('.leaflet-marker-icon').forEach(marker => {
-                marker.style.transform += ' scale(1.2)';  // Reduced from 1.5 to 1.2
-            });
-
-            // Enhance tooltip text significantly
-            document.querySelectorAll('.leaflet-tooltip').forEach(tooltip => {
-                tooltip.style.fontSize = '20px';  // Increased from 16px
-                tooltip.style.fontWeight = 'bold';
-                tooltip.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
-                tooltip.style.border = '2px solid #333';
-                tooltip.style.borderRadius = '6px';
-                tooltip.style.padding = '8px 12px';  // More padding
-                tooltip.style.minWidth = '60px';
-                tooltip.style.textAlign = 'center';
-            });
-
-            // Make speed labels MUCH more visible and larger
-            document.querySelectorAll('div[title*="km/h"]').forEach(speedLabel => {
-                speedLabel.style.fontSize = '16px';  // Reduced from 22px to 16px
-                speedLabel.style.fontWeight = 'bold';
-                speedLabel.style.color = '#000';
-                speedLabel.style.textShadow = '1px 1px 3px white';
-                speedLabel.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
-                speedLabel.style.padding = '4px 8px';  // Reduced padding
-                speedLabel.style.borderRadius = '4px';  // Smaller radius
-                speedLabel.style.border = '1px solid #333';  // Thinner border
-                speedLabel.style.minWidth = '60px';  // Smaller width
-                speedLabel.style.textAlign = 'center';
-                speedLabel.style.fontFamily = 'Arial, sans-serif';
-            });
-        """)
+        # Apply worker styling using external JavaScript
+        js = get_worker_styling_script()
+        self.driver.execute_script(js)
         time.sleep(0.3)
         logger.debug(f"      Worker {self.worker_id}: Enhanced text rendering applied")
 
