@@ -15,6 +15,7 @@ from app.modules.cloning_report.analytics import (
 )
 from app.modules.cloning_report.maps import render_overall_map_png, generate_trails_map
 from app.modules.cloning_report.report import ReportPDF
+from app.modules.cloning_report.report.font_config import FontSize
 
 
 # =========================================================
@@ -139,7 +140,7 @@ class ClonagemReportGenerator:
 
     def _add_title_section(self, pdf):
         pdf.add_page()
-        pdf.set_font("Helvetica", "B", 16)
+        pdf.set_font("Helvetica", "B", FontSize.MAIN_TITLE)
         pdf.cell(
             0,
             10,
@@ -155,10 +156,10 @@ class ClonagemReportGenerator:
         self._add_objective_content(pdf)
 
     def _add_objective_title(self, pdf):
-        pdf.set_font("Helvetica", "B", 13)
+        pdf.set_font("Helvetica", "B", FontSize.SECTION_TITLE)
         pdf.cell(0, 10, "1. Objetivo", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
-        pdf.set_font("Helvetica", "", 10)
+        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
 
     def _add_objective_content(self, pdf):
         pdf.chapter_body(
@@ -191,10 +192,10 @@ class ClonagemReportGenerator:
         self._add_daily_maps_methodology_section(pdf)
 
     def _add_methodology_title(self, pdf):
-        pdf.set_font("Helvetica", "B", 13)
+        pdf.set_font("Helvetica", "B", FontSize.SECTION_TITLE)
         pdf.cell(0, 10, "2. Metodologia", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
-        pdf.set_font("Helvetica", "", 10)
+        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
 
     def _add_data_section(self, pdf):
         pdf.chapter_body("2.1 Dados utilizados neste relatório:")
@@ -379,12 +380,12 @@ class ClonagemReportGenerator:
         self._add_daily_analysis_section(pdf)
 
     def _add_structure_title(self, pdf):
-        pdf.set_font("Helvetica", "B", 13)
+        pdf.set_font("Helvetica", "B", FontSize.SECTION_TITLE)
         pdf.cell(
             0, 10, "3. Estrutura do Relatório", new_x=XPos.LMARGIN, new_y=YPos.NEXT
         )
         pdf.ln(1)
-        pdf.set_font("Helvetica", "", 10)
+        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT_LARGE)
 
     def _add_structure_intro(self, pdf):
         pdf.chapter_body("    O relatório está organizado da seguinte forma:")
@@ -436,17 +437,16 @@ class ClonagemReportGenerator:
             "ausência de evidências suficientes para segmentar as trilhas."
         )
         pdf.ln(2)
-        self._add_limitations_section(pdf)
 
     def _add_limitations_section(self, pdf):
         self._add_limitations_title(pdf)
         self._add_limitations_content(pdf)
 
     def _add_limitations_title(self, pdf):
-        pdf.set_font("Helvetica", "B", 13)
+        pdf.set_font("Helvetica", "B", FontSize.SECTION_TITLE)
         pdf.cell(0, 10, "4. Limitações da análise", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
-        pdf.set_font("Helvetica", "", 10)
+        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT_LARGE)
 
     def _add_limitations_content(self, pdf):
         self._add_detection_limitations(pdf)
@@ -486,7 +486,7 @@ class ClonagemReportGenerator:
 
     def _add_parameters_section(self, pdf: ReportPDF):
         pdf.add_page()
-        pdf.set_font("Helvetica", "B", 22)
+        pdf.set_font("Helvetica", "B", FontSize.PARAMETERS_SECTION_TITLE)
         pdf.cell(
             0, 10, "Parâmetros de Busca", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L"
         )
@@ -511,7 +511,7 @@ class ClonagemReportGenerator:
         pdf.add_params_table(rows)
 
     def _add_kpi_section(self, pdf: ReportPDF):
-        pdf.set_font("Helvetica", "B", 22)
+        pdf.set_font("Helvetica", "B", FontSize.KPI_SECTION_TITLE)
         pdf.cell(0, 10, "Quadro Resumo", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.ln(6)
         self._add_kpi_boxes(pdf)
@@ -675,7 +675,7 @@ class ClonagemReportGenerator:
 
     def _add_separable_example(self, pdf: ReportPDF):
         pdf.add_figure(
-            "figs/par_separavel.jpeg",
+            "app/assets/cloning_report/figs/par_separavel.jpeg",
             "Exemplo de par separável",
             text=None,
             width_factor=0.45,
@@ -688,7 +688,7 @@ class ClonagemReportGenerator:
 
     def _add_non_separable_example(self, pdf: ReportPDF):
         pdf.add_figure(
-            "figs/par_nao_separavel.png",
+            "app/assets/cloning_report/figs/par_nao_separavel.png",
             "Exemplo de par não separável",
             text=None,
             width_factor=0.45,
