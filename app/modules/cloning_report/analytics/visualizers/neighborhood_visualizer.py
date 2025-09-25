@@ -43,7 +43,7 @@ class NeighborhoodVisualizer:
     @staticmethod
     def _save_chart(fig) -> str:
         """Save chart to file and return path"""
-        output_path = ensure_dir("figs") / "bairro_pairs_top.png"
+        output_path = ensure_dir("app/assets/cloning_report") / "bairro_pairs_top.png"
         fig.savefig(output_path, dpi=220)
         plt.close(fig)
         return str(output_path)
