@@ -158,7 +158,7 @@ class APIMapRenderer:
         return pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
 
     def _get_daily_paths(self, safe_day: str):
-        from ..utils import ensure_dir
+        from app.modules.cloning_report.utils import ensure_dir
 
         tmp_path = ensure_dir("temp_files") / f"api_daily_{safe_day}.html"
         out_path = (
@@ -193,7 +193,7 @@ class APIMapRenderer:
         return self._create_overall_task(tmp_path, out_path)
 
     def _get_overall_paths(self):
-        from ..utils import ensure_dir
+        from app.modules.cloning_report.utils import ensure_dir
 
         tmp_path = ensure_dir("temp_files") / "api_overall.html"
         out_path = (
@@ -286,7 +286,7 @@ class APIMapRenderer:
         return pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
 
     def _get_trail_paths(self, safe_day: str, car_key: str):
-        from ..utils import ensure_dir
+        from app.modules.cloning_report.utils import ensure_dir
 
         tmp_path = ensure_dir("temp_files") / f"api_trail_{safe_day}_{car_key}.html"
         out_path = (

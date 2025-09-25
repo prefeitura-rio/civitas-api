@@ -7,10 +7,16 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from ...utils.logging import get_logger
-from ...utils.progress import ScreenshotProgressTracker, TaskProgress
-from ...config import ScreenshotConfig
-from .screenshot_batch import ScreenshotTask, process_screenshot_task
+from app.modules.cloning_report.utils.logging import get_logger
+from app.modules.cloning_report.utils.progress import (
+    ScreenshotProgressTracker,
+    TaskProgress,
+)
+from app.modules.cloning_report.config import ScreenshotConfig
+from app.modules.cloning_report.maps.export.screenshot_batch import (
+    ScreenshotTask,
+    process_screenshot_task,
+)
 
 logger = get_logger()
 
