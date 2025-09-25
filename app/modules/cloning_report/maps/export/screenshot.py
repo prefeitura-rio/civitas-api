@@ -20,6 +20,12 @@ except Exception:
     webdriver = None
     Options = None
 
+# Import JavaScript utilities
+from app.modules.cloning_report.utils.js_loader import (
+    get_layer_control_script,
+    get_basic_controls_script,
+)
+
 
 def take_html_screenshot(
     html_path: str,
@@ -90,24 +96,13 @@ def take_html_screenshot_legacy(
         driver.get(f"file:///{os.path.abspath(html_path)}")
         time.sleep(2.5)
 
-        if only_layers is None:
-            js = """
-            const labels = document.querySelectorAll('.leaflet-control-layers-overlays label');
-            labels.forEach(lb => { const cb = lb.querySelector('input[type="checkbox"]'); if (cb && !cb.checked) cb.click(); });
-            """
-        else:
-            js = f"""
-            const want = new Set({only_layers});
-            const labels = document.querySelectorAll('.leaflet-control-layers-overlays label');
-            labels.forEach(lb => {{ const name = lb.textContent.trim(); const cb = lb.querySelector('input[type="checkbox"]'); if (!cb) return; const on = want.has(name); if (cb.checked && !on) cb.click(); if (!cb.checked && on) cb.click(); }});
-            """
-
+        # Setup layers using external JavaScript
+        js = get_layer_control_script(only_layers)
         driver.execute_script(js)
-        driver.execute_script("""
-            const cont = document.querySelector('.leaflet-control-container'); if (cont) cont.style.display = 'none';
-            const br = document.querySelector('.leaflet-bottom.leaflet-right'); if (br) br.style.display = 'none';
-            window.scrollTo(0,0);
-        """)
+
+        # Hide basic controls using external JavaScript
+        js = get_basic_controls_script()
+        driver.execute_script(js)
         time.sleep(0.4)
         driver.save_screenshot(png_path)
     finally:
