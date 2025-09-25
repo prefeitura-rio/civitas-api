@@ -90,7 +90,7 @@ class GreedyTemporalClustering:
 
     @staticmethod
     def _check_speed_feasibility(
-        prev_id: str, cur_id: str, nodes_idx: pd.DataFrame, vmax_kmh: float
+        prev_id: str | None, cur_id: str, nodes_idx: pd.DataFrame, vmax_kmh: float
     ) -> tuple[bool, float]:
         """Checks if speed between nodes is feasible"""
         if prev_id is None:

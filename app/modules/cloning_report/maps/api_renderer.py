@@ -161,7 +161,10 @@ class APIMapRenderer:
         from ..utils import ensure_dir
 
         tmp_path = ensure_dir("temp_files") / f"api_daily_{safe_day}.html"
-        out_path = ensure_dir("figs") / f"mapa_clonagem_{safe_day}.png"
+        out_path = (
+            ensure_dir("app/assets/cloning_report/figs")
+            / f"mapa_clonagem_{safe_day}.png"
+        )
         return tmp_path, out_path
 
     def _save_daily_html(self, html_str: str, tmp_path):
@@ -193,7 +196,9 @@ class APIMapRenderer:
         from ..utils import ensure_dir
 
         tmp_path = ensure_dir("temp_files") / "api_overall.html"
-        out_path = ensure_dir("figs") / "mapa_clonagem_overall.png"
+        out_path = (
+            ensure_dir("app/assets/cloning_report/figs") / "mapa_clonagem_overall.png"
+        )
         return tmp_path, out_path
 
     def _generate_overall_html(self, df_sus: pd.DataFrame) -> str:
@@ -284,7 +289,10 @@ class APIMapRenderer:
         from ..utils import ensure_dir
 
         tmp_path = ensure_dir("temp_files") / f"api_trail_{safe_day}_{car_key}.html"
-        out_path = ensure_dir("figs") / f"trilha_{safe_day}_{car_key}.png"
+        out_path = (
+            ensure_dir("app/assets/cloning_report/figs")
+            / f"trilha_{safe_day}_{car_key}.png"
+        )
         return tmp_path, out_path
 
     def _write_trail_html(self, trail_html: str, tmp_path):
