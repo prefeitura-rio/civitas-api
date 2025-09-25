@@ -27,7 +27,7 @@ class MapGenerator:
     @staticmethod
     def _prepare_html_path() -> Path:
         """Prepare HTML output path"""
-        html_dir = ensure_dir("htmls")
+        html_dir = ensure_dir("app/assets/cloning_report/htmls")
         return html_dir / "mapa_clonagem.html"
 
     @staticmethod
