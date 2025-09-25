@@ -368,6 +368,11 @@ class ClonagemReportGenerator:
         self._add_structure_section(pdf)
 
     def _add_structure_section(self, pdf):
+        # Verificar se há espaço suficiente para o título + conteúdo
+        # Se não houver, forçar nova página
+        if pdf.get_y() > 250:  # Se estiver muito próximo do final da página
+            pdf.add_page()
+
         self._add_structure_title(pdf)
         self._add_structure_intro(pdf)
         self._add_structure_content(pdf)
@@ -381,15 +386,13 @@ class ClonagemReportGenerator:
 
     def _add_structure_title(self, pdf):
         pdf.set_font("Helvetica", "B", FontSize.SECTION_TITLE)
-        pdf.cell(
-            0, 10, "3. Estrutura do Relatório", new_x=XPos.LMARGIN, new_y=YPos.NEXT
-        )
-        pdf.ln(1)
+        pdf.cell(0, 8, "3. Estrutura do Relatório", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(0.5)
         pdf.set_font("Helvetica", "", FontSize.BODY_TEXT_LARGE)
 
     def _add_structure_intro(self, pdf):
         pdf.chapter_body("    O relatório está organizado da seguinte forma:")
-        pdf.ln(1)
+        pdf.ln(0.5)
 
     def _add_analysis_parameters_section(self, pdf):
         pdf.chapter_body("3.1 Parâmetros da Análise")
