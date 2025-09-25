@@ -3,6 +3,7 @@
 import os
 import random
 from datetime import datetime
+from app.modules.cloning_report.report.font_config import FontSize
 
 
 class PDFLayoutManager:
@@ -46,14 +47,14 @@ class PDFLayoutManager:
     def _draw_header_border(self, layout):
         """Draw header border"""
         self.pdf.set_xy(layout["margin"], layout["y_start"])
-        self.pdf.set_font("Helvetica", "B", 14)
+        self.pdf.set_font("Helvetica", "B", FontSize.HEADER_TITLE)
         self.pdf.set_draw_color(0, 0, 0)
         self.pdf.cell(layout["col1_width"], layout["row1_height"], "", border=1)
 
     def _add_logos(self, layout):
         """Add logos to header"""
-        prefeitura_path = "icons/logo_prefeitura.png"
-        civitas_path = "icons/logo_civitas.png"
+        prefeitura_path = "app/assets/cloning_report/logo_prefeitura.png"
+        civitas_path = "app/assets/cloning_report/logo_civitas.png"
 
         if not (os.path.exists(prefeitura_path) and os.path.exists(civitas_path)):
             return
@@ -97,7 +98,7 @@ class PDFLayoutManager:
     def _add_title(self, layout):
         """Add title to header"""
         self.pdf.set_xy(layout["margin"] + layout["col1_width"], layout["y_start"])
-        self.pdf.set_font("Helvetica", "B", 14)
+        self.pdf.set_font("Helvetica", "B", FontSize.HEADER_TITLE)
         self.pdf.cell(
             layout["col2_width"],
             layout["row1_height"],
@@ -109,7 +110,7 @@ class PDFLayoutManager:
     def _add_id_line(self, report_id, layout):
         """Add ID line to header"""
         self.pdf.set_xy(layout["margin"], layout["y_start"] + layout["row1_height"])
-        self.pdf.set_font("Helvetica", "", 10)
+        self.pdf.set_font("Helvetica", "", FontSize.HEADER_ID)
         self.pdf.cell(
             layout["usable_width"],
             layout["row2_height"],

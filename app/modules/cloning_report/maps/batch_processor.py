@@ -79,7 +79,10 @@ class UnifiedMapBatchProcessor:
             safe_day = pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
 
             tmp_path = ensure_dir("temp_files") / f"batch_daily_{safe_day}.html"
-            out_path = ensure_dir("figs") / f"mapa_clonagem_{safe_day}.png"
+            out_path = (
+                ensure_dir("app/assets/cloning_report/figs")
+                / f"mapa_clonagem_{safe_day}.png"
+            )
 
             # Write HTML file
             with open(tmp_path, "w", encoding="utf-8") as f:
@@ -104,7 +107,9 @@ class UnifiedMapBatchProcessor:
             return None
 
         tmp_path = ensure_dir("temp_files") / "batch_overall.html"
-        out_path = ensure_dir("figs") / "mapa_clonagem_overall.png"
+        out_path = (
+            ensure_dir("app/assets/cloning_report/figs") / "mapa_clonagem_overall.png"
+        )
 
         html = self.map_renderer.map_generator.generate_map_clonagem(
             df_sus, base_only=True
@@ -148,7 +153,10 @@ class UnifiedMapBatchProcessor:
                         ensure_dir("temp_files")
                         / f"batch_trail_{safe_day}_{car_key}.html"
                     )
-                    out_path = ensure_dir("figs") / f"trilha_{safe_day}_{car_key}.png"
+                    out_path = (
+                        ensure_dir("app/assets/cloning_report/figs")
+                        / f"trilha_{safe_day}_{car_key}.png"
+                    )
 
                     # Write HTML file
                     with open(tmp_path, "w", encoding="utf-8") as f:
