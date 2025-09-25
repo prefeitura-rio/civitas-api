@@ -1,12 +1,17 @@
 """Map-specific utilities for bounds and labels"""
+
 import folium
 import pandas as pd
-from typing import Tuple
 from folium.features import DivIcon
 
 
-def fit_bounds_to_data(map_obj: folium.Map, lats: pd.Series, lons: pd.Series,
-                      pad_ratio: float = 0.15, min_pad: float = 0.01) -> None:
+def fit_bounds_to_data(
+    map_obj: folium.Map,
+    lats: pd.Series,
+    lons: pd.Series,
+    pad_ratio: float = 0.15,
+    min_pad: float = 0.01,
+) -> None:
     """Apply fit_bounds to map if there are valid coordinates (equivalent to _fit_bounds_map)"""
     if lats is None or lons is None or lats.empty or lons.empty:
         return
@@ -22,20 +27,22 @@ def fit_bounds_to_data(map_obj: folium.Map, lats: pd.Series, lons: pd.Series,
         pass
 
 
-def add_speed_label(point1: Tuple[float, float], point2: Tuple[float, float], 
-                   speed_kmh: float, layer) -> None:
+def add_speed_label(
+    point1: tuple[float, float], point2: tuple[float, float], speed_kmh: float, layer
+) -> None:
     """Add speed label at midpoint between two coordinates (equivalent to _speed_label)"""
     lat_mid = (float(point1[0]) + float(point2[0])) / 2.0
     lon_mid = (float(point1[1]) + float(point2[1])) / 2.0
     folium.Marker(
         [lat_mid, lon_mid],
         icon=DivIcon(
-            icon_size=(100, 24), icon_anchor=(50, 12),
+            icon_size=(80, 20),
+            icon_anchor=(40, 10),
             html=(
-                '<div style="font-size:10pt;font-weight:700;color:#9b1111;'
-                'background:rgba(255,255,255,0.95);padding:4px 6px;border-radius:6px;'
+                '<div style="font-size:8pt;font-weight:700;color:#9b1111;'
+                "background:rgba(255,255,255,0.95);padding:3px 5px;border-radius:4px;"
                 'border:1px solid #caa;box-shadow:0 0 4px rgba(0,0,0,.15);">'
-                f'{int(round(float(speed_kmh)))} km/h</div>'
-            )
+                f"{int(round(float(speed_kmh)))} km/h</div>"
+            ),
         ),
     ).add_to(layer)

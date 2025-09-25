@@ -6,14 +6,14 @@ import numpy as np
 import os
 from folium.plugins import BeautifyIcon
 
-from ...clustering.graph_builder import GraphBuilder
+from app.modules.cloning_report.clustering.graph_builder import GraphBuilder
 
-from ...utils import BLUE_LIGHT, BLUE_DARK
+from app.modules.cloning_report.utils import BLUE_LIGHT, BLUE_DARK
 
 # from ...clustering import graph_from_pairs_day
-from ...utils import ensure_dir
-from ..utils.formatting import format_timestamp
-from ..export.screenshot import take_html_screenshot
+from app.modules.cloning_report.utils import ensure_dir
+from app.modules.cloning_report.maps.utils.formatting import format_timestamp
+from app.modules.cloning_report.maps.export.screenshot import take_html_screenshot
 
 
 class TrailsMapGenerator:
@@ -166,7 +166,7 @@ class TrailsMapGenerator:
         lon_center = float(np.mean([c[1] for c in coords]))
         return folium.Map(
             location=[lat_center, lon_center],
-            zoom_start=13,
+            zoom_start=12,
             tiles="CartoDB Positron",
             control_scale=True,
         )
@@ -203,7 +203,7 @@ class TrailsMapGenerator:
             text_color=text_color,
             border_color="rgba(0,0,0,.35)",
             background_color=color_hex,
-            inner_icon_style="font-weight:700;font-size:15px;",
+            inner_icon_style="font-weight:700;font-size:12px;",
         )
 
         folium.Marker(
