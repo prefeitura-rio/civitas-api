@@ -65,7 +65,7 @@ class AsyncBigQueryDetectionRepository(DetectionRepository):
             query_job = self.client.query(query)
             return query_job.to_dataframe()
         except Exception as e:
-            logger.error(f"BigQuery query execution failed: {str(e)}")
+            logger.traceback(f"BigQuery query execution failed: {str(e)}")
             raise
 
     async def test_connection(self) -> bool:
@@ -77,7 +77,7 @@ class AsyncBigQueryDetectionRepository(DetectionRepository):
             )
             return result
         except Exception as e:
-            logger.error(f"Async BigQuery connection test failed: {str(e)}")
+            logger.traceback(f"Async BigQuery connection test failed: {str(e)}")
             return False
 
     def _test_connection_sync(self) -> bool:
@@ -87,7 +87,7 @@ class AsyncBigQueryDetectionRepository(DetectionRepository):
             result = self.client.query(test_query).to_dataframe()
             return len(result) == 1 and result["test_value"].iloc[0] == 1
         except Exception as e:
-            logger.error(f"BigQuery connection test failed: {str(e)}")
+            logger.traceback(f"BigQuery connection test failed: {str(e)}")
             return False
 
     async def close(self):
