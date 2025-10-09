@@ -124,7 +124,7 @@ def process_screenshot_task(task: ScreenshotTask) -> tuple[bool, str]:
 
     except Exception as e:
         total_time = time.time() - task_start
-        logger.error(
+        logger.traceback(
             f"Thread {thread_id}: Failed {png_name} after {total_time:.2f}s - {str(e)}"
         )
         return False, f"Thread {thread_id}: Error - {str(e)}"
@@ -222,7 +222,7 @@ class ScreenshotWorker:
 
         except Exception as e:
             total_time = time.time() - task_start
-            logger.error(
+            logger.traceback(
                 f"❌ Worker {self.worker_id}: Failed {png_name} after {total_time:.2f}s - {str(e)}"
             )
             return False, f"Worker {self.worker_id}: Error - {str(e)}"
@@ -371,7 +371,7 @@ class ParallelScreenshotProcessor:
                         {"task": task, "success": success, "message": message}
                     )
                 except Exception as e:
-                    logger.error(
+                    logger.traceback(
                         f"Result {completed_count}/{len(tasks)}: EXCEPTION - {png_name} - {str(e)}"
                     )
                     results.append(
