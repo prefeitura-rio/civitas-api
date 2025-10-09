@@ -74,9 +74,9 @@ class APIMapRenderer:
 
             return output
 
-        except Exception as e:
-            error_msg = f"Map generation failed: {str(e)}"
-            self.logger.traceback(error_msg)
+        except Exception:
+            error_msg = "Map generation failed"
+            self.logger.exception(error_msg)
             return {"success": False, "error": error_msg}
 
     def _prepare_all_html(
