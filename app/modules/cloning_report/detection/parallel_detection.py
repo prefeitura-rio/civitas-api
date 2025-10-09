@@ -140,8 +140,8 @@ class ParallelPairDetector:
                     logger.debug(
                         f"Chunk {result.chunk_id}: {result.pairs_found} pairs in {result.processing_time:.2f}s"
                     )
-                except Exception as e:
-                    logger.traceback(f"Chunk {chunk.chunk_id} failed: {str(e)}")
+                except Exception:
+                    logger.exception(f"Chunk {chunk.chunk_id} failed")
                     # Add empty result to maintain order
                     results.append(ChunkResult(chunk.chunk_id, [], 0.0, 0))
 
@@ -196,9 +196,9 @@ def process_detection_chunk(chunk: DetectionChunk) -> ChunkResult:
             pairs_found=len(pairs),
         )
 
-    except Exception as e:
+    except Exception:
         processing_time = time.time() - start_time
-        logger.traceback(f"Error processing chunk {chunk.chunk_id}: {str(e)}")
+        logger.exception(f"Error processing chunk {chunk.chunk_id}")
 
         return ChunkResult(
             chunk_id=chunk.chunk_id,

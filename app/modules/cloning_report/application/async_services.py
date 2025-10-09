@@ -75,8 +75,16 @@ class AsyncCloningReportService:
             )
             df = DetectionMapper.detections_to_dataframe(detections)
 
-            periodo_inicio = pd.Timestamp(date_start, tz="UTC")
-            periodo_fim = pd.Timestamp(date_end, tz="UTC")
+            # Convert to UTC timestamp, handling both naive and timezone-aware datetimes
+            if date_start.tzinfo is None:
+                periodo_inicio = pd.Timestamp(date_start, tz="UTC")
+            else:
+                periodo_inicio = pd.Timestamp(date_start).tz_convert("UTC")
+
+            if date_end.tzinfo is None:
+                periodo_fim = pd.Timestamp(date_end, tz="UTC")
+            else:
+                periodo_fim = pd.Timestamp(date_end).tz_convert("UTC")
             generator = ClonagemReportGenerator(df, plate, periodo_inicio, periodo_fim)
             report_path = self._generate_report_sync(generator, plate, output_dir)
 
@@ -84,8 +92,8 @@ class AsyncCloningReportService:
                 generator, plate, date_start, date_end, report_path
             )
 
-        except Exception as e:
-            logger.traceback(f"Async cloning detection failed: {str(e)}")
+        except Exception:
+            logger.exception("Async cloning detection failed")
             raise
 
     async def _generate_report_async(
@@ -111,8 +119,8 @@ class AsyncCloningReportService:
             report_path = generator.generate(report_path)
             logger.info(f"Report generated: {report_path}")
             return report_path
-        except Exception as e:
-            logger.traceback(f"Report generation failed: {str(e)}")
+        except Exception:
+            logger.exception("Report generation failed")
             raise
 
     def _create_report_entity(

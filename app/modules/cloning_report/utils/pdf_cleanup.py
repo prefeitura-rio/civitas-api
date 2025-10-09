@@ -54,8 +54,8 @@ class PDFCleanupService:
                         f"Keeping PDF: {pdf_file.name} (age: {file_age / 3600:.1f}h)"
                     )
 
-            except Exception as e:
-                logger.traceback(f"Error deleting {pdf_file.name}: {str(e)}")
+            except Exception:
+                logger.exception(f"Error deleting {pdf_file.name}")
 
         logger.info(f"PDF cleanup completed: {deleted_count} files deleted")
         return deleted_count
@@ -80,8 +80,8 @@ class PDFCleanupService:
                 logger.info(f"Deleting PDF: {pdf_file.name}")
                 pdf_file.unlink()
                 deleted_count += 1
-            except Exception as e:
-                logger.traceback(f"Error deleting {pdf_file.name}: {str(e)}")
+            except Exception:
+                logger.exception(f"Error deleting {pdf_file.name}")
 
         logger.info(f"Pattern cleanup completed: {deleted_count} files deleted")
         return deleted_count
@@ -114,8 +114,8 @@ class PDFCleanupService:
                         "path": str(pdf_file),
                     }
                 )
-            except Exception as e:
-                logger.traceback(f"Error getting info for {pdf_file.name}: {str(e)}")
+            except Exception:
+                logger.exception(f"Error getting info for {pdf_file.name}")
 
         return sorted(pdf_info, key=lambda x: x["age_hours"], reverse=True)
 
