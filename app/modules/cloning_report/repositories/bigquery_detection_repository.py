@@ -59,8 +59,8 @@ class BigQueryDetectionRepository(DetectionRepository):
             result = self.client.query(test_query).to_dataframe()
             return len(result) == 1 and result["test_value"].iloc[0] == 1
 
-        except Exception as e:
-            logger.traceback(f"BigQuery connection test failed: {str(e)}")
+        except Exception:
+            logger.exception("BigQuery connection test failed")
             return False
 
     def _initialize_client(self):
@@ -79,8 +79,8 @@ class BigQueryDetectionRepository(DetectionRepository):
             logger.info("BigQuery client initialized successfully")
 
         except ImportError:
-            logger.traceback("google-cloud-bigquery not installed")
+            logger.exception("google-cloud-bigquery not installed")
             raise ImportError("BigQuery client library not available")
-        except Exception as e:
-            logger.traceback(f"Failed to initialize BigQuery client: {str(e)}")
+        except Exception:
+            logger.exception("Failed to initialize BigQuery client")
             raise

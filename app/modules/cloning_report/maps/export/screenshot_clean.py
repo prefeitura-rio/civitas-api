@@ -91,9 +91,9 @@ class CleanScreenshotProcessor:
                                 task_id, os.path.basename(task.png_path), message
                             )
 
-                    except Exception as e:
-                        error_msg = f"Execution error: {str(e)}"
-                        logger.traceback(f"Screenshot failed: {error_msg}")
+                    except Exception:
+                        error_msg = "Execution error"
+                        logger.exception(f"Screenshot failed: {error_msg}")
 
                         result = ScreenshotResult(
                             success=False,
@@ -107,9 +107,9 @@ class CleanScreenshotProcessor:
                             task_id, os.path.basename(task.png_path), error_msg
                         )
 
-        except Exception as e:
-            error_msg = f"Batch processing failed: {str(e)}"
-            logger.traceback(error_msg)
+        except Exception:
+            error_msg = "Batch processing failed"
+            logger.exception(error_msg)
             self.progress_tracker.fail_task(task_id, error_msg)
             return self._error_result(error_msg)
 
