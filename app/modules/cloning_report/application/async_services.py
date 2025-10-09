@@ -85,7 +85,7 @@ class AsyncCloningReportService:
             )
 
         except Exception as e:
-            logger.error(f"Async cloning detection failed: {str(e)}")
+            logger.traceback(f"Async cloning detection failed: {str(e)}")
             raise
 
     async def _generate_report_async(
@@ -112,7 +112,7 @@ class AsyncCloningReportService:
             logger.info(f"Report generated: {report_path}")
             return report_path
         except Exception as e:
-            logger.error(f"Report generation failed: {str(e)}")
+            logger.traceback(f"Report generation failed: {str(e)}")
             raise
 
     def _create_report_entity(
