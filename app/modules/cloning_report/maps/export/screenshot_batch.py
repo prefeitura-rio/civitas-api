@@ -122,12 +122,12 @@ def process_screenshot_task(task: ScreenshotTask) -> tuple[bool, str]:
             f"Thread {thread_id}: Screenshot saved to {task.png_path} in {total_time:.2f}s",
         )
 
-    except Exception as e:
+    except Exception:
         total_time = time.time() - task_start
-        logger.traceback(
-            f"Thread {thread_id}: Failed {png_name} after {total_time:.2f}s - {str(e)}"
+        logger.exception(
+            f"Thread {thread_id}: Failed {png_name} after {total_time:.2f}s"
         )
-        return False, f"Thread {thread_id}: Error - {str(e)}"
+        return False, f"Thread {thread_id}: Error"
 
     finally:
         if driver:
@@ -220,12 +220,12 @@ class ScreenshotWorker:
                 f"Worker {self.worker_id}: Screenshot saved to {task.png_path} in {total_time:.2f}s",
             )
 
-        except Exception as e:
+        except Exception:
             total_time = time.time() - task_start
-            logger.traceback(
-                f"❌ Worker {self.worker_id}: Failed {png_name} after {total_time:.2f}s - {str(e)}"
+            logger.exception(
+                f"❌ Worker {self.worker_id}: Failed {png_name} after {total_time:.2f}s"
             )
-            return False, f"Worker {self.worker_id}: Error - {str(e)}"
+            return False, f"Worker {self.worker_id}: Error"
 
     def _configure_window(self, width: int, height: int):
         """Configure browser window size to match legacy behavior."""
@@ -371,8 +371,8 @@ class ParallelScreenshotProcessor:
                         {"task": task, "success": success, "message": message}
                     )
                 except Exception as e:
-                    logger.traceback(
-                        f"Result {completed_count}/{len(tasks)}: EXCEPTION - {png_name} - {str(e)}"
+                    logger.exception(
+                        f"Result {completed_count}/{len(tasks)}: EXCEPTION - {png_name}"
                     )
                     results.append(
                         {
