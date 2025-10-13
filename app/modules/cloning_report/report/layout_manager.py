@@ -2,25 +2,26 @@
 
 import os
 import random
+from fpdf import FPDF
 from datetime import datetime
+
 from app.modules.cloning_report.report.font_config import FontSize
 
 
 class PDFLayoutManager:
     """Manages PDF layout including headers, footers, and positioning."""
 
-    def __init__(self, pdf_instance):
+    def __init__(self, pdf_instance: FPDF):
         self.pdf = pdf_instance
 
-    def setup_header(self, report_id=None):
+    def setup_header(self, report_id: str | None = None):
         """Build PDF header - refactored with max 5 lines per method"""
-        if report_id is None:
-            report_id = self._generate_report_id()
+        self.report_id = report_id
         layout = self._calculate_header_layout()
         self._draw_header_border(layout)
         self._add_logos(layout)
         self._add_title(layout)
-        self._add_id_line(report_id, layout)
+        self._add_id_line(layout)
         self._advance_cursor(layout)
 
     def _generate_report_id(self):
@@ -107,14 +108,14 @@ class PDFLayoutManager:
             align="C",
         )
 
-    def _add_id_line(self, report_id, layout):
+    def _add_id_line(self, layout):
         """Add ID line to header"""
         self.pdf.set_xy(layout["margin"], layout["y_start"] + layout["row1_height"])
         self.pdf.set_font("Helvetica", "", FontSize.HEADER_ID)
         self.pdf.cell(
             layout["usable_width"],
             layout["row2_height"],
-            f"ID: {report_id}",
+            f"ID: {self.report_id}",
             border=1,
             align="C",
         )
