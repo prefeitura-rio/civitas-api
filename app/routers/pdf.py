@@ -199,6 +199,7 @@ async def generate_cloning_report(
                 date_start=data.date_start,
                 date_end=data.date_end,
                 output_dir=data.output_dir,
+                report_id=report_id,
             )
 
             logger.info(f"Cloning report generated successfully: {report.report_path}")
