@@ -49,6 +49,7 @@ class AsyncCloningReportService:
         output_dir: str = "report",
         project_id: str | None = None,
         credentials_path: str | None = None,
+        report_id: str | None = None,
     ) -> CloningReport:
         """
         Execute cloning detection asynchronously with flexible data source selection
@@ -60,6 +61,7 @@ class AsyncCloningReportService:
             output_dir: Directory to save the report
             project_id: BigQuery project ID (optional, uses global client)
             credentials_path: BigQuery credentials path (optional, uses global client)
+            report_id: External report ID to use (optional, generates one if not provided)
 
         Returns:
             CloningReport: Complete cloning analysis report
@@ -85,7 +87,9 @@ class AsyncCloningReportService:
                 periodo_fim = pd.Timestamp(date_end, tz="UTC")
             else:
                 periodo_fim = pd.Timestamp(date_end).tz_convert("UTC")
-            generator = ClonagemReportGenerator(df, plate, periodo_inicio, periodo_fim)
+            generator = ClonagemReportGenerator(
+                df, plate, periodo_inicio, periodo_fim, report_id
+            )
             report_path = self._generate_report_sync(generator, plate, output_dir)
 
             return self._create_report_entity(
