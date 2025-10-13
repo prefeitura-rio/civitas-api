@@ -28,8 +28,9 @@ class ClonagemReportGenerator:
         placa: str,
         periodo_inicio: pd.Timestamp,
         periodo_fim: pd.Timestamp,
+        report_id: str = None,
     ):
-        self.report_id = self._generate_unique_report_id()
+        self.report_id = report_id or self._generate_unique_report_id()
         self._initialize_parameters(df, placa, periodo_inicio, periodo_fim)
         self._initialize_attributes()
         self._setup()
