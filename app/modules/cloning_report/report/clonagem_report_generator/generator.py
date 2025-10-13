@@ -947,8 +947,7 @@ class ClonagemReportGenerator:
         }
 
     def _create_pdf(self):
-        pdf = ReportPDF()
-        pdf.report_id = self.report_id
+        pdf = ReportPDF(report_id=self.report_id)
         self._setup_pdf_fonts(pdf)
         pdf.alias_nb_pages()
         return pdf

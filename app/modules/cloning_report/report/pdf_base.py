@@ -10,16 +10,16 @@ from .table_renderer import TableRenderer
 class ReportPDF(FPDF):
     """Main PDF class that orchestrates layout, content, and styling components."""
 
-    def __init__(self):
+    def __init__(self, report_id: str | None = None):
         super().__init__()
         self.layout_manager = PDFLayoutManager(self)
         self.content_renderer = ContentRenderer(self)
         self.table_renderer = TableRenderer(self)
+        self.report_id = report_id
 
     def header(self):
         """Build PDF header using layout manager"""
-        report_id = getattr(self, "report_id", None)
-        self.layout_manager.setup_header(report_id)
+        self.layout_manager.setup_header(self.report_id)
 
     def footer(self):
         """Build PDF footer using layout manager"""
