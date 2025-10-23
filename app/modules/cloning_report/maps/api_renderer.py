@@ -332,7 +332,6 @@ class APIMapRenderer:
                 html_tasks, result, daily_figures, overall_map, trails_maps
             )
 
-        self._cleanup_temp_files(html_tasks)
         return self._build_final_result(result, daily_figures, overall_map, trails_maps)
 
     def _process_successful_results(
@@ -394,16 +393,6 @@ class APIMapRenderer:
             "trails_maps": trails_maps,
             "processing_summary": result["summary"],
         }
-
-    def _cleanup_temp_files(
-        self, html_tasks: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
-        """Clean up temporary HTML files"""
-        for task in html_tasks:
-            try:
-                task["temp_html"].unlink(missing_ok=True)
-            except Exception:
-                pass
 
     def _empty_result(self) -> dict[str, Any]:
         """Return empty result structure"""

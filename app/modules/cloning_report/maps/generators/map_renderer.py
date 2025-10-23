@@ -2,7 +2,6 @@
 
 import multiprocessing
 import pandas as pd
-import os
 from pathlib import Path
 
 from app.modules.cloning_report.utils import VMAX_KMH, ensure_dir
@@ -99,35 +98,25 @@ class MapRenderer:
             png_files.append(str(out_path))
             day_mapping[str(out_path)] = day
 
-        try:
-            result = take_html_screenshots_batch(
-                html_files,
-                png_files,
-                width=1280,
-                height=800,
-                max_workers=self.max_workers,
-            )
+        result = take_html_screenshots_batch(
+            html_files,
+            png_files,
+            width=1280,
+            height=800,
+            max_workers=self.max_workers,
+        )
 
-            figs = []
-            successful_pngs = set()
+        figs = []
 
-            for task_result in result["results"]:
-                if task_result["success"]:
-                    png_path = task_result["task"].png_path
-                    successful_pngs.add(png_path)
-                    day = day_mapping[png_path]
-                    figs.append({"date": day, "path": png_path})
-                else:
-                    print(f"[WARN] Screenshot failed: {task_result['message']}")
+        for task_result in result["results"]:
+            if task_result["success"]:
+                png_path = task_result["task"].png_path
+                day = day_mapping[png_path]
+                figs.append({"date": day, "path": png_path})
+            else:
+                print(f"[WARN] Screenshot failed: {task_result['message']}")
 
-            return sorted(figs, key=lambda x: x["date"])
-
-        finally:
-            for html_file in html_files:
-                try:
-                    os.remove(html_file)
-                except Exception:
-                    pass
+        return sorted(figs, key=lambda x: x["date"])
 
     def _save_html_to_png(
         self, html: str, tmp_path: Path, out_path: Path
@@ -142,8 +131,3 @@ class MapRenderer:
         except Exception as e:
             print(f"[WARN] Screenshot failed: {e}")
             return None
-        finally:
-            try:
-                os.remove(tmp_path)
-            except Exception:
-                pass

@@ -26,6 +26,10 @@ def ensure_dir(path):
     return FileSystemService.ensure_directory(path)
 
 
+def get_temp_root():
+    return FileSystemService.get_base_temp_dir()
+
+
 def haversine_km(lat1, lon1, lat2, lon2):
     return GeographyService.haversine_distance(lat1, lon1, lat2, lon2)
 
@@ -61,6 +65,7 @@ __all__ = [
     "ProgressTracker",
     "ScreenshotProgressTracker",
     "ensure_dir",
+    "get_temp_root",
     "haversine_km",
     "to_datetime_utc",
     "strftime_safe",

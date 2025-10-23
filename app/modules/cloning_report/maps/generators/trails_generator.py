@@ -3,7 +3,6 @@
 import folium
 import pandas as pd
 import numpy as np
-import os
 from folium.plugins import BeautifyIcon
 
 from app.modules.cloning_report.clustering.graph_builder import GraphBuilder
@@ -246,13 +245,7 @@ class TrailsMapGenerator:
         with open(tmp_html, "w", encoding="utf-8") as f:
             f.write(m.get_root().render())
 
-        try:
-            take_html_screenshot(
-                str(tmp_html), str(out_png), width=self.width, height=self.height
-            )
-            return str(out_png)
-        finally:
-            try:
-                os.remove(tmp_html)
-            except Exception:
-                pass
+        take_html_screenshot(
+            str(tmp_html), str(out_png), width=self.width, height=self.height
+        )
+        return str(out_png)

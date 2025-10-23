@@ -215,22 +215,11 @@ class UnifiedMapBatchProcessor:
                         trails_maps[day] = {}
                     trails_maps[day][car] = task_result["task"].png_path
 
-        # Cleanup temp HTML files
-        self._cleanup_temp_files(html_tasks)
-
         return {
             "daily_figures": sorted(daily_figures, key=lambda x: x["date"]),
             "overall_map": overall_map,
             "trails_maps": trails_maps,
         }
-
-    def _cleanup_temp_files(self, html_tasks: list[dict[str, Any]]) -> None:
-        """Clean up temporary HTML files"""
-        for task in html_tasks:
-            try:
-                task["temp_html"].unlink(missing_ok=True)
-            except Exception:
-                pass
 
     def _process_sequential(
         self, df_sus: pd.DataFrame, trails_tables: dict[str, Any]
