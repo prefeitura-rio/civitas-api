@@ -1,13 +1,7 @@
-# -*- coding: utf-8 -*-
-import traceback
 from pathlib import Path
-from typing import Dict
 from urllib.request import urlopen
 
-import numpy as np
 import orjson as json
-import pandas as pd
-from loguru import logger
 
 from . import getenv_or_action
 
@@ -162,18 +156,18 @@ ASSETS_DIR = Path(__file__).parent.parent / "assets"
 
 # Vehicle types mapping
 VEHICLE_TYPES_MAPPING = {
-        "automovel": "automovel",
-        "AUTOMÓVEL": "automovel",
-        "ciclomotor": "ciclomotor",
-        "indefinido": "indefinido",
-        "INDEFINIDO": "indefinido",
-        "onibus": "onibus",
-        "ÔNIBUS": "onibus",
-        "caminhao": "caminhao",
-        "CAMINHÃO": "caminhao",
-        "MOTO": "moto",
-        "CAMINHÃO / ÔNIBUS": "caminhao_onibus",
-    }
+    "automovel": "automovel",
+    "AUTOMÓVEL": "automovel",
+    "ciclomotor": "ciclomotor",
+    "indefinido": "indefinido",
+    "INDEFINIDO": "indefinido",
+    "onibus": "onibus",
+    "ÔNIBUS": "onibus",
+    "caminhao": "caminhao",
+    "CAMINHÃO": "caminhao",
+    "MOTO": "moto",
+    "CAMINHÃO / ÔNIBUS": "caminhao_onibus",
+}
 
 # PDF report paths
 HTML_TEMPLATES_DIR = Path(__file__).parent.parent / "templates"

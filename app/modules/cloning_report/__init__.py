@@ -48,6 +48,9 @@ from app.modules.cloning_report.analytics import (
 from app.modules.cloning_report.report.clonagem_report_generator.generator import (
     ClonagemReportGenerator,
 )
+from app.modules.cloning_report.report.weasy_generator import (
+    ClonagemReportWeasyGenerator,
+)
 
 # Utility exports
 from app.modules.cloning_report.utils import (
@@ -70,6 +73,7 @@ __all__ = [
     "DetectionPipeline",
     "ClusteringPipeline",
     "ClonagemReportGenerator",
+    "ClonagemReportWeasyGenerator",
     # Analytics
     "compute_clonagem_kpis",
     "compute_bairro_pair_stats",

@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Request, HTTPException
@@ -137,6 +137,7 @@ class PdfReportCloningIn(BaseModel):
     date_start: datetime
     date_end: datetime
     output_dir: str
+    renderer: Literal["fpdf", "weasy"] = "fpdf"
     # project_id: Optional[str] = None
     # credentials_path: Optional[str] = None
 
@@ -200,6 +201,7 @@ async def generate_cloning_report(
                 date_end=data.date_end,
                 output_dir=data.output_dir,
                 report_id=report_id,
+                renderer=data.renderer,
             )
 
             logger.info(f"Cloning report generated successfully: {report.report_path}")
