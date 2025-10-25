@@ -6,6 +6,7 @@ Organized by single responsibility principle with backward compatibility
 
 from app.modules.cloning_report.utils.constants import BLUE_LIGHT, BLUE_DARK, VMAX_KMH
 from app.modules.cloning_report.utils.filesystem import FileSystemService
+from app.modules.cloning_report.utils.paths import ReportPaths
 from app.modules.cloning_report.utils.datetime import DateTimeService
 from app.modules.cloning_report.utils.geography import GeographyService
 from app.modules.cloning_report.utils.text import TextFormatter
@@ -28,6 +29,10 @@ def ensure_dir(path):
 
 def get_temp_root():
     return FileSystemService.get_base_temp_dir()
+
+
+def get_report_paths() -> ReportPaths:
+    return ReportPaths()
 
 
 def haversine_km(lat1, lon1, lat2, lon2):
@@ -66,6 +71,8 @@ __all__ = [
     "ScreenshotProgressTracker",
     "ensure_dir",
     "get_temp_root",
+    "ReportPaths",
+    "get_report_paths",
     "haversine_km",
     "to_datetime_utc",
     "strftime_safe",

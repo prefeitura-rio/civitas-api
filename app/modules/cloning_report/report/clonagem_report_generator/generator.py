@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -16,6 +17,7 @@ from app.modules.cloning_report.analytics import (
 from app.modules.cloning_report.maps import render_overall_map_png, generate_trails_map
 from app.modules.cloning_report.report import ReportPDF
 from app.modules.cloning_report.report.font_config import FontSize
+from app.modules.cloning_report.utils import ReportPaths
 
 
 # =========================================================
@@ -33,7 +35,8 @@ class ClonagemReportGenerator:
         self.report_id = report_id or self._generate_unique_report_id()
         self._initialize_parameters(df, placa, periodo_inicio, periodo_fim)
         self._initialize_attributes()
-        self._setup()
+        self._report_root_name = ReportPaths.to_directory_name(self.report_id)
+        self._is_prepared = False
 
     def _generate_unique_report_id(self):
         """Generate unique report ID"""
@@ -926,25 +929,36 @@ class ClonagemReportGenerator:
 
     # ---------- geração ----------
     def generate(self, output_path="report/relatorio_clonagem.pdf"):
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        pdf = self._create_pdf()
-        self._add_all_pages(pdf)
-        pdf.output(output_path)
-        return output_path
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if not self._is_prepared:
+            self._report_root_name = ReportPaths.to_directory_name(output_path.stem)
+
+        with ReportPaths.use_report_root(self._report_root_name):
+            self._ensure_prepared()
+            pdf = self._create_pdf()
+            self._add_all_pages(pdf)
+            pdf.output(str(output_path))
+        return str(output_path)
 
     def get_suspicious_pairs(self):
         """Get suspicious pairs data"""
-        return self.results.get("dataframe", pd.DataFrame()).to_dict("records")
+        with ReportPaths.use_report_root(self._report_root_name):
+            self._ensure_prepared()
+            return self.results.get("dataframe", pd.DataFrame()).to_dict("records")
 
     def get_analysis_summary(self):
         """Get analysis summary data"""
-        return {
-            "total_detections": getattr(self, "total_deteccoes", 0),
-            "suspicious_pairs_count": getattr(self, "num_suspeitos", 0),
-            "period_start": self.periodo_inicio.isoformat(),
-            "period_end": self.periodo_fim.isoformat(),
-            "plate": self.placa,
-        }
+        with ReportPaths.use_report_root(self._report_root_name):
+            self._ensure_prepared()
+            return {
+                "total_detections": getattr(self, "total_deteccoes", 0),
+                "suspicious_pairs_count": getattr(self, "num_suspeitos", 0),
+                "period_start": self.periodo_inicio.isoformat(),
+                "period_end": self.periodo_fim.isoformat(),
+                "plate": self.placa,
+            }
 
     def _create_pdf(self):
         pdf = ReportPDF(report_id=self.report_id)
@@ -955,6 +969,12 @@ class ClonagemReportGenerator:
     def _setup_pdf_fonts(self, pdf):
         # Use default fonts directly - no need to add them
         pass
+
+    def _ensure_prepared(self):
+        if self._is_prepared:
+            return
+        self._setup()
+        self._is_prepared = True
 
     def _add_all_pages(self, pdf):
         self._add_instructions_page(pdf)

@@ -1,12 +1,18 @@
-"""FastAPI-friendly map renderer with clean logging"""
+"""FastAPI-friendly map renderer with clean logging."""
+
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import time
-from typing import Any
-
 from collections.abc import Callable
 
-from app.modules.cloning_report.utils import get_logger, configure_logging, LogLevel
+from app.modules.cloning_report.utils import (
+    ReportPaths,
+    configure_logging,
+    get_logger,
+    LogLevel,
+)
 from app.modules.cloning_report.utils.progress import TaskProgress
 from app.modules.cloning_report.maps.generators import MapRenderer, TrailsMapGenerator
 from app.modules.cloning_report.maps.export.screenshot_clean import (
@@ -47,27 +53,29 @@ class APIMapRenderer:
         df_sus: pd.DataFrame,
         trails_tables: dict[str, Any],
         task_id: str = "map_generation",
+        report_name: str | None = None,
     ) -> dict[str, Any]:
         """Generate all maps for a cloning report with clean progress tracking"""
         self.logger.info(f"Starting map generation for {len(df_sus)} suspicious pairs")
         start_time = time.time()
 
         try:
-            # Prepare all HTML files
-            html_tasks = self._prepare_all_html(df_sus, trails_tables)
+            with ReportPaths.optional_report_context(report_name):
+                # Prepare all HTML files
+                html_tasks = self._prepare_all_html(df_sus, trails_tables)
 
-            if not html_tasks:
-                self.logger.warning("No HTML tasks generated")
-                return self._empty_result()
+                if not html_tasks:
+                    self.logger.warning("No HTML tasks generated")
+                    return self._empty_result()
 
-            # Process all screenshots in one batch
-            screenshot_tasks = [task["screenshot_task"] for task in html_tasks]
-            result = self.screenshot_processor.process_screenshots(
-                screenshot_tasks, task_id
-            )
+                # Process all screenshots in one batch
+                screenshot_tasks = [task["screenshot_task"] for task in html_tasks]
+                result = self.screenshot_processor.process_screenshots(
+                    screenshot_tasks, task_id
+                )
 
-            # Process results
-            output = self._process_results(html_tasks, result)
+                # Process results
+                output = self._process_results(html_tasks, result)
 
             total_time = time.time() - start_time
             self.logger.info(f"Map generation completed in {total_time:.2f}s")
@@ -157,14 +165,9 @@ class APIMapRenderer:
     def _get_safe_day(self, day: str) -> str:
         return pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
 
-    def _get_daily_paths(self, safe_day: str):
-        from app.modules.cloning_report.utils import ensure_dir
-
-        tmp_path = ensure_dir("temp_files") / f"api_daily_{safe_day}.html"
-        out_path = (
-            ensure_dir("app/assets/cloning_report/figs")
-            / f"mapa_clonagem_{safe_day}.png"
-        )
+    def _get_daily_paths(self, safe_day: str) -> tuple[Path, Path]:
+        tmp_path = ReportPaths.temp_html_path(f"api_daily_{safe_day}.html")
+        out_path = ReportPaths.figure_path(f"mapa_clonagem_{safe_day}.png")
         return tmp_path, out_path
 
     def _save_daily_html(self, html_str: str, tmp_path):
@@ -172,8 +175,12 @@ class APIMapRenderer:
             f.write(html_str)
 
     def _add_daily_task(
-        self, day: str, tmp_path, out_path, daily_tasks: list[dict[str, Any]]
-    ):
+        self,
+        day: str,
+        tmp_path: Path,
+        out_path: Path,
+        daily_tasks: list[dict[str, Any]],
+    ) -> None:
         daily_tasks.append(
             {
                 "type": "daily",
@@ -192,13 +199,9 @@ class APIMapRenderer:
         self._save_overall_html(html, tmp_path)
         return self._create_overall_task(tmp_path, out_path)
 
-    def _get_overall_paths(self):
-        from app.modules.cloning_report.utils import ensure_dir
-
-        tmp_path = ensure_dir("temp_files") / "api_overall.html"
-        out_path = (
-            ensure_dir("app/assets/cloning_report/figs") / "mapa_clonagem_overall.png"
-        )
+    def _get_overall_paths(self) -> tuple[Path, Path]:
+        tmp_path = ReportPaths.temp_html_path("api_overall.html")
+        out_path = ReportPaths.figure_path("mapa_clonagem_overall.png")
         return tmp_path, out_path
 
     def _generate_overall_html(self, df_sus: pd.DataFrame) -> str:
@@ -285,14 +288,9 @@ class APIMapRenderer:
     def _get_trail_safe_day(self, day: str) -> str:
         return pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
 
-    def _get_trail_paths(self, safe_day: str, car_key: str):
-        from app.modules.cloning_report.utils import ensure_dir
-
-        tmp_path = ensure_dir("temp_files") / f"api_trail_{safe_day}_{car_key}.html"
-        out_path = (
-            ensure_dir("app/assets/cloning_report/figs")
-            / f"trilha_{safe_day}_{car_key}.png"
-        )
+    def _get_trail_paths(self, safe_day: str, car_key: str) -> tuple[Path, Path]:
+        tmp_path = ReportPaths.temp_html_path(f"api_trail_{safe_day}_{car_key}.html")
+        out_path = ReportPaths.figure_path(f"trilha_{safe_day}_{car_key}.png")
         return tmp_path, out_path
 
     def _write_trail_html(self, trail_html: str, tmp_path):

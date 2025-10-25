@@ -4,7 +4,7 @@ import multiprocessing
 import pandas as pd
 from pathlib import Path
 
-from app.modules.cloning_report.utils import VMAX_KMH, ensure_dir
+from app.modules.cloning_report.utils import ReportPaths, VMAX_KMH
 from app.modules.cloning_report.maps.generators.map_generator import MapGenerator
 from app.modules.cloning_report.maps.export.screenshot import (
     take_html_screenshot,
@@ -31,8 +31,8 @@ class MapRenderer:
         if df_sus is None or df_sus.empty:
             return None
 
-        tmp = ensure_dir("temp_files") / "mapa_clonagem_overall.html"
-        out = ensure_dir("app/assets/cloning_report/figs") / "mapa_clonagem_overall.png"
+        tmp = ReportPaths.temp_html_path("mapa_clonagem_overall.html")
+        out = ReportPaths.figure_path("mapa_clonagem_overall.png")
 
         html = self.map_generator.generate_map_clonagem(df_sus, base_only=True)
 
@@ -63,11 +63,8 @@ class MapRenderer:
         for day, day_data in daily_data:
             html_str = self.map_generator.generate_map_clonagem(day_data)
             safe_day = pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
-            tmp = ensure_dir("temp_files") / f"mapa_clonagem_{safe_day}.html"
-            out = (
-                ensure_dir("app/assets/cloning_report/figs")
-                / f"mapa_clonagem_{safe_day}.png"
-            )
+            tmp = ReportPaths.temp_html_path(f"mapa_clonagem_{safe_day}.html")
+            out = ReportPaths.figure_path(f"mapa_clonagem_{safe_day}.png")
 
             result = self._save_html_to_png(html_str, tmp, out)
             if result:
@@ -85,11 +82,8 @@ class MapRenderer:
             html_str = self.map_generator.generate_map_clonagem(day_data)
             safe_day = pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
 
-            tmp_path = ensure_dir("temp_files") / f"mapa_clonagem_{safe_day}.html"
-            out_path = (
-                ensure_dir("app/assets/cloning_report/figs")
-                / f"mapa_clonagem_{safe_day}.png"
-            )
+            tmp_path = ReportPaths.temp_html_path(f"mapa_clonagem_{safe_day}.html")
+            out_path = ReportPaths.figure_path(f"mapa_clonagem_{safe_day}.png")
 
             with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(html_str)
