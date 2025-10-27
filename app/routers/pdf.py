@@ -21,6 +21,12 @@ from app.services.pdf.multiple_correlated_plates import (
     GraphService,
     PdfService,
 )
+from app.modules.cloning_report.utils import (
+    create_report_temp_dir,
+    generate_report_bundle_stream,
+    prepare_map_html,
+    resolve_pdf_path,
+)
 from app.utils import generate_report_id
 
 from loguru import logger
@@ -158,11 +164,14 @@ async def generate_cloning_report(
     data: PdfReportCloningIn,
 ) -> StreamingResponse:
     """
-    Generate cloning detection report as PDF using async BigQuery service
+    Generate cloning detection report bundle (PDF + HTML) using async BigQuery service
 
     This endpoint generates a comprehensive cloning detection report for a specific
     vehicle plate within a given time period. The report is generated asynchronously
-    using the global BigQuery client and returned as a streaming PDF response.
+    using the global BigQuery client and returned as a streaming ZIP response
+    containing both the PDF document and the interactive HTML map. All artifacts are
+    produced inside the operating system's temporary directory and removed after
+    streaming.
 
     Requires authentication via the is_user dependency.
 
@@ -172,7 +181,7 @@ async def generate_cloning_report(
         data: Cloning report parameters including plate, date range, and output directory
 
     Returns:
-        StreamingResponse: PDF report as streaming response
+        StreamingResponse: ZIP archive with report PDF and HTML map
 
     Raises:
         HTTPException: If report generation fails or BigQuery connection issues
@@ -193,48 +202,35 @@ async def generate_cloning_report(
         service = get_async_cloning_service()
 
         try:
+            temp_output_dir = create_report_temp_dir(report_id)
+            logger.debug(
+                f"Using temporary directory for cloning report artifacts: {temp_output_dir}"
+            )
+
             # Generate cloning report asynchronously
             report = await service.execute(
                 plate=data.plate,
                 date_start=data.date_start,
                 date_end=data.date_end,
-                output_dir=data.output_dir,
+                output_dir=str(temp_output_dir),
                 report_id=report_id,
             )
 
             logger.info(f"Cloning report generated successfully: {report.report_path}")
 
-            # Read the generated PDF file
-            def generate_pdf_stream():
-                """Generator function to stream PDF content"""
-                try:
-                    with open(report.report_path, "rb") as pdf_file:
-                        while True:
-                            chunk = pdf_file.read(8192)  # Read in 8KB chunks
-                            if not chunk:
-                                break
-                            yield chunk
-                except FileNotFoundError:
-                    logger.error(f"PDF file not found: {report.report_path}")
-                    raise HTTPException(
-                        status_code=500, detail="Generated PDF file not found"
-                    )
-                except Exception as e:
-                    logger.error(f"Error reading PDF file: {str(e)}")
-                    raise HTTPException(
-                        status_code=500, detail="Error reading generated PDF"
-                    )
+            pdf_path = resolve_pdf_path(report.report_path)
+            html_path = prepare_map_html(report_id)
 
-            # Create streaming response
             response = StreamingResponse(
-                generate_pdf_stream(),
-                media_type="application/pdf",
+                generate_report_bundle_stream(pdf_path, html_path),
+                media_type="application/zip",
                 headers={
-                    "Content-Disposition": f"attachment; filename=cloning_report_{data.plate}_{report_id}.pdf",
+                    "Content-Disposition": f"attachment; filename=cloning_report_{data.plate}_{report_id}.zip",
                     "X-Report-ID": report_id,
                     "X-Plate": data.plate,
                     "X-Total-Detections": str(report.total_detections),
                     "X-Suspicious-Pairs": str(len(report.suspicious_pairs)),
+                    "X-Map-Included": "true" if html_path else "false",
                 },
             )
 
@@ -242,9 +238,6 @@ async def generate_cloning_report(
             logger.info(
                 f"Cloning report streaming started for plate {data.plate} (Report ID: {report_id})"
             )
-
-            # Clean up old PDFs in background (non-blocking)
-            asyncio.create_task(_cleanup_old_pdfs_async())
 
             return response
 
@@ -266,21 +259,6 @@ async def generate_cloning_report(
         raise HTTPException(
             status_code=500, detail=f"Failed to generate cloning report: {str(e)}"
         )
-
-
-async def _cleanup_old_pdfs_async():
-    """Clean up old PDFs asynchronously (non-blocking)"""
-    try:
-        from app.modules.cloning_report.utils.pdf_cleanup import get_cleanup_service
-
-        service = get_cleanup_service()
-        deleted_count = service.cleanup_old_pdfs()
-
-        if deleted_count > 0:
-            logger.info(f"Background cleanup: Deleted {deleted_count} old PDFs")
-
-    except Exception as e:
-        logger.error(f"Background cleanup failed: {str(e)}")
 
 
 @router_request(method="POST", router=router, path="/correlated-plates")
