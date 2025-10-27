@@ -19,6 +19,12 @@ from app.modules.cloning_report.utils.progress import (
     ProgressTracker,
     ScreenshotProgressTracker,
 )
+from app.modules.cloning_report.utils.archive import (
+    create_report_temp_dir,
+    resolve_pdf_path,
+    prepare_map_html,
+    generate_report_bundle_stream,
+)
 
 
 # Backward compatibility - expose the original function names
@@ -60,6 +66,10 @@ __all__ = [
     "LogLevel",
     "ProgressTracker",
     "ScreenshotProgressTracker",
+    "create_report_temp_dir",
+    "resolve_pdf_path",
+    "prepare_map_html",
+    "generate_report_bundle_stream",
     "ensure_dir",
     "haversine_km",
     "to_datetime_utc",
