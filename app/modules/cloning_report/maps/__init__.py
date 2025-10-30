@@ -43,10 +43,10 @@ def generate_trails_map(df_sus, day, trails_tables_day, width=1200, height=800):
     return generator.generate_trails_map(df_sus, day, trails_tables_day)
 
 
-def process_all_maps_batch(df_sus, trails_tables):
+def process_all_maps_batch(df_sus, trails_tables, report_name=None):
     """🚀 NEW: Process ALL maps (daily, overall, trails) in one parallel batch - MAXIMUM PERFORMANCE"""
     processor = UnifiedMapBatchProcessor()
-    return processor.process_all_maps(df_sus, trails_tables)
+    return processor.process_all_maps(df_sus, trails_tables, report_name=report_name)
 
 
 __all__ = [

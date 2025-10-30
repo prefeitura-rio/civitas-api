@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Request, HTTPException
@@ -144,6 +144,7 @@ class PdfReportCloningIn(BaseModel):
     date_start: datetime
     date_end: datetime
     output_dir: str
+    renderer: Literal["fpdf", "weasy"] = "fpdf"
     # project_id: Optional[str] = None
     # credentials_path: Optional[str] = None
 
@@ -213,6 +214,7 @@ async def generate_cloning_report(
                 data=data,
                 report_id=report_id,
                 output_dir=temp_output_dir,
+                renderer=data.renderer,
             )
             return _build_cloning_report_response(
                 report=report, report_id=report_id, plate=data.plate
@@ -235,6 +237,7 @@ async def _execute_cloning_report(
     data: PdfReportCloningIn,
     report_id: str,
     output_dir: Path,
+    renderer: str,
 ):
     """Run the core cloning report generation workflow."""
     try:
@@ -244,6 +247,7 @@ async def _execute_cloning_report(
             date_end=data.date_end,
             output_dir=str(output_dir),
             report_id=report_id,
+            renderer=renderer,
         )
         logger.info(f"Cloning report generated successfully: {report.report_path}")
         return report

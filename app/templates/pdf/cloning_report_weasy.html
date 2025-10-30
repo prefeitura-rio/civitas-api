@@ -1,0 +1,328 @@
+{% extends "pdf/template_base.html" %}
+
+{% block extra_styles %}
+<style>
+    .section {
+        margin-bottom: 18px;
+    }
+
+    .section h2 {
+        margin-bottom: 6px;
+        font-size: 18px;
+        color: #000;
+    }
+
+    .section h3 {
+        margin-top: 10px;
+        margin-bottom: 4px;
+        font-size: 14px;
+    }
+
+    .metadata-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+
+    .metadata-table td {
+        border: 1px solid #333;
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+
+    .kpi-grid {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+    }
+
+    .kpi-card {
+        flex: 1 1 30%;
+        border: 1px solid #333;
+        border-radius: 6px;
+        background-color: #f7f7f7;
+        padding: 12px;
+        text-align: center;
+    }
+
+    .kpi-card h3 {
+        margin: 0;
+        font-size: 13px;
+        text-transform: uppercase;
+    }
+
+    .kpi-card .kpi-value {
+        margin-top: 8px;
+        font-size: 20px;
+        font-weight: bold;
+        color: #000;
+    }
+
+    .figure {
+        text-align: center;
+        margin: 16px 0;
+    }
+
+    .figure img {
+        max-width: 100%;
+        border: 1px solid #ccc;
+    }
+
+    .daily-section {
+        margin-top: 12px;
+    }
+
+    .daily-section h3 {
+        font-size: 16px;
+        margin-bottom: 8px;
+    }
+
+    .track-section {
+        margin-top: 16px;
+    }
+
+    .track-section h4 {
+        font-size: 14px;
+        margin-bottom: 6px;
+    }
+
+    .no-data {
+        font-style: italic;
+        color: #555;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="section">
+    <h2>Relatório de Suspeita de Clonagem de Placa</h2>
+    <p><strong>Placa monitorada:</strong> {{ plate }}</p>
+    <p><strong>Período analisado:</strong> {{ analysis_period_text }}</p>
+</div>
+
+<div class="section">
+    <h2>1. Objetivo</h2>
+    <p>Este relatório tem como objetivo identificar e analisar indícios de possível clonagem de placas de veículos a partir dos registros de passagem capturados pelos radares da cidade. O foco está na detecção de pares suspeitos, isto é, situações em que a mesma placa é registrada em pontos distintos em um intervalo de tempo que tornaria inviável um deslocamento compatível com a realidade urbana.</p>
+    <p>Quando os dados atendem aos critérios mínimos necessários, busca-se também reconstruir possíveis trilhas de movimentação dos dois veículos distintos (denominados Veículo 1 e Veículo 2). São fornecidas visualizações dos pontos de detecção atribuíveis a cada um, dos dias em que ocorreram as ocorrências suspeitas e da localização exata de cada registro.</p>
+    <p>O objetivo final é sinalizar visual e analiticamente a suspeita de clonagem, apoiando a identificação de veículos potencialmente clonados e subsidiando investigações complementares.</p>
+</div>
+
+<div class="section">
+    <h2>2. Metodologia</h2>
+    <h3>2.1 Dados utilizados</h3>
+    <p>Utilizamos o histórico de registros de radares da cidade, incluindo informações de data, hora, localização geográfica e identificação do equipamento.</p>
+    <h3>2.2 Critérios de análise</h3>
+    <ul>
+        <li>Identificação de pares de detecções consecutivas em pontos distintos cuja velocidade implícita torna o deslocamento inviável.</li>
+        <li>Aplicação de métodos de separação temporal e espacial quando há elementos suficientes para reconstruir dois trajetos distintos.</li>
+        <li>Verificação de recorrência das ocorrências suspeitas por dia e por região.</li>
+    </ul>
+    <h3>2.3 Reconstrução de pares suspeitos</h3>
+    <p>Para cada par de clonagem, um registro é considerado plausível para o veículo original, enquanto o outro indica a possível clonagem. As velocidades médias implícitas são calculadas para reforçar a análise.</p>
+    <h3>2.4 Mapa geral e mapas diários</h3>
+    <p>Quando as condições são atendidas, produzimos:</p>
+    <ul>
+        <li>Mapa geral com todas as ocorrências suspeitas do período.</li>
+        <li>Mapas diários com distribuição espacial das detecções.</li>
+        <li>Tabelas com detalhes de cada registro suspeito.</li>
+    </ul>
+</div>
+
+<div class="section">
+    <h2>3. Estrutura do relatório</h2>
+    <p>O relatório está organizado da seguinte forma:</p>
+    <ul>
+        <li><strong>Parâmetros da análise:</strong> informações de referência da placa analisada e período considerado.</li>
+        <li><strong>Quadro resumo:</strong> principais indicadores sobre o volume de dados e a quantidade de registros suspeitos.</li>
+        <li><strong>Introdução:</strong> orientações para leitura e interpretação dos elementos do relatório.</li>
+        <li><strong>Mapa e tabela geral:</strong> visão consolidada das ocorrências suspeitas ao longo do período.</li>
+        <li><strong>Mapas e tabelas diárias:</strong> detalhamento dia a dia dos registros suspeitos, com trilhas quando aplicável.</li>
+    </ul>
+</div>
+
+<div class="section">
+    <h2>4. Limitações da análise</h2>
+    <ul>
+        <li>A ausência de detecção não implica ausência de passagem; fatores como falhas de OCR, obstruções ou manutenção podem impactar a leitura.</li>
+        <li>Falhas de OCR podem causar confusão entre caracteres semelhantes, como “O/0” ou “B/8”.</li>
+        <li>Diferenças de sincronização de relógio entre equipamentos podem introduzir pequenos desvios.</li>
+        <li>As distâncias consideram trajetos em linha reta, não correspondendo necessariamente ao percurso real.</li>
+        <li>Os parâmetros fixos de velocidade não contemplam situações excepcionais, como deslocamentos de emergência.</li>
+        <li>A qualidade e integridade dos dados dependem do funcionamento dos radares e podem variar conforme condições técnicas ou climáticas.</li>
+        <li>O histórico disponível inicia em 01/06/2024.</li>
+    </ul>
+</div>
+
+<div class="page-break"></div>
+
+<div class="section">
+    <h2>Parâmetros de Busca</h2>
+    <table class="metadata-table">
+        <tbody>
+            {% for row in metadata_rows %}
+            <tr>
+                <td style="width: 35%;"><strong>{{ row.label }}</strong></td>
+                <td>{{ row.value }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="section">
+    <h2>Quadro Resumo</h2>
+    <div class="kpi-grid">
+        {% for kpi in kpi_cards %}
+        <div class="kpi-card">
+            <h3>{{ kpi.title }}</h3>
+            <div class="kpi-value">{{ kpi.value }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="page-break"></div>
+
+<div class="section">
+    <h2>Introdução: como ler este relatório</h2>
+    <p>Esta seção orienta a interpretação das informações apresentadas. O relatório não comprova a existência de clonagem de placa: ele reúne indícios e suspeitas baseados em padrões de deslocamento considerados improváveis para um único veículo.</p>
+
+    <h3>Linhas tracejadas conectando pontos nos mapas</h3>
+    <ul>
+        <li>Representam pares de detecções consecutivas que sugerem deslocamento improvável.</li>
+        <li>Indicam velocidades médias que superam limites plausíveis em áreas urbanas.</li>
+        <li>Funcionam como sinalizadores de inconsistências.</li>
+    </ul>
+
+    <h3>Interpretação das cores nos mapas</h3>
+    <p><strong>Cinza</strong>: pares suspeitos em que não foi possível separar os registros em duas trilhas distintas.</p>
+    <p><strong>Azul claro</strong> e <strong>azul escuro</strong>: trilhas consistentes atribuídas a dois veículos distintos.</p>
+
+    <h3>O que são as trilhas?</h3>
+    <p>A trilha é a sequência ordenada de detecções atribuídas a um mesmo veículo hipotético, representando um percurso plausível.</p>
+    <p><strong>Critérios aplicados:</strong></p>
+    <ul>
+        <li>Ordenação temporal dos registros.</li>
+        <li>Coerência espacial entre pontos consecutivos.</li>
+        <li>Velocidades plausíveis para a mobilidade urbana.</li>
+    </ul>
+
+    <h3>Conclusão</h3>
+    <p>Os elementos apresentados devem ser interpretados como apoio à tomada de decisão, sempre combinados com outras fontes de informação.</p>
+</div>
+
+<div class="page-break"></div>
+
+<div class="section">
+    <h2>1. Análise de Possíveis Sinais de Clonagem</h2>
+    {% if has_suspicious_records %}
+        <h3>1.1 Mapa geral do período</h3>
+        <div class="figure">
+            {% if general_map_path %}
+                <img src="{{ general_map_path }}" alt="Mapa geral de detecções suspeitas">
+            {% else %}
+                <p class="no-data">Mapa indisponível para o período informado.</p>
+            {% endif %}
+        </div>
+
+        <h3>1.2 Tabela geral de detecções suspeitas</h3>
+        <table class="report-table">
+            <thead>
+                <tr>
+                    {% for header in general_table.headers %}
+                    <th>{{ header }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in general_table.rows %}
+                <tr>
+                    {% for cell in row %}
+                    <td>{{ cell }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="no-data">Não foram identificados registros suspeitos no período informado. Caso existam poucos registros, considere ampliar o intervalo da análise.</p>
+    {% endif %}
+</div>
+
+{% if daily_sections %}
+    <div class="page-break"></div>
+    <div class="section">
+        <h2>2. Registros e Mapas Diários</h2>
+    </div>
+    {% for day in daily_sections %}
+        <div class="daily-section{% if not loop.first %} page-break{% endif %}">
+            <h3>Mapa do dia de registros suspeitos - {{ day.date }}</h3>
+            <div class="figure">
+                {% if day.map_path %}
+                    <img src="{{ day.map_path }}" alt="Mapa diário {{ day.date }}">
+                {% else %}
+                    <p class="no-data">Mapa indisponível para este dia.</p>
+                {% endif %}
+            </div>
+
+            {% if day.has_table %}
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            {% for header in day.table.headers %}
+                            <th>{{ header }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in day.table.rows %}
+                        <tr>
+                            {% for cell in row %}
+                            <td>{{ cell }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="no-data">Sem registros suspeitos para tabular neste dia.</p>
+            {% endif %}
+
+            {% for track in day.tracks %}
+                <div class="track-section">
+                    <h4>{{ track.title }}</h4>
+                    {% if track.map_path %}
+                        <div class="figure">
+                            <img src="{{ track.map_path }}" alt="{{ track.title }}">
+                        </div>
+                    {% endif %}
+
+                    {% if track.table.rows %}
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    {% for header in track.table.headers %}
+                                    <th>{{ header }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in track.table.rows %}
+                                <tr>
+                                    {% for cell in row %}
+                                    <td>{{ cell }}</td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p class="no-data">Sem registros para esta trilha.</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
+{% endif %}
+{% endblock %}

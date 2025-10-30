@@ -6,7 +6,10 @@ import pandas as pd
 from app.modules.cloning_report.container import Container, get_container
 
 from app.modules.cloning_report.domain.entities import CloningReport
-from app.modules.cloning_report.report import ClonagemReportGenerator
+from app.modules.cloning_report.report import (
+    ClonagemReportGenerator,
+    ClonagemReportWeasyGenerator,
+)
 from app.modules.cloning_report.repositories import (
     DetectionRepositoryFactory,
     DetectionMapper,
@@ -28,6 +31,7 @@ class CloningReportService:
         container: Container = get_container(),
         project_id: str | None = None,
         credentials_path: str | None = None,
+        renderer: str = "fpdf",
     ) -> CloningReport:
         """Execute cloning detection with flexible data source selection"""
         logger.info(f"Executing cloning detection for plate {plate}")
@@ -48,7 +52,8 @@ class CloningReportService:
             periodo_fim = pd.Timestamp(date_end, tz="UTC")
         else:
             periodo_fim = pd.Timestamp(date_end).tz_convert("UTC")
-        generator = ClonagemReportGenerator(df, plate, periodo_inicio, periodo_fim)
+        generator_cls = CloningReportService._resolve_generator(renderer)
+        generator = generator_cls(df, plate, periodo_inicio, periodo_fim)
         report_path = CloningReportService._generate_report(
             generator, plate, output_dir
         )
@@ -76,6 +81,15 @@ class CloningReportService:
     ) -> str:
         """Generate PDF report and return path"""
         return generator.generate(f"{output_dir}/{plate}.pdf")
+
+    @staticmethod
+    def _resolve_generator(renderer: str):
+        """Select report generator implementation"""
+        mapping = {
+            "fpdf": ClonagemReportGenerator,
+            "weasy": ClonagemReportWeasyGenerator,
+        }
+        return mapping.get((renderer or "fpdf").lower(), ClonagemReportGenerator)
 
     @staticmethod
     def _create_report_entity(

@@ -12,7 +12,10 @@ from app.modules.cloning_report.repositories.async_bigquery_detection_repository
 from app.modules.cloning_report.repositories.detection_repository import DetectionMapper
 
 from app.modules.cloning_report.domain.entities import CloningReport
-from app.modules.cloning_report.report import ClonagemReportGenerator
+from app.modules.cloning_report.report import (
+    ClonagemReportGenerator,
+    ClonagemReportWeasyGenerator,
+)
 from app.modules.cloning_report.utils import get_logger
 
 logger = get_logger()
@@ -50,6 +53,7 @@ class AsyncCloningReportService:
         project_id: str | None = None,
         credentials_path: str | None = None,
         report_id: str | None = None,
+        renderer: str = "fpdf",
     ) -> CloningReport:
         """
         Execute cloning detection asynchronously with flexible data source selection
@@ -87,9 +91,8 @@ class AsyncCloningReportService:
                 periodo_fim = pd.Timestamp(date_end, tz="UTC")
             else:
                 periodo_fim = pd.Timestamp(date_end).tz_convert("UTC")
-            generator = ClonagemReportGenerator(
-                df, plate, periodo_inicio, periodo_fim, report_id
-            )
+            generator_cls = self._resolve_generator(renderer)
+            generator = generator_cls(df, plate, periodo_inicio, periodo_fim, report_id)
             report_path = self._generate_report_sync(generator, plate, output_dir)
 
             return self._create_report_entity(
@@ -126,6 +129,14 @@ class AsyncCloningReportService:
         except Exception:
             logger.exception("Report generation failed")
             raise
+
+    def _resolve_generator(self, renderer: str):
+        """Select report generator implementation"""
+        mapping = {
+            "fpdf": ClonagemReportGenerator,
+            "weasy": ClonagemReportWeasyGenerator,
+        }
+        return mapping.get((renderer or "fpdf").lower(), ClonagemReportGenerator)
 
     def _create_report_entity(
         self,

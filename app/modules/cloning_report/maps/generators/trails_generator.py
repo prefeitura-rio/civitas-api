@@ -3,15 +3,11 @@
 import folium
 import pandas as pd
 import numpy as np
-import os
 from folium.plugins import BeautifyIcon
 
 from app.modules.cloning_report.clustering.graph_builder import GraphBuilder
 
-from app.modules.cloning_report.utils import BLUE_LIGHT, BLUE_DARK
-
-# from ...clustering import graph_from_pairs_day
-from app.modules.cloning_report.utils import ensure_dir
+from app.modules.cloning_report.utils import BLUE_LIGHT, BLUE_DARK, ReportPaths
 from app.modules.cloning_report.maps.utils.formatting import format_timestamp
 from app.modules.cloning_report.maps.export.screenshot import take_html_screenshot
 
@@ -237,22 +233,13 @@ class TrailsMapGenerator:
     def _save_map(self, m: folium.Map, day: str, car_key: str) -> str | None:
         """Salva mapa como PNG"""
         safe_day = pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
-        tmp_html = ensure_dir("temp_files") / f"trilha_{safe_day}_{car_key}.html"
-        out_png = (
-            ensure_dir("app/assets/cloning_report/figs")
-            / f"trilha_{safe_day}_{car_key}.png"
-        )
+        tmp_html = ReportPaths.temp_html_path(f"trilha_{safe_day}_{car_key}.html")
+        out_png = ReportPaths.figure_path(f"trilha_{safe_day}_{car_key}.png")
 
         with open(tmp_html, "w", encoding="utf-8") as f:
             f.write(m.get_root().render())
 
-        try:
-            take_html_screenshot(
-                str(tmp_html), str(out_png), width=self.width, height=self.height
-            )
-            return str(out_png)
-        finally:
-            try:
-                os.remove(tmp_html)
-            except Exception:
-                pass
+        take_html_screenshot(
+            str(tmp_html), str(out_png), width=self.width, height=self.height
+        )
+        return str(out_png)

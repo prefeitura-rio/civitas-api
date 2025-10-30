@@ -10,6 +10,9 @@ from app.modules.cloning_report.report.style_manager import StyleManager
 from app.modules.cloning_report.report.clonagem_report_generator import (
     ClonagemReportGenerator,
 )
+from app.modules.cloning_report.report.weasy_generator import (
+    ClonagemReportWeasyGenerator,
+)
 
 __all__ = [
     "ReportPDF",
@@ -20,4 +23,5 @@ __all__ = [
     "DataFormatter",
     "StyleManager",
     "ClonagemReportGenerator",
+    "ClonagemReportWeasyGenerator",
 ]

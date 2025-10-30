@@ -6,7 +6,7 @@ Single responsibility: Generate maps and visualizations
 
 import pandas as pd
 from pathlib import Path
-from app.modules.cloning_report.utils import ensure_dir
+from app.modules.cloning_report.utils import ReportPaths
 
 
 class MapGenerator:
@@ -27,8 +27,7 @@ class MapGenerator:
     @staticmethod
     def _prepare_html_path() -> Path:
         """Prepare HTML output path"""
-        html_dir = ensure_dir("app/assets/cloning_report/htmls")
-        return html_dir / "mapa_clonagem.html"
+        return ReportPaths.detection_path("mapa_clonagem.html")
 
     @staticmethod
     def _create_map_content(
