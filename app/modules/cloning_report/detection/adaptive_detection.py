@@ -21,8 +21,8 @@ class AdaptiveDetector:
     """Intelligently chooses between sequential and parallel detection"""
 
     # Performance thresholds for switching to parallel processing
-    MIN_RECORDS_FOR_PARALLEL = 5000  # Minimum records to consider parallel
-    COMPLEXITY_THRESHOLD = 1000000  # Records² threshold for complex datasets
+    MIN_RECORDS_FOR_PARALLEL = 1000  # Minimum records to consider parallel
+    COMPLEXITY_THRESHOLD = 250000  # Records² threshold for complex datasets
     CHUNK_OVERHEAD_FACTOR = 0.8  # Process startup overhead factor
 
     def __init__(self, max_workers: int | None = None):
@@ -106,8 +106,12 @@ class AdaptiveDetector:
         if num_records < 100:
             return "sequential"
 
-        # Use parallel for very large datasets
+        # Use parallel for larger datasets
         if num_records >= self.MIN_RECORDS_FOR_PARALLEL:
+            return "parallel"
+
+        # Prefer parallel for medium-sized datasets when multiple workers are available
+        if num_records >= 500 and self.max_workers > 1:
             return "parallel"
 
         # For medium datasets, use complexity score

@@ -93,7 +93,9 @@ class AsyncCloningReportService:
                 periodo_fim = pd.Timestamp(date_end).tz_convert("UTC")
             generator_cls = self._resolve_generator(renderer)
             generator = generator_cls(df, plate, periodo_inicio, periodo_fim, report_id)
-            report_path = self._generate_report_sync(generator, plate, output_dir)
+            report_path = await self._generate_report_async(
+                generator, plate, output_dir
+            )
 
             return self._create_report_entity(
                 generator, plate, date_start, date_end, report_path

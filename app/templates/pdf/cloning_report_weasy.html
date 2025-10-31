@@ -1,328 +1,244 @@
 {% extends "pdf/template_base.html" %}
 
-{% block extra_styles %}
-<style>
-    .section {
-        margin-bottom: 18px;
-    }
-
-    .section h2 {
-        margin-bottom: 6px;
-        font-size: 18px;
-        color: #000;
-    }
-
-    .section h3 {
-        margin-top: 10px;
-        margin-bottom: 4px;
-        font-size: 14px;
-    }
-
-    .metadata-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-    }
-
-    .metadata-table td {
-        border: 1px solid #333;
-        padding: 6px 10px;
-        font-size: 12px;
-    }
-
-    .kpi-grid {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-top: 12px;
-    }
-
-    .kpi-card {
-        flex: 1 1 30%;
-        border: 1px solid #333;
-        border-radius: 6px;
-        background-color: #f7f7f7;
-        padding: 12px;
-        text-align: center;
-    }
-
-    .kpi-card h3 {
-        margin: 0;
-        font-size: 13px;
-        text-transform: uppercase;
-    }
-
-    .kpi-card .kpi-value {
-        margin-top: 8px;
-        font-size: 20px;
-        font-weight: bold;
-        color: #000;
-    }
-
-    .figure {
-        text-align: center;
-        margin: 16px 0;
-    }
-
-    .figure img {
-        max-width: 100%;
-        border: 1px solid #ccc;
-    }
-
-    .daily-section {
-        margin-top: 12px;
-    }
-
-    .daily-section h3 {
-        font-size: 16px;
-        margin-bottom: 8px;
-    }
-
-    .track-section {
-        margin-top: 16px;
-    }
-
-    .track-section h4 {
-        font-size: 14px;
-        margin-bottom: 6px;
-    }
-
-    .no-data {
-        font-style: italic;
-        color: #555;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="section">
-    <h2>Relatório de Suspeita de Clonagem de Placa</h2>
-    <p><strong>Placa monitorada:</strong> {{ plate }}</p>
-    <p><strong>Período analisado:</strong> {{ analysis_period_text }}</p>
+
+<div class="disclaimer">
+    <div class="estrutura-relatorio">
+        <h3><b>Estrutura do Relatório</b></h3>
+        <p>Este relatório tem como objetivo identificar e analisar indícios de possível clonagem de placas de veículos a
+            partir
+            dos registros de passagem capturados pelos radares da cidade. O foco está na detecção de pares suspeitos, ou
+            seja,
+            situações em que a mesma placa é registrada em pontos distintos em um intervalo de tempo que tornaria
+            inviável um
+            deslocamento compatível com a realidade urbana.</p>
+        <p>Quando os dados atendem aos critérios mínimos necessários, busca-se também reconstruir possíveis trilhas de
+            movimentação dos dois veículos distintos (denominados Veículo 1 e Veículo 2), fornecendo uma visualização
+            dos
+            pontos de detecção possivelmente atribuíveis a cada um, dos dias em que ocorreram as ocorrências suspeitas e
+            da
+            localização exata de cada registro.</p>
+        <p>O objetivo final é sinalizar visual e analiticamente a suspeita de clonagem, de forma a apoiar a
+            identificação de
+            veículos potencialmente clonados e subsidiar análises ou investigações complementares.</p>
+    </div>
+
+    <div class="limitacoes-relatorio">
+        <h3 style="margin-bottom: -10px;"><b>Limitações do Relatório</b></h3>
+        <ol>
+            <li><b>Período de disponibilidade dos dados</b>
+                <p>Os dados de detecções estão disponíveis desde a data <b>01/06/2024</b> em diante. Não é possível
+                    consultar períodos anteriores.</p>
+            </li>
+
+            <li><b>Ausência de detecção</b>
+                <p>A ausência de registro <b>não implica necessariamente</b> que o veículo não tenha passado pelo local.
+                    A leitura por OCR pode falhar devido a fatores como:</p>
+                <ul style="margin-top: 0px;">
+                    <li style="margin-bottom: -10px;">Placas danificadas ou sujas;</li>
+                    <li style="margin-bottom: -10px;">Obstruções visuais na câmera;</li>
+                    <li style="margin-bottom: -10px;">Condições climáticas adversas;</li>
+                    <li style="margin-bottom: -10px;">Período de inatividade do equipamento;</li>
+                    <li>Falhas técnicas.</li>
+                </ul>
+                <p>Quando um radar não possui informações completas de localização (rua, faixa e sentido), as passagens
+                    registradas ficam ocultas do relatório. isso pode ocorrer porque a base de referência que relaciona
+                    cada radar ao seu código oficial ainda não está totalmente atualizada. Até que a atualização seja
+                    concluída, parte das leituras não poderá ser exibida corretamente e, portanto, é temporariamente
+                    desconsiderada. Essa medida é necessária para garantir a consistência da análise de correlação, que
+                    depende da correspondência de localização completa do equipamento.</p>
+                <p>Isto significa que os dados apresentados neste relatório <b>não são exaustivos</b> e a ausência de
+                    uma placa não é determinante para comprovar que não houve a passagem naquela localidade.</p>
+            </li>
+
+            <li><b>Distância entre radares</b>
+                <p>O relatório não indica trajetos percorridos entre as detecções.</p>
+            </li>
+        </ol>
+    </div>
 </div>
 
-<div class="section">
-    <h2>1. Objetivo</h2>
-    <p>Este relatório tem como objetivo identificar e analisar indícios de possível clonagem de placas de veículos a partir dos registros de passagem capturados pelos radares da cidade. O foco está na detecção de pares suspeitos, isto é, situações em que a mesma placa é registrada em pontos distintos em um intervalo de tempo que tornaria inviável um deslocamento compatível com a realidade urbana.</p>
-    <p>Quando os dados atendem aos critérios mínimos necessários, busca-se também reconstruir possíveis trilhas de movimentação dos dois veículos distintos (denominados Veículo 1 e Veículo 2). São fornecidas visualizações dos pontos de detecção atribuíveis a cada um, dos dias em que ocorreram as ocorrências suspeitas e da localização exata de cada registro.</p>
-    <p>O objetivo final é sinalizar visual e analiticamente a suspeita de clonagem, apoiando a identificação de veículos potencialmente clonados e subsidiando investigações complementares.</p>
+<div class="parametros-gerais page-break">
+    <h3><b>Parâmetros Gerais</b></h3>
+
+    <div class="parametros-gerais-text" style="padding-left: 20px; margin-bottom: 20px;">
+        <p><b>Placa monitorada:</b> {{ plate }}</p>
+        <p><b>Intervalo de tempo:</b> {{ time_interval_str }}</p>
+    </div>
 </div>
 
-<div class="section">
-    <h2>2. Metodologia</h2>
-    <h3>2.1 Dados utilizados</h3>
-    <p>Utilizamos o histórico de registros de radares da cidade, incluindo informações de data, hora, localização geográfica e identificação do equipamento.</p>
-    <h3>2.2 Critérios de análise</h3>
-    <ul>
-        <li>Identificação de pares de detecções consecutivas em pontos distintos cuja velocidade implícita torna o deslocamento inviável.</li>
-        <li>Aplicação de métodos de separação temporal e espacial quando há elementos suficientes para reconstruir dois trajetos distintos.</li>
-        <li>Verificação de recorrência das ocorrências suspeitas por dia e por região.</li>
-    </ul>
-    <h3>2.3 Reconstrução de pares suspeitos</h3>
-    <p>Para cada par de clonagem, um registro é considerado plausível para o veículo original, enquanto o outro indica a possível clonagem. As velocidades médias implícitas são calculadas para reforçar a análise.</p>
-    <h3>2.4 Mapa geral e mapas diários</h3>
-    <p>Quando as condições são atendidas, produzimos:</p>
-    <ul>
-        <li>Mapa geral com todas as ocorrências suspeitas do período.</li>
-        <li>Mapas diários com distribuição espacial das detecções.</li>
-        <li>Tabelas com detalhes de cada registro suspeito.</li>
-    </ul>
+<div class="summary">
+    <h3><b>Quadro Resumo</b></h3>
+
+    <div class="summary-cards">
+        <div class="summary-card">
+            <div class="card-icon">
+                <img src="{{ icon_radar_path }}" alt="Radar">
+            </div>
+            <div class="card-label">Número total de registros</div>
+            <div class="card-value">{{ readings_count }}</div>
+        </div>
+
+        <div class="summary-card card-alert">
+            <div class="card-icon">
+                <img src="{{ icon_warning_path }}" alt="Alerta">
+            </div>
+            <div class="card-label">Número de registros suspeitos</div>
+            <div class="card-value">{{ suspicious_readings_count }}</div>
+        </div>
+
+        <div class="summary-card">
+            <div class="card-icon">
+                <img src="{{ icon_calendar_path }}" alt="Calendário">
+            </div>
+            <div class="card-label">Dia com mais registros suspeitos</div>
+            <div class="card-value">{{ most_suspicious_day }} ({{ most_suspicious_day_count }})</div>
+        </div>
+    </div>
+
 </div>
 
-<div class="section">
-    <h2>3. Estrutura do relatório</h2>
-    <p>O relatório está organizado da seguinte forma:</p>
-    <ul>
-        <li><strong>Parâmetros da análise:</strong> informações de referência da placa analisada e período considerado.</li>
-        <li><strong>Quadro resumo:</strong> principais indicadores sobre o volume de dados e a quantidade de registros suspeitos.</li>
-        <li><strong>Introdução:</strong> orientações para leitura e interpretação dos elementos do relatório.</li>
-        <li><strong>Mapa e tabela geral:</strong> visão consolidada das ocorrências suspeitas ao longo do período.</li>
-        <li><strong>Mapas e tabelas diárias:</strong> detalhamento dia a dia dos registros suspeitos, com trilhas quando aplicável.</li>
-    </ul>
+<div class="examples page-break">
+    <h3><b>Exemplos de Pares Suspeitos</b></h3>
+    <p>Os exemplos abaixo ilustram como os indícios de clonagem são apresentados nos mapas. Eles mostram cenários onde
+        as detecções foram ou não separadas em trilhas distintas, ajudando a entender os padrões identificados.</p>
+
+    <div class="example-splitable-pair">
+        <h3>Exemplo de Par Separável</h3>
+        <div class="example-fig">
+            <img src="{{ example_splitable_pair_figure_path }}" alt="Imagem do exemplo de par separável">
+        </div>
+        <p>Neste exemplo, os pontos foram divididos em duas trilhas distintas, marcadas em azul claro e azul escuro.</p>
+        <ul>
+            <li><b>Azul claro:</b> Representa possível veículo 1</li>
+            <li><b>Azul escuro:</b> Representa possível veículo 2</li>
+        </ul>
+    </div>
+
+    <div class="example-non-splitable-pair">
+        <h3>Exemplo de Par Não Separável</h3>
+        <div class="example-fig">
+            <img src="{{ example_non_splitable_pair_figure_path }}" alt="Imagem do exemplo de par não separável">
+        </div>
+        <p>Neste caso, os pontos, marcados em cinza, indicam deslocamentos improváveis, mas não foi possível separá-los em
+            trilhas distintas. Isso ocorre quando os dados são insuficientes para confirmar a presença de dois veículos.</p>
+        <ul>
+            <li><b>Cinza:</b> Sinaliza que o padrão de deslocamento é suspeito, mas não permite divisão clara em dois veículos.
+                - Resultado: Indica uma possível clonagem ou erro nos dados, exigindo investigação adicional.</li>
+        </ul>
+    </div>
+
+
 </div>
 
-<div class="section">
-    <h2>4. Limitações da análise</h2>
-    <ul>
-        <li>A ausência de detecção não implica ausência de passagem; fatores como falhas de OCR, obstruções ou manutenção podem impactar a leitura.</li>
-        <li>Falhas de OCR podem causar confusão entre caracteres semelhantes, como “O/0” ou “B/8”.</li>
-        <li>Diferenças de sincronização de relógio entre equipamentos podem introduzir pequenos desvios.</li>
-        <li>As distâncias consideram trajetos em linha reta, não correspondendo necessariamente ao percurso real.</li>
-        <li>Os parâmetros fixos de velocidade não contemplam situações excepcionais, como deslocamentos de emergência.</li>
-        <li>A qualidade e integridade dos dados dependem do funcionamento dos radares e podem variar conforme condições técnicas ou climáticas.</li>
-        <li>O histórico disponível inicia em 01/06/2024.</li>
-    </ul>
+ <div class="grafo page-break">
+    <div class="grafo-text">
+        <h3><b>Visualização do Grafo de Relacionamentos</b></h3>
+        <p>O grafo gerado a partir dos dados do relatório permite visualizar as conexões entre as <b>placas
+                monitoradas</b> (demandadas) e as <b>placas correlatas</b> (veículos identificados em proximidade com
+            múltiplas placas de interesse).</p>
+        <p>Cada <b>nó (ponto)</b> do grafo representa uma <b>placa:</b></p>
+
+        <div class="grafo-explanation" style="margin-top: 10px;">
+            <p><b>Nós azuis </b>: <span style="color: blue; font-size: 20px;">●</span> Representam as placas
+                monitoradas, demandadas pelas autoridades.</p>
+            <p><b>Nós vermelhos</b>: <span style="color: red; font-size: 20px;">●</span> Representam as placas que se
+                deslocaram em conjunto (placas correlatas) com as placas monitoradas.</p>
+            <p><b>Arestas</b>: <span style="color: black;">━</span> Indicam a relação entre duas placas,
+                ou seja, que elas foram detectadas juntas em uma ou mais passagens pelos radares.</p>
+            <p><b>Espessura das arestas</b>: <span
+                    style="display: inline-block; height: 3px; width: 20px; background-color: black;"></span> <span
+                    style="display: inline-block; height: 9px; width: 20px; background-color: black;"></span> Quanto
+                mais grossa
+                a aresta, maior a frequência de detecção conjunta entre as placas conectadas.</p>
+            <p><b>Direção das setas</b>:
+                <span style="display: inline-block; font-size: 20px;">←</span>
+                <span style="display: inline-block; font-size: 20px;">→</span>
+                A seta aponta do veículo correlato para as placas demandadas, indicando que esse veículo passou perto
+                das placas monitoradas (demandadas).
+            </p>
+        </div>
+
+    </div>
+
+    <div class="grafo-container">
+        <img src="{{ grafo_limited_nodes_path }}" alt="Grafo de Relacionamentos">
+    </div>
+    <div class="graph-page-footer">
+        <p>Este grafo apresenta as conexões mais relevantes entre as placas monitoradas e os veículos diretamente
+            relacionados a elas. Ou seja, ele destaca as correlações mais significativas identificadas na análise,
+            facilitando a visualização dos vínculos prioritários. Além disso, um grafo complementar, disponibilizado em
+            formato HTML, exibe todas as conexões encontradas — incluindo os vínculos menos relevantes — entre as placas
+            monitoradas e as placas correlatas identificadas.</p>
+    </div>
+
 </div>
 
-<div class="page-break"></div>
+<div class="deteccoes-placas-demandadas page-break">
+    <div class="deteccoes-placas-demandadas-text">
+        <h3><b>Tabela de Veículos Correlatos com Detecção Próxima a Múltiplas placas Monitoradas</b></h3>
+        <p>A tabela a seguir apresenta os veículos identificados em proximidade com duas ou mais placas demandadas
+            (monitoradas), com base nas detecções realizadas por radares. Cada linha representa um veículo identificado
+            e o número de vezes que ele foi registrado por um radar, além das placas demandadas que passaram próximo a
+            ele, de acordo com os parâmetros definidos na busca.</p>
+        <p>Abaixo, a descrição das colunas apresentadas:</p>
 
-<div class="section">
-    <h2>Parâmetros de Busca</h2>
-    <table class="metadata-table">
-        <tbody>
-            {% for row in metadata_rows %}
+        <ul style="margin-top: 0px;">
+            <li><b>Placa Correlata</b>: Placa do veículo identificada na análise por ter múltiplas passagens perto de
+                placas monitoradas.
+                <ul style="margin-top: 0px;"><b>Exemplo:</b> ABC1D23 — Trata-se de um veículo que, durante o período
+                    analisado, foi detectado diversas vezes próximo a diferentes placas monitoradas.</ul>
+            </li>
+
+            <li><b>Número de Placas Monitoradas</b>: Quantidade de placas monitoradas diferentes com as quais a placa
+                correlata foi identificada.
+                <ul style="margin-top: 0px;"><b>Exemplo:</b> 3 — A placa ABC1D23 foi identificada em proximidade com
+                    três placas monitoradas distintas — por exemplo: XXX1234, YYY1234 e ZZZ1234.</ul>
+            </li>
+
+            <li><b>Número de Detecções Conjuntas</b>: quantidade de vezes em que a placa correlata foi detectado próximo
+                às placas monitoradas.
+                <ul style="margin-top: 0px;"><b>Exemplo:</b> 12 — O veículo com placa ABC1D23 foi detectado 12 vezes
+                    próximo às placas monitoradas com as quais teve detecção conjuntas. Essas detecções podem ter
+                    ocorrido em horários e locais diferentes.</ul>
+            </li>
+
+            <li><b>Detalhamento</b>: Lista das placas monitoradas com as quais cada placa correlata teve detecção
+                conjunta
+                <ul style="margin-top: 0px;"><b>Exemplo:</b> XXX1234, YYY1234 e ZZZ1234.</ul>
+            </li>
+        </ul>
+
+        <p>A tabela está ordenada de forma <b>decrescente pela quantidade de placas monitoradas relacionadas a
+                veículos</b>, priorizando os veículos com maior número de correlação.</p>
+
+        <p><b>Total de detecções das placas correlatas:</b> {{ total_monitored_plates }} </p>
+    </div>
+
+    <div class="deteccoes-placas-demandadas-table">
+        <table class="report-table">
             <tr>
-                <td style="width: 35%;"><strong>{{ row.label }}</strong></td>
-                <td>{{ row.value }}</td>
+                <th>Placa Correlata</th>
+                <th>Número de Placas Monitoradas</th>
+                <th>Número de Detecções Conjuntas</th>
+                <th>Detalhamento</th>
+            </tr>
+            {% for detection in detections %}
+            <tr>
+                <td>{{ detection.plate }}</td>
+                <td>{{ detection.count_different_targets }}</td>
+                <td>{{ detection.count_plate_total }}</td>
+                <td>{{ detection.target_plates }}</td>
             </tr>
             {% endfor %}
-        </tbody>
-    </table>
-</div>
-
-<div class="section">
-    <h2>Quadro Resumo</h2>
-    <div class="kpi-grid">
-        {% for kpi in kpi_cards %}
-        <div class="kpi-card">
-            <h3>{{ kpi.title }}</h3>
-            <div class="kpi-value">{{ kpi.value }}</div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-
-<div class="page-break"></div>
-
-<div class="section">
-    <h2>Introdução: como ler este relatório</h2>
-    <p>Esta seção orienta a interpretação das informações apresentadas. O relatório não comprova a existência de clonagem de placa: ele reúne indícios e suspeitas baseados em padrões de deslocamento considerados improváveis para um único veículo.</p>
-
-    <h3>Linhas tracejadas conectando pontos nos mapas</h3>
-    <ul>
-        <li>Representam pares de detecções consecutivas que sugerem deslocamento improvável.</li>
-        <li>Indicam velocidades médias que superam limites plausíveis em áreas urbanas.</li>
-        <li>Funcionam como sinalizadores de inconsistências.</li>
-    </ul>
-
-    <h3>Interpretação das cores nos mapas</h3>
-    <p><strong>Cinza</strong>: pares suspeitos em que não foi possível separar os registros em duas trilhas distintas.</p>
-    <p><strong>Azul claro</strong> e <strong>azul escuro</strong>: trilhas consistentes atribuídas a dois veículos distintos.</p>
-
-    <h3>O que são as trilhas?</h3>
-    <p>A trilha é a sequência ordenada de detecções atribuídas a um mesmo veículo hipotético, representando um percurso plausível.</p>
-    <p><strong>Critérios aplicados:</strong></p>
-    <ul>
-        <li>Ordenação temporal dos registros.</li>
-        <li>Coerência espacial entre pontos consecutivos.</li>
-        <li>Velocidades plausíveis para a mobilidade urbana.</li>
-    </ul>
-
-    <h3>Conclusão</h3>
-    <p>Os elementos apresentados devem ser interpretados como apoio à tomada de decisão, sempre combinados com outras fontes de informação.</p>
-</div>
-
-<div class="page-break"></div>
-
-<div class="section">
-    <h2>1. Análise de Possíveis Sinais de Clonagem</h2>
-    {% if has_suspicious_records %}
-        <h3>1.1 Mapa geral do período</h3>
-        <div class="figure">
-            {% if general_map_path %}
-                <img src="{{ general_map_path }}" alt="Mapa geral de detecções suspeitas">
-            {% else %}
-                <p class="no-data">Mapa indisponível para o período informado.</p>
-            {% endif %}
-        </div>
-
-        <h3>1.2 Tabela geral de detecções suspeitas</h3>
-        <table class="report-table">
-            <thead>
-                <tr>
-                    {% for header in general_table.headers %}
-                    <th>{{ header }}</th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in general_table.rows %}
-                <tr>
-                    {% for cell in row %}
-                    <td>{{ cell }}</td>
-                    {% endfor %}
-                </tr>
-                {% endfor %}
-            </tbody>
         </table>
-    {% else %}
-        <p class="no-data">Não foram identificados registros suspeitos no período informado. Caso existam poucos registros, considere ampliar o intervalo da análise.</p>
-    {% endif %}
+    </div>
 </div>
 
-{% if daily_sections %}
-    <div class="page-break"></div>
-    <div class="section">
-        <h2>2. Registros e Mapas Diários</h2>
+<div class="detection-details page-break">
+    <div class="detection-details-text">
+        <h3><b>Detalhamento das Detecções do Relatório</b></h3>
     </div>
-    {% for day in daily_sections %}
-        <div class="daily-section{% if not loop.first %} page-break{% endif %}">
-            <h3>Mapa do dia de registros suspeitos - {{ day.date }}</h3>
-            <div class="figure">
-                {% if day.map_path %}
-                    <img src="{{ day.map_path }}" alt="Mapa diário {{ day.date }}">
-                {% else %}
-                    <p class="no-data">Mapa indisponível para este dia.</p>
-                {% endif %}
-            </div>
+</div>
 
-            {% if day.has_table %}
-                <table class="report-table">
-                    <thead>
-                        <tr>
-                            {% for header in day.table.headers %}
-                            <th>{{ header }}</th>
-                            {% endfor %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in day.table.rows %}
-                        <tr>
-                            {% for cell in row %}
-                            <td>{{ cell }}</td>
-                            {% endfor %}
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p class="no-data">Sem registros suspeitos para tabular neste dia.</p>
-            {% endif %}
-
-            {% for track in day.tracks %}
-                <div class="track-section">
-                    <h4>{{ track.title }}</h4>
-                    {% if track.map_path %}
-                        <div class="figure">
-                            <img src="{{ track.map_path }}" alt="{{ track.title }}">
-                        </div>
-                    {% endif %}
-
-                    {% if track.table.rows %}
-                        <table class="report-table">
-                            <thead>
-                                <tr>
-                                    {% for header in track.table.headers %}
-                                    <th>{{ header }}</th>
-                                    {% endfor %}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for row in track.table.rows %}
-                                <tr>
-                                    {% for cell in row %}
-                                    <td>{{ cell }}</td>
-                                    {% endfor %}
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    {% else %}
-                        <p class="no-data">Sem registros para esta trilha.</p>
-                    {% endif %}
-                </div>
-            {% endfor %}
-        </div>
-    {% endfor %}
-{% endif %}
 {% endblock %}

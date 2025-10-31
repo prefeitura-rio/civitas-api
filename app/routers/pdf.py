@@ -13,6 +13,9 @@ from app import config
 from app.decorators import router_request
 from app.dependencies import is_user
 from app.models import ReportHistory, User
+from app.modules.cloning_report.application.async_services import (
+    AsyncCloningReportService,
+)
 from app.pydantic_models import (
     PdfReportCorrelatedPlatesIn,
     PdfReportMultipleCorrelatedPlatesIn,
@@ -144,7 +147,7 @@ class PdfReportCloningIn(BaseModel):
     date_start: datetime
     date_end: datetime
     output_dir: str
-    renderer: Literal["fpdf", "weasy"] = "fpdf"
+    renderer: Literal["fpdf", "weasy"] = "weasy"
     # project_id: Optional[str] = None
     # credentials_path: Optional[str] = None
 
@@ -233,7 +236,7 @@ async def generate_cloning_report(
 
 
 async def _execute_cloning_report(
-    service,
+    service: AsyncCloningReportService,
     data: PdfReportCloningIn,
     report_id: str,
     output_dir: Path,

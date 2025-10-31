@@ -60,7 +60,15 @@ def generator(monkeypatch):
     gen.num_suspeitos = 3
     gen.dia_mais_sus = "05/01/2024"
     gen.sus_dia_mais_sus = "2 registros"
+    gen.max_vel = 180.5
+    gen.turno_mais_sus = "Manhã"
+    gen.turno_mais_sus_count = 2
+    gen.place_lider = "Radar Central"
+    gen.place_lider_count = 5
+    gen.top_pair_str = "Radar A - Radar B"
+    gen.top_pair_count = 3
     gen.report_id = "20240101.123456789"
+    gen.bairro_pairs_png = "bairros.png"
     gen.results = {
         "dataframe": pd.DataFrame(
             [
@@ -134,6 +142,37 @@ def test_build_template_context(generator):
     assert context["plate"] == "ABC1D23"
     assert context["general_map_path"] == "map-geral.png"
     assert context["kpi_cards"][1]["value"] == "3"
+    assert context["summary_stats"]["total_records"] == "42"
+    assert context["analysis_highlights"][0]["value"] == "Manhã (2)"
+    assert context["time_interval_str"] == context["time_interval_text"]
+    assert context["readings_count"] == "42"
+    assert context["suspicious_readings_count"] == "3"
+    assert context["turno_summary"] == "Manhã (2)"
+    assert context["place_summary"] == "Radar Central (5)"
+    assert context["top_pair_summary"] == "Radar A - Radar B (3)"
+    assert context["max_speed_summary"] == "180.50 km/h"
+    assert context["most_suspicious_day"] == "05/01/2024"
+    assert context["most_suspicious_day_count"] == "2 registros"
+    assert context["icon_radar_path"]
+    assert context["icon_warning_path"]
+    assert context["icon_calendar_path"]
+    assert context["icon_clock_path"]
+    assert context["icon_location_path"]
+    assert context["icon_speed_path"]
+    assert context["example_splitable_pair_figure_path"]
+    assert context["example_non_splitable_pair_figure_path"]
+    assert context["grafo_limited_nodes_path"]
+    assert context["total_monitored_plates"] == "1"
+    assert context["detections"] == [
+        {
+            "data": "05/01/2024 08:00",
+            "origem": "Radar A",
+            "destino": "Radar B",
+            "km": "12.50",
+            "seconds": "300",
+            "kmh": "150",
+        }
+    ]
     assert context["general_table"]["headers"] == [
         "Data",
         "Origem",
@@ -147,3 +186,6 @@ def test_build_template_context(generator):
     assert context["daily_sections"][0]["map_path"] == "map-dia.png"
     assert context["daily_sections"][0]["tracks"][0]["map_path"] == "trilha1.png"
     assert context["daily_sections"][0]["tracks"][1]["map_path"] == "trilha2.png"
+    assert context["daily_sections"][0]["tracks"][0]["has_table"] is True
+    assert context["bairro_pairs_chart_path"] == "bairros.png"
+    assert "A tabela apresenta os registros suspeitos" in context["general_table_note"]

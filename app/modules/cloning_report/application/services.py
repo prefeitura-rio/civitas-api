@@ -31,7 +31,7 @@ class CloningReportService:
         container: Container = get_container(),
         project_id: str | None = None,
         credentials_path: str | None = None,
-        renderer: str = "fpdf",
+        renderer: str = "weasy",
     ) -> CloningReport:
         """Execute cloning detection with flexible data source selection"""
         logger.info(f"Executing cloning detection for plate {plate}")
@@ -89,7 +89,7 @@ class CloningReportService:
             "fpdf": ClonagemReportGenerator,
             "weasy": ClonagemReportWeasyGenerator,
         }
-        return mapping.get((renderer or "fpdf").lower(), ClonagemReportGenerator)
+        return mapping.get((renderer or "weasy").lower(), ClonagemReportWeasyGenerator)
 
     @staticmethod
     def _create_report_entity(
