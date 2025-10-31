@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import shutil
-import tempfile
 import zipfile
 from io import BytesIO
 from pathlib import Path
@@ -12,6 +11,7 @@ from collections.abc import Iterator
 from fastapi import HTTPException
 
 from app import config
+from app.modules.cloning_report.utils.filesystem import FileSystemService
 from app.modules.cloning_report.utils.logging import get_logger
 
 logger = get_logger()
@@ -19,7 +19,7 @@ logger = get_logger()
 
 def create_report_temp_dir(report_id: str) -> Path:
     """Create a dedicated temporary directory for a cloning report run."""
-    base_dir = Path(tempfile.gettempdir()) / "cloning_report" / report_id
+    base_dir = FileSystemService.get_base_temp_dir() / "reports" / report_id
     base_dir.mkdir(parents=True, exist_ok=True)
     return base_dir
 
@@ -40,7 +40,7 @@ def prepare_map_html(report_id: str) -> Path | None:
         logger.warning(f"HTML source file not found: {source}")
         return None
 
-    destination_dir = Path(tempfile.gettempdir()) / "cloning_report_html"
+    destination_dir = FileSystemService.get_base_temp_dir() / "html_maps"
     destination_dir.mkdir(parents=True, exist_ok=True)
     destination = destination_dir / f"mapa_clonagem_{report_id}.html"
 

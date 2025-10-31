@@ -3,6 +3,7 @@
 import asyncio
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 import pandas as pd
 
 from app.modules.cloning_report.container import get_async_container
@@ -184,6 +185,17 @@ class AsyncCloningReportService:
                 logger.warning(f"Failed to convert pair data: {e}")
                 continue
 
+        map_html_path = None
+        results = getattr(generator, "results", {}) or {}
+        if isinstance(results, dict):
+            candidate = results.get("html_file")
+            if isinstance(candidate, bytes):
+                candidate = candidate.decode("utf-8", "ignore")
+            if isinstance(candidate, Path):
+                candidate = str(candidate)
+            if isinstance(candidate, str) and candidate.strip():
+                map_html_path = candidate
+
         return CloningReport(
             plate=plate,
             period_start=date_start,
@@ -191,6 +203,7 @@ class AsyncCloningReportService:
             report_path=report_path,
             total_detections=len(generator.df),
             suspicious_pairs=suspicious_pairs,
+            map_html_path=map_html_path,
         )
 
     async def close(self):

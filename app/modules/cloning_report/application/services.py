@@ -1,6 +1,7 @@
 """Application services for cloning detection"""
 
 from datetime import datetime
+from pathlib import Path
 import pandas as pd
 
 from app.modules.cloning_report.container import Container, get_container
@@ -100,6 +101,17 @@ class CloningReportService:
         report_path: str,
     ) -> CloningReport:
         """Create domain entity from generator results"""
+        map_html_path = None
+        results = getattr(generator, "results", {}) or {}
+        if isinstance(results, dict):
+            candidate = results.get("html_file")
+            if isinstance(candidate, bytes):
+                candidate = candidate.decode("utf-8", "ignore")
+            if isinstance(candidate, Path):
+                candidate = str(candidate)
+            if isinstance(candidate, str) and candidate.strip():
+                map_html_path = candidate
+
         return CloningReport(
             plate=plate,
             period_start=date_start,
@@ -107,6 +119,7 @@ class CloningReportService:
             suspicious_pairs=[],  # TODO: convert from generator.results
             total_detections=generator.total_deteccoes,
             report_path=report_path,
+            map_html_path=map_html_path,
         )
 
 

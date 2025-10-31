@@ -33,3 +33,4 @@ class CloningReport(BaseModel):
     suspicious_pairs: list[SuspiciousPair]
     total_detections: int
     report_path: str | None = None
+    map_html_path: str | None = None

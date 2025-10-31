@@ -15,10 +15,16 @@ from pathlib import Path
 class FileSystemService:
     """Handle file system operations following SRP."""
 
+    _DEFAULT_TMP_PARENT = Path(tempfile.gettempdir())
+    if os.name != "nt":
+        preferred_tmp = Path("/tmp")
+        if preferred_tmp.exists() and os.access(preferred_tmp, os.W_OK | os.X_OK):
+            _DEFAULT_TMP_PARENT = preferred_tmp
+
     _BASE_TEMP_DIR = Path(
         os.environ.get(
             "CLONING_REPORT_TMP_ROOT",
-            Path(tempfile.gettempdir()) / "civitas" / "cloning_report",
+            _DEFAULT_TMP_PARENT / "civitas" / "cloning_report",
         )
     )
     _context_root: ContextVar[Path | None] = ContextVar(

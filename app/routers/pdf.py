@@ -268,7 +268,20 @@ def _build_cloning_report_response(
 ) -> StreamingResponse:
     """Assemble the ZIP response containing the PDF and HTML map."""
     pdf_path = resolve_pdf_path(report.report_path)
-    html_path = prepare_map_html(report_id)
+    html_path: Path | None = None
+
+    candidate_html = getattr(report, "map_html_path", None)
+    if candidate_html:
+        candidate_path = Path(candidate_html)
+        if candidate_path.exists():
+            html_path = candidate_path
+        else:
+            logger.warning(
+                f"Generated map HTML not found at {candidate_path}; falling back to static template"
+            )
+
+    if html_path is None:
+        html_path = prepare_map_html(report_id)
 
     logger.info(
         f"Cloning report streaming started for plate {plate} (Report ID: {report_id})"
