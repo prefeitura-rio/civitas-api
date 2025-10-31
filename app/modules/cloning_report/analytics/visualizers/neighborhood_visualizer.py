@@ -1,7 +1,10 @@
 """Neighborhood data visualization functionality"""
 
-import pandas as pd
+import matplotlib
+
+matplotlib.use("Agg")  # use non-interactive backend (runs in worker threads)
 import matplotlib.pyplot as plt
+import pandas as pd
 from app.modules.cloning_report.utils import ReportPaths
 
 

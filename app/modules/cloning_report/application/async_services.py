@@ -12,10 +12,7 @@ from app.modules.cloning_report.repositories.async_bigquery_detection_repository
 from app.modules.cloning_report.repositories.detection_repository import DetectionMapper
 
 from app.modules.cloning_report.domain.entities import CloningReport
-from app.modules.cloning_report.report import (
-    ClonagemReportGenerator,
-    ClonagemReportWeasyGenerator,
-)
+from app.modules.cloning_report.report import ClonagemReportGenerator
 from app.modules.cloning_report.utils import get_logger
 
 logger = get_logger()
@@ -134,11 +131,12 @@ class AsyncCloningReportService:
 
     def _resolve_generator(self, renderer: str):
         """Select report generator implementation"""
-        mapping = {
-            "fpdf": ClonagemReportGenerator,
-            "weasy": ClonagemReportWeasyGenerator,
-        }
-        return mapping.get((renderer or "fpdf").lower(), ClonagemReportGenerator)
+        # mapping = {
+        #     "fpdf": ClonagemReportGenerator,
+        #     "weasy": ClonagemReportWeasyGenerator,
+        # }
+        # return mapping.get((renderer or "fpdf").lower(), ClonagemReportGenerator)
+        return ClonagemReportGenerator
 
     def _create_report_entity(
         self,

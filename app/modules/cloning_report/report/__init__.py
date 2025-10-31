@@ -13,6 +13,21 @@ from app.modules.cloning_report.report.clonagem_report_generator import (
 from app.modules.cloning_report.report.weasy_generator import (
     ClonagemReportWeasyGenerator,
 )
+from app.modules.cloning_report.report.clonagem_report_data import (
+    ClonagemReportData,
+    ClonagemReportDataBuilder,
+    DailySectionData,
+    MetadataEntry,
+    SummaryData,
+    TableData,
+    TrackSectionData,
+)
+from app.modules.cloning_report.report.pdf_sections import (
+    CloningAnalysisRenderer,
+    HowToReadRenderer,
+    InstructionsPageRenderer,
+    SummaryPageRenderer,
+)
 
 __all__ = [
     "ReportPDF",
@@ -24,4 +39,15 @@ __all__ = [
     "StyleManager",
     "ClonagemReportGenerator",
     "ClonagemReportWeasyGenerator",
+    "ClonagemReportData",
+    "ClonagemReportDataBuilder",
+    "MetadataEntry",
+    "SummaryData",
+    "TableData",
+    "TrackSectionData",
+    "DailySectionData",
+    "InstructionsPageRenderer",
+    "SummaryPageRenderer",
+    "HowToReadRenderer",
+    "CloningAnalysisRenderer",
 ]
