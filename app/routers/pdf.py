@@ -160,7 +160,7 @@ class PdfReportCloningIn(BaseModel):
 @router.post("/cloning-report")
 async def generate_cloning_report(
     request: Request,
-    # user: Annotated[User, Depends(is_user)],  # Temporariamente comentado para teste
+    user: Annotated[User, Depends(is_user)],
     data: PdfReportCloningIn,
 ) -> StreamingResponse:
     """
