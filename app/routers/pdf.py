@@ -614,6 +614,15 @@ async def generate_report_multiple_correlated_plates(
         data=data,
     )
 
+    target_series = correlated_detections["target"].astype(bool)
+    partial_mask = correlated_detections["placa"].astype(str).str.contains(
+        "-", na=False
+    ) | (correlated_detections["placa"].astype(str) == "-------")
+    correlated_detections = correlated_detections.loc[
+        ~((~target_series) & partial_mask)
+    ].copy()
+    correlated_detections["target"] = target_series.loc[correlated_detections.index]
+
     # Handle the case where no correlated plates were found
     if correlated_detections[~correlated_detections["target"]].empty:
         # Get the context data for the template
@@ -629,7 +638,7 @@ async def generate_report_multiple_correlated_plates(
             "end_time": max(p.end for p in data.requested_plates_data).strftime(
                 "%d/%m/%Y %H:%M:%S"
             ),
-            "n_minutes": data.n_minutes,
+            "n_minutes": f"{data.n_minutes} minuto{'s' if data.n_minutes != 1 else ''}",
             "n_plates": data.n_plates,
         }
 
