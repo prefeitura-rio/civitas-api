@@ -35,6 +35,14 @@ class ClonagemReportGenerator:
         self._initialize_attributes()
         self._setup()
 
+    # ---------- geração ----------
+    def generate(self, output_path="report/relatorio_clonagem.pdf"):
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        pdf = self._create_pdf()
+        self._add_all_pages(pdf)
+        pdf.output(output_path)
+        return output_path
+
     def _generate_unique_report_id(self):
         """Generate unique report ID"""
         import random
@@ -54,14 +62,6 @@ class ClonagemReportGenerator:
         self.placa = placa
         self.periodo_inicio = periodo_inicio
         self.periodo_fim = periodo_fim
-
-    # ---------- geração ----------
-    def generate(self, output_path="report/relatorio_clonagem.pdf"):
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        pdf = self._create_pdf()
-        self._add_all_pages(pdf)
-        pdf.output(output_path)
-        return output_path
 
     def _initialize_attributes(self):
         self.df = pd.DataFrame()
