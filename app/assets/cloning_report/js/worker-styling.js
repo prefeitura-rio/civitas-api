@@ -16,22 +16,31 @@ function applyWorkerStyling() {
     // CRITICAL: Force readable text sizes for map elements
     const mapDiv = document.querySelector('.leaflet-container');
     if (mapDiv) {
-        // Scale the entire map for better readability
-        mapDiv.style.transform = 'scale(1.1)';
-        mapDiv.style.transformOrigin = 'top left';
+        // Keep a mild zoom-out so the full map remains visible while text stays legible
+        const SCALE_FACTOR = 0.94;
+        mapDiv.style.transform = `translate(-50%, -50%) scale(${SCALE_FACTOR})`;
+        mapDiv.style.transformOrigin = 'center center';
         mapDiv.style.fontSize = '16px';
+        mapDiv.style.width = '100%';
+        mapDiv.style.height = '100%';
+        mapDiv.style.position = 'absolute';
+        mapDiv.style.top = '50%';
+        mapDiv.style.left = '50%';
+        mapDiv.style.margin = '0';
+        mapDiv.style.padding = '0';
     }
 
     // Make popup text MUCH larger and more readable
     document.querySelectorAll('.leaflet-popup-content').forEach(popup => {
-        popup.style.fontSize = '22px';  // Increased from 18px
+        popup.style.fontSize = '22px';  // Further increased for readability
         popup.style.fontWeight = 'bold';
         popup.style.lineHeight = '1.4';
     });
 
     // Make marker labels much more readable
     document.querySelectorAll('.leaflet-marker-icon').forEach(marker => {
-        marker.style.transform += ' scale(1.0)';  // Reduced from 1.2 to 1.0
+        marker.style.transform += ' scale(1.0)'; 
+        marker.style.fontSize = '20px';  // Reduced from 1.2 to 1.0
     });
 
     // Enhance tooltip text significantly
@@ -48,7 +57,7 @@ function applyWorkerStyling() {
 
     // Make speed labels MUCH more visible and larger
     document.querySelectorAll('div[title*="km/h"]').forEach(speedLabel => {
-        speedLabel.style.fontSize = '16px';  // Reduced from 22px to 16px
+        speedLabel.style.fontSize = '16px';  
         speedLabel.style.fontWeight = 'bold';
         speedLabel.style.color = '#000';
         speedLabel.style.textShadow = '1px 1px 3px white';
