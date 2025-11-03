@@ -187,7 +187,6 @@ class ClonagemReportGenerator:
             "investigações complementares."
         )
         pdf.ln(2)
-        self._add_methodology_section(pdf)
 
     def _add_methodology_section(self, pdf):
         self._add_methodology_title(pdf)
@@ -724,13 +723,13 @@ class ClonagemReportGenerator:
 
     def _add_general_analysis(self, pdf: ReportPDF, suspeitos):
         if isinstance(suspeitos, pd.DataFrame) and not suspeitos.empty:
-            self._add_methodology_section(pdf)
+            self._add_vehicle_separation_methodology_section(pdf)
             self._add_general_map_section(pdf, suspeitos)
             self._add_general_table_section(pdf, suspeitos)
         else:
             self._add_no_suspicious_records_message(pdf)
 
-    def _add_methodology_section(self, pdf: ReportPDF):
+    def _add_vehicle_separation_methodology_section(self, pdf: ReportPDF):
         pdf.sub_title("Metodologia de Separação de Veículos")
         pdf.chapter_body(
             "A análise parte da identificação de pares de clonagem. Cada par é formado por duas detecções sucessivas "
