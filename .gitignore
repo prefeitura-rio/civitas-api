@@ -138,3 +138,19 @@ dmypy.json
 # User files
 tmp/
 .cursor/
+venv*/
+test_cloning_endpoint.py
+
+# Cloning report generated files
+mapa_clonagem_*
+trilha_*_carro*.png
+figs/mapa_clonagem_*
+figs/trilha_*_carro*.png
+app/assets/cloning_report/figs/mapa_clonagem_*
+app/assets/cloning_report/figs/trilha_*_carro*.png
+reports/relatorio_clonagem_*.pdf
+report/relatorio_clonagem_*.pdf
+htmls/
+
+# Specific generated files
+figs/*

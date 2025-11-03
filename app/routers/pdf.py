@@ -1,10 +1,13 @@
 import asyncio
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from fpdf import FPDF
+from pydantic import BaseModel, validator
 
 from app import config
 from app.decorators import router_request
@@ -18,6 +21,12 @@ from app.services.pdf.multiple_correlated_plates import (
     DataService,
     GraphService,
     PdfService,
+)
+from app.modules.cloning_report.utils import (
+    create_report_temp_dir,
+    generate_report_bundle_stream,
+    prepare_map_html,
+    resolve_pdf_path,
 )
 from app.utils import generate_report_id
 
@@ -128,6 +137,148 @@ router = APIRouter(
         429: {"error": "Rate limit exceeded"},
     },
 )
+
+
+class PdfReportCloningIn(BaseModel):
+    plate: str
+    date_start: datetime
+    date_end: datetime
+    output_dir: str
+    # project_id: Optional[str] = None
+    # credentials_path: Optional[str] = None
+
+    @validator("date_start", "date_end")
+    @classmethod
+    def normalize_to_utc(cls, v):
+        if isinstance(v, datetime):
+            if v.tzinfo is None:
+                return v.replace(tzinfo=timezone.utc)
+            elif v.tzinfo != timezone.utc:
+                return v.astimezone(timezone.utc)
+        return v
+
+
+@router.post("/cloning-report")
+async def generate_cloning_report(
+    request: Request,
+    user: Annotated[User, Depends(is_user)],
+    data: PdfReportCloningIn,
+) -> StreamingResponse:
+    """
+    Generate cloning detection report bundle (PDF + HTML) using async BigQuery service
+
+    This endpoint generates a comprehensive cloning detection report for a specific
+    vehicle plate within a given time period. The report is generated asynchronously
+    using the global BigQuery client and returned as a streaming ZIP response
+    containing both the PDF document and the interactive HTML map. All artifacts are
+    produced inside the operating system's temporary directory and removed after
+    streaming.
+
+    Requires authentication via the is_user dependency.
+
+    Args:
+        request: FastAPI request object
+        user: Authenticated user (from dependency injection)
+        data: Cloning report parameters including plate, date range, and output directory
+
+    Returns:
+        StreamingResponse: ZIP archive with report PDF and HTML map
+
+    Raises:
+        HTTPException: If report generation fails or BigQuery connection issues
+    """
+    try:
+        # Import async service
+        from app.modules.cloning_report.application.async_services import (
+            get_async_cloning_service,
+        )
+
+        # Generate unique report ID
+        report_id = await generate_report_id()
+        logger.info(
+            f"Starting cloning report generation for plate {data.plate} (Report ID: {report_id})"
+        )
+
+        # Create async cloning service instance
+        service = get_async_cloning_service()
+
+        try:
+            temp_output_dir = create_report_temp_dir(report_id)
+            logger.debug(
+                f"Using temporary directory for cloning report artifacts: {temp_output_dir}"
+            )
+
+            report = await _execute_cloning_report(
+                service=service,
+                data=data,
+                report_id=report_id,
+                output_dir=temp_output_dir,
+            )
+            return _build_cloning_report_response(
+                report=report, report_id=report_id, plate=data.plate
+            )
+
+        finally:
+            await service.close()
+
+    except Exception as e:
+        logger.error(
+            f"Failed to generate cloning report for plate {data.plate}: {str(e)}"
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate cloning report: {str(e)}"
+        )
+
+
+async def _execute_cloning_report(
+    service,
+    data: PdfReportCloningIn,
+    report_id: str,
+    output_dir: Path,
+):
+    """Run the core cloning report generation workflow."""
+    try:
+        report = await service.execute(
+            plate=data.plate,
+            date_start=data.date_start,
+            date_end=data.date_end,
+            output_dir=str(output_dir),
+            report_id=report_id,
+        )
+        logger.info(f"Cloning report generated successfully: {report.report_path}")
+        return report
+    except Exception as error:
+        logger.error(
+            f"Failed to generate cloning report for plate {data.plate}: {error}"
+        )
+        raise
+
+
+def _build_cloning_report_response(
+    report,
+    report_id: str,
+    plate: str,
+) -> StreamingResponse:
+    """Assemble the ZIP response containing the PDF and HTML map."""
+    pdf_path = resolve_pdf_path(report.report_path)
+    html_path = prepare_map_html(report_id)
+
+    logger.info(
+        f"Cloning report streaming started for plate {plate} (Report ID: {report_id})"
+    )
+
+    return StreamingResponse(
+        generate_report_bundle_stream(pdf_path, html_path),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f"attachment; filename=cloning_report_{plate}_{report_id}.zip",
+            "X-Report-ID": report_id,
+            "X-Plate": plate,
+            "X-Total-Detections": str(report.total_detections),
+            "X-Suspicious-Pairs": str(len(report.suspicious_pairs)),
+            "X-Map-Included": "true" if html_path else "false",
+        },
+    )
 
 
 @router_request(method="POST", router=router, path="/correlated-plates")
