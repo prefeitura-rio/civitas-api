@@ -55,6 +55,14 @@ class ClonagemReportGenerator:
         self.periodo_inicio = periodo_inicio
         self.periodo_fim = periodo_fim
 
+    # ---------- geração ----------
+    def generate(self, output_path="report/relatorio_clonagem.pdf"):
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        pdf = self._create_pdf()
+        self._add_all_pages(pdf)
+        pdf.output(output_path)
+        return output_path
+
     def _initialize_attributes(self):
         self.df = pd.DataFrame()
         self.results: dict[str, Any] = {}
@@ -923,14 +931,6 @@ class ClonagemReportGenerator:
         if "carro2" in pngs and os.path.exists(pngs["carro2"]):
             pdf.image(pngs["carro2"], x=10, y=None, w=190)
         pdf.add_table(df_c2, title=f"Tabela da trilha - Carro 2 - {day_key}")
-
-    # ---------- geração ----------
-    def generate(self, output_path="report/relatorio_clonagem.pdf"):
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        pdf = self._create_pdf()
-        self._add_all_pages(pdf)
-        pdf.output(output_path)
-        return output_path
 
     def get_suspicious_pairs(self):
         """Get suspicious pairs data"""
