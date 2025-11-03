@@ -149,9 +149,8 @@ figs/trilha_*_carro*.png
 app/assets/cloning_report/figs/mapa_clonagem_*
 app/assets/cloning_report/figs/trilha_*_carro*.png
 reports/relatorio_clonagem_*.pdf
+report/relatorio_clonagem_*.pdf
 htmls/
-reports/
-report/
 
 # Specific generated files
 figs/*
