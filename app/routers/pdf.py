@@ -780,7 +780,7 @@ async def generate_report_multiple_correlated_plates(
             "end_time": max(p.end for p in data.requested_plates_data).strftime(
                 "%d/%m/%Y %H:%M:%S"
             ),
-            "n_minutes": f"{data.n_minutes} minuto{'s' if data.n_minutes != 1 else ''}",
+            "n_minutes": data.n_minutes,
             "n_plates": data.n_plates,
         }
 

@@ -4,16 +4,9 @@ import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
-from app.pydantic_models import (
-    DetectionWindowList,
-    PdfReportMultipleCorrelatedPlatesIn,
-    RequestedPlateData,
-)
-from app.utils import (
-    generate_pdf_report_from_html_template,
-    get_bigquery_client,
-    generate_report_id,
-)
+from app.pydantic_models import DetectionWindowList, PdfReportMultipleCorrelatedPlatesIn, RequestedPlateData
+from google.cloud.bigquery.table import Row
+from app.utils import generate_pdf_report_from_html_template, get_bigquery_client, generate_report_id
 from app import config
 from loguru import logger
 from selenium import webdriver
@@ -32,25 +25,24 @@ import asyncio
 executor = ThreadPoolExecutor()
 
 
-class DataService:
+class DataService():
     """
     Service for data operations related to correlated plate detections.
-
+    
     This service handles the retrieval and processing of radar detection data
     from BigQuery, focusing on finding correlations between vehicle plates
     detected within specific time frames.
-
+    
     The service provides methods to:
     - Build SQL queries for retrieving detection data
     - Process and filter detection data
     - Find correlations between plates
     - Handle vehicle type normalization
-
+    
     Attributes:
         bq_client: BigQuery client used for database queries.
         base_query: Template SQL query used as the foundation for all data retrieval operations.
     """
-
     def __init__(self):
         self.bq_client = get_bigquery_client()
         self.base_query = """
@@ -83,7 +75,6 @@ class DataService:
             FROM `rj-cetrio.ocr_radar.vw_readings`
             WHERE
                 __filter_all_readings__
-                AND placa != "-------"
                 AND placa NOT LIKE '%-%'
             QUALIFY(row_num_duplicate) = 1
             ORDER BY codcet, datahora
@@ -99,13 +90,13 @@ class DataService:
             TRIM(
             REGEXP_REPLACE(
                 REGEXP_REPLACE(t1.locequip, r'^(.*?) -.*', r'\\1'), -- Remove the part after " -"
-                r'\\s+', ' ') -- Remove extra spaces
+                r'\s+', ' ') -- Remove extra spaces
             ) AS locequip,
             COALESCE(CONCAT(' - SENTIDO ', sentido), '') AS sentido,
             TO_BASE64(
             MD5(
                 CONCAT(
-                LEFT(t1.codcet, LENGTH(t1.codcet) -1),
+                LEFT(t1.codcet, LENGTH(t1.codcet) -1), 
                 COALESCE(t1.sentido, '') -- Combine codcet and sentido, omitting the last character of codcet
                 )
             )
@@ -125,7 +116,7 @@ class DataService:
 
 
         codcets AS (
-        SELECT
+        SELECT 
             distinct codcet
         from _all_
         ),
@@ -149,7 +140,7 @@ class DataService:
         ),
 
         all_readings_hashed AS (
-            SELECT
+            SELECT 
                 r.hashed_coordinates,
                 a.placa,
                 a.tipoveiculo,
@@ -172,14 +163,14 @@ class DataService:
             SELECT
                 a.*,
                 f.target_parameters
-            FROM all_readings_hashed a
+            FROM all_readings_hashed a 
             JOIN filters AS f
                 ON a.datahora_local BETWEEN f.target_parameters.start_time AND f.target_parameters.end_time
         ),
 
 
         target_filter AS (
-            SELECT
+            SELECT 
                 placa,
                 codcet,
                 hashed_coordinates,
@@ -191,7 +182,7 @@ class DataService:
         ),
 
         all_readings AS (
-            SELECT
+            SELECT 
                 a.hashed_coordinates,
                 t.detection_id,
                 ROW_NUMBER() OVER(PARTITION BY a.hashed_coordinates ORDER BY a.datahora_local, a.placa) detection_index,
@@ -211,7 +202,7 @@ class DataService:
                 a.empresa,
                 a.latitude,
                 a.longitude,
-                a.datahora_captura,
+                a.datahora_captura,  
                 STRUCT(
                     a.target_parameters.placa_target,
                     a.target_parameters.target_id,
@@ -228,13 +219,13 @@ class DataService:
                 ON a.target_parameters.target_id = t.target_parameters.target_id
                 AND a.hashed_coordinates = t.hashed_coordinates
             WHERE a.datahora_local BETWEEN
-                TIMESTAMP_SUB(t.datahora_local, INTERVAL t.target_parameters.n_minutes MINUTE)
+                TIMESTAMP_SUB(t.datahora_local, INTERVAL t.target_parameters.n_minutes MINUTE) 
                 AND
                 TIMESTAMP_ADD(t.datahora_local, INTERVAL t.target_parameters.n_minutes MINUTE)
         ),
 
         target_index AS (
-            SELECT
+            SELECT 
                 placa,
                 hashed_coordinates,
                 detection_index,
@@ -247,7 +238,7 @@ class DataService:
 
 
         final_result AS (
-            SELECT
+            SELECT 
                 a.hashed_coordinates,
                 t.detection_id,
                 a.detection_index,
@@ -267,9 +258,9 @@ class DataService:
                 a.empresa,
                 a.latitude,
                 a.longitude,
-                a.datahora_captura,
+                a.datahora_captura,  
                 a.target_parameters,
-                CASE
+                CASE 
                 WHEN a.detection_index > t.detection_index THEN 'after'
                 WHEN a.detection_index < t.detection_index THEN 'before'
                 ELSE 'same'
@@ -280,8 +271,8 @@ class DataService:
                 AND a.hashed_coordinates = t.hashed_coordinates
                 AND a.target_parameters.detection_datahora_local = t.datahora_local
 
-            WHERE t.detection_index - a.target_parameters.n_plates <= a.detection_index
-                AND
+            WHERE t.detection_index - a.target_parameters.n_plates <= a.detection_index 
+                AND 
                 t.detection_index + a.target_parameters.n_plates >=  a.detection_index
 
         ),
@@ -320,7 +311,7 @@ class DataService:
         ),
 
         final_data AS (
-            SELECT
+            SELECT 
                 a.hashed_coordinates,
                 a.detection_index,
                 a.detection_id,
@@ -364,11 +355,12 @@ class DataService:
         ORDER BY count_different_targets DESC
         """
 
+
     async def __build_filters(
         self,
         monitored: PdfReportMultipleCorrelatedPlatesIn | DetectionWindowList,
-        is_detection: bool = False,
-        filter_plates: list[str] = None,
+        is_detection: bool = False, 
+        filter_plates: list[str] = None
     ) -> tuple[str, str]:
         """
         Builds the SQL filters for the queries.
@@ -387,14 +379,14 @@ class DataService:
             period = "detection window"
             start_parameter = "start_window"
             end_parameter = "end_window"
-
+            
         else:
             period = "full period"
             start_parameter = "start"
             end_parameter = "end"
 
         logger.debug(f"Building filters for {period}.")
-
+        
         if isinstance(monitored, PdfReportMultipleCorrelatedPlatesIn):
             # Access the list of plate data from the monitored object
             plate_data_list = monitored.requested_plates_data
@@ -403,8 +395,7 @@ class DataService:
 
         if filter_plates:
             filtered_monitored = [
-                plate for plate in plate_data_list if plate.plate in filter_plates
-            ]
+                plate for plate in plate_data_list if plate.plate in filter_plates]
         else:
             filtered_monitored = plate_data_list
 
@@ -414,16 +405,16 @@ class DataService:
         for i, plate_data in enumerate(filtered_monitored):
             start_parameter_value = getattr(plate_data, start_parameter)
             end_parameter_value = getattr(plate_data, end_parameter)
-
+            
             all_readings_filters.append(
                 """
-                        (datahora BETWEEN
-                        TIMESTAMP_ADD('{start_parameter_value}', INTERVAL 3 HOUR) AND
+                        (datahora BETWEEN 
+                        TIMESTAMP_ADD('{start_parameter_value}', INTERVAL 3 HOUR) AND 
                         TIMESTAMP_ADD('{end_parameter_value}', INTERVAL 3 HOUR)
                         )""".format(
-                    start_parameter_value=start_parameter_value,
-                    end_parameter_value=end_parameter_value,
-                )
+                            start_parameter_value=start_parameter_value,
+                            end_parameter_value=end_parameter_value
+                        )
             )
 
             if not is_detection:  # only need when it is not detections
@@ -441,10 +432,11 @@ class DataService:
 
         __filter_monitored_plates__ = ",\n".join(monitored_plates_filters)
         __filter_all_readings__ = " OR ".join(all_readings_filters)
-
+        
         logger.debug(f"Filters for {period} built.")
-
+        
         return __filter_all_readings__, __filter_monitored_plates__
+
 
     async def __build_correlation_table_query(
         self,
@@ -463,58 +455,59 @@ class DataService:
         Returns:
             A complete SQL query.
         """
-        detection_window_list = DetectionWindowList(
-            detection_window_list=detections_dict
-        )
-
+        detection_window_list = DetectionWindowList(detection_window_list=detections_dict)
+        
         logger.info("Building correlation table query.")
         __filter_all_readings__, _ = await self.__build_filters(
-            monitored=detection_window_list,
-            filter_plates=filter_plates,
-            is_detection=True,
+            monitored=detection_window_list, filter_plates=filter_plates, is_detection=True
         )
         _, __filter_monitored_plates__ = await self.__build_filters(
             monitored=monitored, filter_plates=filter_plates, is_detection=False
         )
 
-        query = self.base_query.replace(
-            "__filter_all_readings__", __filter_all_readings__
-        ).replace("__filter_monitored_plates__", __filter_monitored_plates__)
-
-        logger.info("Correlation table query built.")
-
+        query = self.base_query.replace("__filter_all_readings__", __filter_all_readings__).replace(
+            "__filter_monitored_plates__", __filter_monitored_plates__
+        )
+        
+        logger.info(f"Correlation table query built.")
+        
+        
         return query
-
+        
+    
     async def __get_most_common_vehicle_type(
         self,
         data: pd.DataFrame,
     ) -> pd.DataFrame:
         """
         Get the most common vehicle type for each license plate that has multiple vehicle types.
-
+        
         Args:
             data: DataFrame containing vehicle data with 'placa' (license plate) and 'tipoveiculo' (vehicle type) columns.
-
+            
         Returns:
             DataFrame with license plates, their vehicle types, and the count of occurrences for each combination.
             Contains only plates that have multiple vehicle types assigned.
         """
-        plates_with_multiple_vehicle_types = data.groupby("placa")[
-            "tipoveiculo"
-        ].nunique()
+        plates_with_multiple_vehicle_types = data.groupby(
+            "placa")["tipoveiculo"].nunique()
 
         plates_with_multiple_vehicle_types = plates_with_multiple_vehicle_types[
             plates_with_multiple_vehicle_types > 1
         ].index
 
-        result = data[data["placa"].isin(plates_with_multiple_vehicle_types)]
+        result = data[data["placa"].isin(
+            plates_with_multiple_vehicle_types)]
 
         final_result = (
-            result.groupby(["placa", "tipoveiculo"]).size().reset_index(name="contagem")
+            result.groupby(["placa", "tipoveiculo"])
+            .size()
+            .reset_index(name="contagem")
         )
 
-        return final_result
-
+        return final_result    
+    
+    
     async def __overwrite_vehicle_types(
         self,
         data: pd.DataFrame,
@@ -531,10 +524,10 @@ class DataService:
         Returns:
             DataFrame with the vehicle types overwritten.
         """
-        logger.debug("Overwriting vehicle types.")
+        logger.debug(f"Overwriting vehicle types.")
         if not mapping_vehicle_types:
             mapping_vehicle_types = config.VEHICLE_TYPES_MAPPING
-
+        
         data["tipoveiculo"] = data["tipoveiculo"].apply(
             lambda x: mapping_vehicle_types.get(x)
         )
@@ -546,18 +539,19 @@ class DataService:
         ).drop_duplicates(subset="placa", keep="first")
 
         # Mapping dictionary using 'placa' and 'tipoveiculo' from the result
-        plate_to_vehicle_type = most_common_vehicle_type.set_index("placa")[
-            "tipoveiculo"
-        ].to_dict()
+        plate_to_vehicle_type = most_common_vehicle_type.set_index(
+            "placa")["tipoveiculo"].to_dict()
 
         # Substitute the values of 'tipoveiculo' in the df based on the plates
         data["tipoveiculo"] = (
-            data["placa"].map(plate_to_vehicle_type).fillna(data["tipoveiculo"])
+            data["placa"].map(plate_to_vehicle_type).fillna(
+                data["tipoveiculo"])
         )
-        logger.debug("Vehicle types overwritten.")
+        logger.debug(f"Vehicle types overwritten.")
 
         return data
-
+  
+    
     async def __filter_data(
         self,
         data: pd.DataFrame,
@@ -568,55 +562,61 @@ class DataService:
     ) -> pd.DataFrame:
         """
         Filters the correlation data based on specified criteria.
-
+        
         Args:
             data (pd.DataFrame): DataFrame containing correlation data to be filtered.
             min_different_targets (int, optional): Minimum number of different target plates required. Defaults to 2.
             before_after (str, optional): Filter for detections before or after the target time. Options: 'before', 'after', or None for both.
             vehicle_types (list[str], optional): List of vehicle types to include in the results.
-
+            
         Returns:
             pd.DataFrame: Filtered correlation data that meets all specified criteria.
         """
-        target_mask = data["target"].astype(bool)
         if before_after:
             column = f"count_different_targets_{before_after}"
-            msk = ((data[column] >= min_different_targets) | target_mask) & (
+            msk = (
+                (data[column] >= min_different_targets) | (
+                    data["target"] == True)
+            ) & (
                 (data["before_after"] == before_after)
                 | (data["before_after"] == "same")
             )
 
         else:
             column = "count_different_targets"
-            msk = (data[column] >= min_different_targets) | target_mask
+            msk = (data[column] >= min_different_targets) | (
+                data["target"] == True
+            )
         logger.debug(f"Filtering data for {column}.")
-
+        
         data["weight"] = data[column]
 
         if vehicle_types:
-            logger.debug("Filtering data for vehicle types.")
+            logger.debug(f"Filtering data for vehicle types.")
             msk &= data["tipoveiculo"].isin(vehicle_types)
 
         if not keep_buses:
-            logger.debug("Filtering data for remove buses.")
+            logger.debug(f"Filtering data for remove buses.")
             buses_plates = await self.__get_buses_plates()
             msk &= ~data["placa"].isin(buses_plates)
 
         sort_columns = [
-            "count_different_targets" + ("_" + before_after if before_after else ""),
+            "count_different_targets" +
+            ("_" + before_after if before_after else ""),
             "count_placa_geral" + ("_" + before_after if before_after else ""),
         ]
         logger.debug(f"Sorting data for {sort_columns}.")
-
+        
         df_filtered = data[msk].sort_values(by=sort_columns, ascending=False)
-
+        
         logger.debug(f"Data filtered and sorted for {len(df_filtered)} plates.")
         return df_filtered
-
+    
+    
     def __get_data_from_bq_sync(self, query: str) -> pd.DataFrame:
         """
         Get data from BigQuery and return a pandas DataFrame.
-
+        
         Args:
             query: The query to be executed.
 
@@ -624,7 +624,7 @@ class DataService:
             pd.DataFrame: The data from BigQuery.
         """
         try:
-            logger.debug("Getting data from BigQuery.")
+            logger.debug(f"Getting data from BigQuery.")
             # Create the BigQuery Storage client implicitly
             df: pd.DataFrame = self.bq_client.query(query).to_dataframe(
                 create_bqstorage_client=True
@@ -635,11 +635,12 @@ class DataService:
         except Exception as e:
             logger.error(f"Error getting detections: {e}")
             raise
-
+    
+    
     async def __get_detections(
         self,
-        monitored: PdfReportMultipleCorrelatedPlatesIn,
-        filter_plates: list[str] = None,
+        monitored: PdfReportMultipleCorrelatedPlatesIn, 
+        filter_plates: list[str] = None
     ) -> list[dict]:
         """
         Fetch initial detections for monitored plates.
@@ -652,10 +653,8 @@ class DataService:
             list[dict]: A list of detection data for the monitored plates.
         """
         logger.info("Getting detections.")
-        monitored.n_plates = (
-            1_000_000_000 if monitored.n_plates is None else monitored.n_plates
-        )
-
+        monitored.n_plates = 1_000_000_000 if monitored.n_plates is None else monitored.n_plates
+        
         query_detections = """
         WITH filters AS (
             SELECT
@@ -682,13 +681,12 @@ class DataService:
             FROM `rj-cetrio.ocr_radar.vw_readings`
             WHERE
                 __filter_all_readings__
-                AND placa != "-------"
                 AND placa NOT LIKE '%-%'
             QUALIFY(row_num_duplicate) = 1
             ORDER BY codcet, datahora
         )
 
-        SELECT
+        SELECT 
             a.placa AS plate,
             a.codcet AS codcet,
             ROW_NUMBER() OVER (PARTITION BY a.placa ORDER BY a.datahora_local) AS detection_index,
@@ -707,85 +705,95 @@ class DataService:
             AND a.datahora_local BETWEEN f.target_parameters.start_time AND f.target_parameters.end_time
         """
 
-        (
-            __filter_all_readings__,
-            __filter_monitored_plates__,
-        ) = await self.__build_filters(
+        __filter_all_readings__, __filter_monitored_plates__ = await self.__build_filters(
             monitored=monitored, filter_plates=filter_plates, is_detection=False
         )
-
+        
         query_detections = query_detections.replace(
             "__filter_all_readings__", __filter_all_readings__
         ).replace("__filter_monitored_plates__", __filter_monitored_plates__)
-
-        logger.info(
-            "Starting to get detections from BigQuery using ThreadPoolExecutor."
-        )
+        
+        logger.info("Starting to get detections from BigQuery using ThreadPoolExecutor.")
         loop = asyncio.get_event_loop()
         detections = await loop.run_in_executor(
-            executor, self.__get_data_from_bq_sync, query_detections
-        )
+            executor, 
+            self.__get_data_from_bq_sync, 
+            query_detections
+        )        
         logger.info("Detections retrieved.")
         return detections.to_dict(orient="records")
-
+    
+    
     async def __get_correlated_detections(
         self,
         monitored: PdfReportMultipleCorrelatedPlatesIn,
         detections: list[dict],
-        filter_plates: list[str] = None,
+        filter_plates: list[str] = None
     ) -> pd.DataFrame:
         """
         Get correlated detections for monitored plates.
-
+        
         Args:
             monitored (PdfReportMultipleCorrelatedPlatesIn): Object containing information about monitored plates.
             detections (DetectionWindowList): List of detection dictionaries retrieved from BigQuery.
             filter_plates (list[str], optional): Optional list of plates to filter. Defaults to None.
-
+            
         Returns:
-            pd.DataFrame: DataFrame containing information about plates that were detected near the monitored plates
+            pd.DataFrame: DataFrame containing information about plates that were detected near the monitored plates 
             within the specified time windows.
         """
         query = await self.__build_correlation_table_query(
-            monitored=monitored, detections_dict=detections, filter_plates=filter_plates
+            monitored=monitored,
+            detections_dict=detections,
+            filter_plates=filter_plates
         )
         logger.info("Getting correlated detections.")
         loop = asyncio.get_event_loop()
         correlated_detections = await loop.run_in_executor(
-            executor, self.__get_data_from_bq_sync, query
+            executor, 
+            self.__get_data_from_bq_sync, 
+            query
         )
-
+                
         logger.info("Correlated detections retrieved.")
         return correlated_detections
-
-    async def __get_buses_plates(self) -> list[str]:
+    
+    
+    async def __get_buses_plates(
+        self
+    ) -> list[str]:
         """
         Fetch buses plates from the database.
-
+        
         Returns:
             list[str]: A list of buses plates.
         """
         logger.info("Getting buses plates.")
-
+        
         buses_plates_query = """
         SELECT DISTINCT placa FROM `rj-civitas.cerco_digital.licenciamento_veiculos`;
         """
-
+        
         loop = asyncio.get_event_loop()
         buses_plates_df = await loop.run_in_executor(
-            executor, self.__get_data_from_bq_sync, buses_plates_query
+            executor, 
+            self.__get_data_from_bq_sync, 
+            buses_plates_query
         )
-
-        buses_plates = buses_plates_df["placa"].tolist()
+        
+        buses_plates = buses_plates_df["placa"].tolist()        
         logger.info("Buses plates retrieved.")
         return buses_plates
-
+    
+    
     async def get_correlations(
-        self, data: PdfReportMultipleCorrelatedPlatesIn, filter_plates: list[str] = None
+        self, 
+        data: PdfReportMultipleCorrelatedPlatesIn, 
+        filter_plates: list[str] = None
     ) -> pd.DataFrame:
         """
         Get correlations for monitored plates.
-
+        
         Args:
             data (PdfReportMultipleCorrelatedPlatesIn): Object containing information about monitored plates.
             filter_plates (list[str], optional): Optional list of plates to filter. Defaults to None.
@@ -793,25 +801,21 @@ class DataService:
         Returns:
             pd.DataFrame: DataFrame containing the correlations for the monitored plates.
         """
-
+        
         detections = await self.__get_detections(data, filter_plates=filter_plates)
         if not detections:
             logger.warning("No detections found.")
             return pd.DataFrame()
-
-        correlated_detections = await self.__get_correlated_detections(
-            data, detections, filter_plates=filter_plates
-        )
+        
+        correlated_detections = await self.__get_correlated_detections(data, detections, filter_plates=filter_plates)
         if correlated_detections.shape[0] <= 1:
             logger.warning("No correlated detections found.")
             return pd.DataFrame()
-
+    
         logger.info(f"Detections: {len(detections)}")
         logger.info(f"Correlated detections: {correlated_detections.shape}")
-
-        normalized_detections = await self.__overwrite_vehicle_types(
-            correlated_detections
-        )
+    
+        normalized_detections = await self.__overwrite_vehicle_types(correlated_detections)
         filtered_detections = await self.__filter_data(
             data=normalized_detections,
             min_different_targets=data.min_different_targets,
@@ -823,30 +827,27 @@ class DataService:
         if filtered_detections.shape[0] <= 1:
             logger.warning(
                 "No correlated detections remaining after filtering."
-                "Try to change 'min_different_targets', 'vehicle_types' or 'before_after' parameters."
-            )
+                "Try to change 'min_different_targets', 'vehicle_types' or 'before_after' parameters.")
             return pd.DataFrame()
-
+        
         return filtered_detections
 
 
-class GraphService:
+class GraphService():
     """
     Service for graph operations.
-
+    
     Args:
         G: Directed graph.
         dataframe: DataFrame with the data of the plates.
     """
-
     def __init__(self):
         self.G: nx.DiGraph | None = None
         self.dataframe: pd.DataFrame | None = None
         logger.info("Initialized Graph service.")
-
-    async def __limit_nodes_in_graph(
-        self, G: nx.DiGraph, max_nodes: int = 20
-    ) -> nx.DiGraph:
+        
+    
+    async def __limit_nodes_in_graph(self, G: nx.DiGraph, max_nodes: int = 20) -> nx.DiGraph:
         """
         Limits the number of nodes in the graph to improve visualization and avoid overlapping.
 
@@ -914,9 +915,8 @@ class GraphService:
 
         return G
 
-    async def create_graph(
-        self, dataframe: pd.DataFrame, limit_nodes: int | None = None
-    ) -> None:
+
+    async def create_graph(self, dataframe: pd.DataFrame, limit_nodes: int | None = None) -> None:
         """
         Creates and displays an interactive graph from a DataFrame,
         with colored nodes, detailed tooltips, and visualization options.
@@ -931,15 +931,14 @@ class GraphService:
                         or approaches this number, prioritizing more relevant connections.
                         It is not an exact limit, but a reference value to control the density of the graph.
         """
-        logger.info("Creating graph from dataframe.")
+        logger.info(f"Creating graph from dataframe.")
         self.dataframe = dataframe
-
+        
         G = nx.DiGraph()
 
         logger.info("Preprocessing to identify target and batedor plates.")
         # Preprocessing to identify target and batedor plates
-        target_mask = dataframe["target"].astype(bool)
-        target_plates = set(dataframe.loc[target_mask, "placa"])
+        target_plates = set(dataframe[dataframe["target"] == True]["placa"])
 
         logger.info("Iterating over dataframe rows to add nodes and edges.")
         for _, row in dataframe.iterrows():
@@ -964,17 +963,20 @@ class GraphService:
         self.G = G
         logger.info("Graph created.")
         # return G
-
+    
+    
     async def to_png(
-        self, file_dir: Path | str = config.ASSETS_DIR, file_name: str = "grafo.png"
+        self, 
+        file_dir: Path | str = config.ASSETS_DIR,
+        file_name: str = "grafo.png"
     ) -> Path:
         """
         Converts the graph to a PNG image.
-
+        
         Args:
             file_dir: Directory to save the PNG file.
             file_name: Name of the PNG file.
-
+            
         Returns:
             Path: Path to the PNG file.
         """
@@ -982,19 +984,18 @@ class GraphService:
         # Ensure file_dir is a Path instance before joining with filename
         if not isinstance(file_dir, Path) and isinstance(file_dir, str):
             file_dir = Path(file_dir)
-
+        
         if not isinstance(file_name, str):
             raise ValueError("file_name must be instance of pathlib.Path or a string")
-
+        
         file_path = file_dir / file_name
         plt.figure(figsize=(16, 12))
 
         logger.info("Preprocessing to identify target and batedor plates.")
         # Preprocessing
+        target_plates = set(self.dataframe[self.dataframe["target"] == True]["placa"])
         batedores = [
-            node
-            for node, data in self.G.nodes(data=True)
-            if data.get("type") == "batedor"
+            node for node, data in self.G.nodes(data=True) if data.get("type") == "batedor"
         ]
 
         # Custom layout creation
@@ -1018,8 +1019,7 @@ class GraphService:
         for node, data in self.G.nodes(data=True):
             if data.get("type") == "target":
                 connected = tuple(
-                    sorted(p for p in self.G.predecessors(node) if p in batedores)
-                )
+                    sorted(p for p in self.G.predecessors(node) if p in batedores))
                 connection_groups[connected].append(node)
 
         logger.info("Positioning each group dynamically.")
@@ -1033,7 +1033,8 @@ class GraphService:
             centroid = np.mean(bats_pos, axis=0)
 
             # Direction and distance from the center
-            vec_from_center = centroid - np.mean([pos[b] for b in batedores], axis=0)
+            vec_from_center = centroid - \
+                np.mean([pos[b] for b in batedores], axis=0)
             if np.linalg.norm(vec_from_center) > 0:
                 direction = vec_from_center / np.linalg.norm(vec_from_center)
             else:
@@ -1077,22 +1078,18 @@ class GraphService:
         # Normalization of edge widths
         edge_weights = [d["weight"] for _, _, d in self.G.edges(data=True)]
         # logger.debug(f"Edge weights: {edge_weights}")
-
+        
         if edge_weights and len(set(edge_weights)) > 1:
             min_w, max_w = min(edge_weights), max(edge_weights)
-            edge_widths = [1 + 4 * (w - min_w) / (max_w - min_w) for w in edge_weights]
+            edge_widths = [1 + 4 * (w - min_w) / (max_w - min_w)
+                        for w in edge_weights]
         else:
             edge_widths = [1]
 
         logger.info("Drawing the graph.")
         # Drawing the graph
         nx.draw_networkx_nodes(
-            self.G,
-            pos,
-            node_color=node_colors,
-            node_size=node_sizes,
-            alpha=0.9,
-            linewidths=2,
+            self.G, pos, node_color=node_colors, node_size=node_sizes, alpha=0.9, linewidths=2
         )
 
         logger.info("Drawing edges.")
@@ -1127,9 +1124,10 @@ class GraphService:
         plt.axis("off")
         plt.tight_layout()
         plt.savefig(file_path, dpi=300, bbox_inches="tight")
-        logger.info("Graph converted to PNG")
-
+        logger.info(f"Graph converted to PNG")
+        
         return file_path
+    
 
     def to_html(self):
         """
@@ -1204,49 +1202,50 @@ class GraphService:
                 }
                 },
                 "interaction": {
-                "hover": true
+                "hover": true  
                 }
             }
             """
         )
         net
         return net
-
+    
     # async def _to_png(self, file_path='grafo.png', delay=5, driver=None):
     def __save_graph(
-        self,
-        file_dir: Path | str = config.ASSETS_DIR,
-        png_file_name: str = "grafo.png",
+        self, 
+        file_dir: Path | str = config.ASSETS_DIR, 
+        png_file_name: str = "grafo.png", 
         html_file_name: str = "grafo.html",
-        delay: int = 5,
-        driver: webdriver.Firefox | None = None,
+        delay: int = 5, 
+        driver: webdriver.Firefox | None = None
     ) -> tuple[Path, Path]:
         """
         Saves the graph to a PNG and HTML file.
-
+        
         Args:
             file_dir: Directory to save the files.
             png_file_name: Name of the PNG file.
             html_file_name: Name of the HTML file.
             delay: Delay to wait for the graph to be rendered.
             driver: Driver to use to save the graph.
-
+            
         Returns:
             tuple[Path, Path]: Path to the HTML and PNG files respectively.
         """
         # Create the file paths
         png_file_path = file_dir / png_file_name
         html_file_path = file_dir / html_file_name
-
-        temp_html = tempfile.NamedTemporaryFile(delete=False, suffix=".html")
+        
+        temp_html = tempfile.NamedTemporaryFile(delete=False, suffix='.html')
         temp_html_path = temp_html.name
         net = self.to_html()
         net.save_graph(temp_html_path)
-
+        
         # Modify the HTML to improve the visualization
-        with open(temp_html_path, encoding="utf-8") as f:
+        with open(temp_html_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
-
+        
+        
         logger.info("Inserting CSS and JS to improve the visualization of the graph.")
         # Insert CSS for white background, better visualization and JS to center the graph
         insert_content = """
@@ -1288,18 +1287,18 @@ class GraphService:
             };
         </script>
         """
-
+        
         # Insert the content after the <head> tag
         html_content = html_content.replace("<head>", "<head>" + insert_content)
-
+        
         logger.debug(f"Saving graph to {html_file_path}")
         # Rewrite the file
-        with open(html_file_path, "w", encoding="utf-8") as f:
+        with open(html_file_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
-
+        
         logger.info(f"Graph saved to {html_file_path}")
         logger.info("Starting to save the PNG file.")
-
+        
         try:
             # Configure the driver with a larger size
             if driver is None:
@@ -1307,52 +1306,54 @@ class GraphService:
                 options.add_argument("--headless")
                 options.add_argument("--window-size=1800,1400")
                 driver = webdriver.Firefox(options=options)
-
+            
             # Open the HTML file
             driver.get(f"file://{os.path.abspath(html_file_path)}")
-
+            
             logger.info("Waiting for the page to be ready.")
             # Wait until the page signals that it is ready
             WebDriverWait(driver, 60).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, "body[data-ready='true']")
-                )
+                EC.presence_of_element_located((By.CSS_SELECTOR, "body[data-ready='true']"))
             )
-
+            
             # Wait a little more to ensure the rendering
             time.sleep(delay)
-
+            
             # Capture the graph element
             network_div = driver.find_element(By.ID, "mynetwork")
             absolute_png_path = os.path.abspath(png_file_path)
             network_div.screenshot(absolute_png_path)
             logger.info(f"PNG file saved to {absolute_png_path}")
-
+            
             return html_file_path, png_file_path
         finally:
             if driver:
                 driver.quit()
-
+            
+            
     async def save_graph(
-        self,
-        file_dir: Path | str = config.ASSETS_DIR,
-        png_file_name: str = "grafo.png",
+        self, 
+        file_dir: Path | str = config.ASSETS_DIR, 
+        png_file_name: str = "grafo.png", 
         html_file_name: str = "grafo.html",
-        delay: int = 5,
+        delay: int = 5, 
     ) -> tuple[Path, Path]:
         """
         Save the graph to a PNG and HTML file.
         """
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            executor, self.__save_graph, file_dir, png_file_name, html_file_name, delay
+            executor, 
+            self.__save_graph, 
+            file_dir, 
+            png_file_name, 
+            html_file_name, delay
         )
 
-
-class PdfService:
+class PdfService():
     """
     Service for PDF report operations.
-
+    
     Args:
         report_id: ID of the report.
         report_title: Title of the report.
@@ -1366,66 +1367,63 @@ class PdfService:
         detections: List of detections.
         detailed_detections: Dictionary of detailed detections.
     """
-
     def __init__(self):
         self.report_id: str = ""
         self.report_title: str = ""
         self.before_after: str = ""
-
+        
         self.time_interval_str: str = ""
         self.before_after_portuguese_str: str = ""
         self.min_different_targets: int = 0
         self.vehicle_types_str: str = ""
         self.vehicle_filter_str: str = ""
         self.requested_vehicles: list[RequestedPlateData] = []
-
+        
         self.total_monitored_plates: int = 0
         self.detections: list[dict] = []
         self.detailed_detections: dict = {}
-
+        
+    
     async def initialize(self, data: PdfReportMultipleCorrelatedPlatesIn):
         """
         Initializes the PDF service.
-
+        
         Args:
             data: Data of the PDF report.
         """
         self.report_id = await generate_report_id()
         self.report_title = data.report_title
-        self.time_interval_str = (
-            f"{data.n_minutes} minuto{'s' if data.n_minutes != 1 else ''}"
-        )
+        self.time_interval_str = f"{data.n_minutes} minutos"
         self.min_different_targets = data.min_different_targets
         # self.vehicle_types_str = ", ".join(data.vehicle_types)
         self.vehicle_filter: bool = data.keep_buses
         self.requested_vehicles = data.requested_plates_data
         self.before_after: str = data.before_after
-
+        
         if self.before_after == "after":
             self.before_after_portuguese_str = "depois"
-
+            
         elif self.before_after == "before":
             self.before_after_portuguese_str = "antes"
 
         else:
             self.before_after_portuguese_str = "antes e depois"
-
+        
         if self.vehicle_filter:
             self.vehicle_filter_str = "todas as leituras"
         else:
-            self.vehicle_filter_str = (
-                "todas as leituras com exceção de ônibus municipais"
-            )
-
+            self.vehicle_filter_str = "todas as leituras com exceção de ônibus municipais"
+        
         logger.info("Initialized PDF service.")
+
 
     async def set_detections(self, correlated_detections: pd.DataFrame) -> list[dict]:
         """
         Sets the detections for the PDF report.
-
+        
         Args:
             correlated_detections: DataFrame with the correlated detections.
-
+            
         """
         logger.info("Setting detections for PDF report.")
         count_placa_geral_column = "count_placa_geral" + (
@@ -1447,13 +1445,11 @@ class PdfService:
         # Change the method to non-async since it doesn't need to be async
         def get_target_plates(plate: str, dataframe: pd.DataFrame) -> str:
             """Obtém a lista de placas alvo relacionadas a uma placa específica."""
-            target_values = dataframe[
+            targets = dataframe[
                 (dataframe["placa"] == plate) & (dataframe["target"] == 0)
-            ]["placa_target"].unique()
-            filtered_targets = sorted(
-                value for value in target_values if "-" not in value
-            )
-            return ", ".join(filtered_targets)
+            ]["placa_target"].unique().tolist()
+            targets = [value for value in targets if "-" not in value]
+            return ", ".join(sorted(targets))
 
         logger.info("Getting target plates.")
         # Add column with target plates using the non-async function
@@ -1469,35 +1465,30 @@ class PdfService:
             "vehicle_type",
             "count_different_targets",
             "count_plate_total",
-            "target_plates",
+            "target_plates"
         ]
 
         df_selected = df_selected[~df_selected["plate"].str.contains("-", na=False)]
-
-        df_selected[["count_different_targets", "count_plate_total"]] = df_selected[
-            ["count_different_targets", "count_plate_total"]
-        ].astype(int)
+        
+        df_selected[["count_different_targets", "count_plate_total"]] = df_selected[["count_different_targets", "count_plate_total"]].astype(int)
         detections = df_selected.to_dict(orient="records")
-
+        
         self.detections = detections
         await self.__set_total_monitored_plates()
         logger.info("Detections set.")
-
-    async def set_detailed_detections(
-        self, correlated_detections: pd.DataFrame
-    ) -> dict:
+        
+        
+    async def set_detailed_detections(self, correlated_detections: pd.DataFrame) -> dict:
         """
         Sets the detailed detections for the PDF report.
-
+        
         Args:
             correlated_detections: DataFrame with the correlated detections.
         """
         logger.info("Setting detailed detections for PDF report.")
         # Select columns and filter data for detailed detections
         detection_details = (
-            correlated_detections[
-                correlated_detections["placa"] != correlated_detections["placa_target"]
-            ][
+            correlated_detections[correlated_detections["placa"] != correlated_detections["placa_target"]][
                 [
                     "detection_index",
                     "datahora_local",
@@ -1519,7 +1510,8 @@ class PdfService:
         logger.info("Grouping codcets by latitude and longitude.")
         # Group codcets by latitude and longitude
         columns_agg = (
-            detection_details.groupby(["latitude", "longitude", "locequip", "sentido"])
+            detection_details.groupby(
+                ["latitude", "longitude", "locequip", "sentido"])
             .agg(
                 {
                     "codcet": lambda x: sorted(
@@ -1546,7 +1538,7 @@ class PdfService:
             location_id = f"loc_{idx}"
 
             # Filter detection_details based on criteria
-            filtered_df: pd.DataFrame = detection_details[
+            filtered_df:pd.DataFrame = detection_details[
                 (detection_details["latitude"] == lat)
                 & (detection_details["longitude"] == lon)
                 & (detection_details["locequip"] == loc)
@@ -1554,10 +1546,8 @@ class PdfService:
             ].copy()
 
             # Create a new column with the formatted dates
-            filtered_df["datahora_local"] = filtered_df["datahora_local"].dt.strftime(
-                "%d/%m/%Y %H:%M:%S"
-            )
-
+            filtered_df['datahora_local'] = filtered_df['datahora_local'].dt.strftime('%d/%m/%Y %H:%M:%S')
+            
             # For each group, we will build the desired JSON structure
             location_data = {
                 "codcet_list": sorted(filtered_df["codcet"].drop_duplicates().tolist()),
@@ -1566,15 +1556,7 @@ class PdfService:
                 "sentido": filtered_df["sentido"].iloc[0],
                 "latitude": filtered_df["latitude"].iloc[0],
                 "longitude": filtered_df["longitude"].iloc[0],
-                "data": filtered_df[
-                    [
-                        "detection_index",
-                        "datahora_local",
-                        "placa",
-                        "placa_target",
-                        "velocidade",
-                    ]
-                ].to_dict(orient="records"),
+                "data": filtered_df[["detection_index", "datahora_local", "placa", "placa_target", "velocidade"]].to_dict(orient="records")
             }
 
             # # Store the filtered DataFrame in the dictionary
@@ -1582,19 +1564,19 @@ class PdfService:
 
         logger.info("Detailed detections set.")
         self.detailed_detections = location_dfs
-
+        
+    
     async def __set_total_monitored_plates(self):
         """
         Sets the total number of monitored plates.
         """
-        self.total_monitored_plates = sum(
-            [d["count_plate_total"] for d in self.detections]
-        )
-
+        self.total_monitored_plates = sum([d['count_plate_total'] for d in self.detections])
+        
+    
     async def get_template_context(self) -> dict:
         """
         Builds the template context for the PDF report.
-
+        
         Returns:
             dict: Template context for the PDF report.
         """
@@ -1602,12 +1584,12 @@ class PdfService:
         requested_vehicles = [
             {
                 "plate": vehicle.plate,
-                "start": vehicle.start.strftime("%d/%m/%Y %H:%M:%S"),
-                "end": vehicle.end.strftime("%d/%m/%Y %H:%M:%S"),
+                "start": vehicle.start.strftime('%d/%m/%Y %H:%M:%S'),
+                "end": vehicle.end.strftime('%d/%m/%Y %H:%M:%S')
             }
             for vehicle in self.requested_vehicles
         ]
-
+        
         logger.info("Template context built.")
         return {
             "report_id": self.report_id,
@@ -1623,29 +1605,30 @@ class PdfService:
             "detailed_detections": self.detailed_detections,
             "grafo_limited_nodes_path": config.ASSETS_DIR / "grafo_limited_nodes.png",
         }
+        
 
     async def generate_pdf_report_from_html_template(
-        self,
-        context: dict,
+        self, 
+        context: dict, 
         template_relative_path: str,
     ):
         """
         Generate a PDF report from an HTML template.
         Wraps the function in a separate thread.
-
+        
         Args:
             context: Dictionary with data to replace Jinja2 placeholders in the HTML template
             template_relative_path: Relative path to the HTML template file
-
+            
         Returns:
             Path to the generated PDF file
         """
         logger.info("Generating PDF report from HTML template.")
-
+        
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            executor,
-            generate_pdf_report_from_html_template,
-            context,
-            template_relative_path,
+            executor, 
+            generate_pdf_report_from_html_template, 
+            context, 
+            template_relative_path
         )
