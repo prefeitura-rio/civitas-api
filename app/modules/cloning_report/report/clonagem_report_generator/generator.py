@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from datetime import datetime
 from typing import Any
 
@@ -16,6 +17,7 @@ from app.modules.cloning_report.analytics import (
 from app.modules.cloning_report.maps import render_overall_map_png, generate_trails_map
 from app.modules.cloning_report.report import ReportPDF
 from app.modules.cloning_report.report.font_config import FontSize
+from app.modules.cloning_report.utils.archive import create_report_temp_dir
 
 
 # =========================================================
@@ -36,11 +38,22 @@ class ClonagemReportGenerator:
         self._setup()
 
     # ---------- geração ----------
-    def generate(self, output_path="report/relatorio_clonagem.pdf"):
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    def generate(self, output_path: str | Path | None = None):
+        if output_path is None:
+            base_dir = create_report_temp_dir(self.report_id)
+            file_name = (
+                f"relatorio_clonagem_{self.placa}_"
+                f"{self.periodo_inicio.strftime('%Y%m%d')}_"
+                f"{self.periodo_fim.strftime('%Y%m%d')}.pdf"
+            )
+            output_path = base_dir / file_name
+        else:
+            output_path = Path(output_path)
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         pdf = self._create_pdf()
         self._add_all_pages(pdf)
-        pdf.output(output_path)
+        pdf.output(str(output_path))
         return output_path
 
     def _generate_unique_report_id(self):

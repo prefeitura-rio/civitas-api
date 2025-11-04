@@ -24,7 +24,6 @@ class CloningReportService:
         plate: str,
         date_start: datetime,
         date_end: datetime,
-        output_dir: str = "report",
         container: Container = get_container(),
         project_id: str | None = None,
         credentials_path: str | None = None,
@@ -49,9 +48,7 @@ class CloningReportService:
         else:
             periodo_fim = pd.Timestamp(date_end).tz_convert("UTC")
         generator = ClonagemReportGenerator(df, plate, periodo_inicio, periodo_fim)
-        report_path = CloningReportService._generate_report(
-            generator, plate, output_dir
-        )
+        report_path = CloningReportService._generate_report(generator)
 
         return CloningReportService._create_report_entity(
             generator, plate, date_start, date_end, report_path
@@ -71,11 +68,9 @@ class CloningReportService:
         return detections
 
     @staticmethod
-    def _generate_report(
-        generator: ClonagemReportGenerator, plate: str, output_dir: str
-    ) -> str:
+    def _generate_report(generator: ClonagemReportGenerator) -> str:
         """Generate PDF report and return path"""
-        return generator.generate(f"{output_dir}/{plate}.pdf")
+        return str(generator.generate())
 
     @staticmethod
     def _create_report_entity(
