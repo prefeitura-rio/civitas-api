@@ -22,7 +22,6 @@ from app.services.pdf.multiple_correlated_plates import (
     PdfService,
 )
 from app.modules.cloning_report.utils import (
-    create_report_temp_dir,
     generate_report_bundle_stream,
     prepare_map_html,
     resolve_pdf_path,
@@ -142,9 +141,6 @@ class PdfReportCloningIn(BaseModel):
     plate: str
     date_start: datetime
     date_end: datetime
-    output_dir: str
-    # project_id: Optional[str] = None
-    # credentials_path: Optional[str] = None
 
     @validator("date_start", "date_end")
     @classmethod
@@ -157,7 +153,7 @@ class PdfReportCloningIn(BaseModel):
         return v
 
 
-@router.post("/cloning-report")
+@router_request(method="POST", router=router, path="/cloning-report")
 async def generate_cloning_report(
     request: Request,
     user: Annotated[User, Depends(is_user)],
@@ -202,54 +198,16 @@ async def generate_cloning_report(
         service = get_async_cloning_service()
 
         try:
-            temp_output_dir = create_report_temp_dir(report_id)
-            logger.debug(
-                f"Using temporary directory for cloning report artifacts: {temp_output_dir}"
-            )
-
-            # Generate cloning report asynchronously
-            report = await service.execute(
-                plate=data.plate,
-                date_start=data.date_start,
-                date_end=data.date_end,
-                output_dir=str(temp_output_dir),
+            report = await _execute_cloning_report(
+                service=service,
+                data=data,
                 report_id=report_id,
             )
-
-            logger.info(f"Cloning report generated successfully: {report.report_path}")
-
-            pdf_path = resolve_pdf_path(report.report_path)
-            html_path = prepare_map_html(report_id)
-
-            response = StreamingResponse(
-                generate_report_bundle_stream(pdf_path, html_path),
-                media_type="application/zip",
-                headers={
-                    "Content-Disposition": f"attachment; filename=cloning_report_{data.plate}_{report_id}.zip",
-                    "X-Report-ID": report_id,
-                    "X-Plate": data.plate,
-                    "X-Total-Detections": str(report.total_detections),
-                    "X-Suspicious-Pairs": str(len(report.suspicious_pairs)),
-                    "X-Map-Included": "true" if html_path else "false",
-                },
+            return _build_cloning_report_response(
+                report=report, report_id=report_id, plate=data.plate
             )
 
-            # Log report generation completion
-            logger.info(
-                f"Cloning report streaming started for plate {data.plate} (Report ID: {report_id})"
-            )
-
-            return response
-
-        except Exception as e:
-            logger.error(
-                f"Failed to generate cloning report for plate {data.plate}: {str(e)}"
-            )
-            raise HTTPException(
-                status_code=500, detail=f"Failed to generate cloning report: {str(e)}"
-            )
         finally:
-            # Cleanup service instance
             await service.close()
 
     except Exception as e:
@@ -259,6 +217,55 @@ async def generate_cloning_report(
         raise HTTPException(
             status_code=500, detail=f"Failed to generate cloning report: {str(e)}"
         )
+
+
+async def _execute_cloning_report(
+    service,
+    data: PdfReportCloningIn,
+    report_id: str,
+):
+    """Run the core cloning report generation workflow."""
+    try:
+        report = await service.execute(
+            plate=data.plate,
+            date_start=data.date_start,
+            date_end=data.date_end,
+            report_id=report_id,
+        )
+        logger.info(f"Cloning report generated successfully: {report.report_path}")
+        return report
+    except Exception as error:
+        logger.error(
+            f"Failed to generate cloning report for plate {data.plate}: {error}"
+        )
+        raise
+
+
+def _build_cloning_report_response(
+    report,
+    report_id: str,
+    plate: str,
+) -> StreamingResponse:
+    """Assemble the ZIP response containing the PDF and HTML map."""
+    pdf_path = resolve_pdf_path(report.report_path)
+    html_path = prepare_map_html(report_id, pdf_path.parent)
+
+    logger.info(
+        f"Cloning report streaming started for plate {plate} (Report ID: {report_id})"
+    )
+
+    return StreamingResponse(
+        generate_report_bundle_stream(pdf_path, html_path),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f"attachment; filename={report_id}.zip",
+            "X-Report-ID": report_id,
+            "X-Plate": plate,
+            "X-Total-Detections": str(report.total_detections),
+            "X-Suspicious-Pairs": str(len(report.suspicious_pairs)),
+            "X-Map-Included": "true" if html_path else "false",
+        },
+    )
 
 
 @router_request(method="POST", router=router, path="/correlated-plates")
