@@ -1445,11 +1445,15 @@ class PdfService():
         # Change the method to non-async since it doesn't need to be async
         def get_target_plates(plate: str, dataframe: pd.DataFrame) -> str:
             """Obtém a lista de placas alvo relacionadas a uma placa específica."""
-            targets = dataframe[
-                (dataframe["placa"] == plate) & (dataframe["target"] == 0)
-            ]["placa_target"].unique().tolist()
-            targets = [value for value in targets if "-" not in value]
-            return ", ".join(sorted(targets))
+            return ", ".join(
+                sorted(
+                    dataframe[(dataframe["placa"] == plate) & (dataframe["target"] == 0)][
+                        "placa_target"
+                    ]
+                    .unique()
+                    .tolist()
+                )
+            )
 
         logger.info("Getting target plates.")
         # Add column with target plates using the non-async function
@@ -1467,8 +1471,6 @@ class PdfService():
             "count_plate_total",
             "target_plates"
         ]
-
-        df_selected = df_selected[~df_selected["plate"].str.contains("-", na=False)]
         
         df_selected[["count_different_targets", "count_plate_total"]] = df_selected[["count_different_targets", "count_plate_total"]].astype(int)
         detections = df_selected.to_dict(orient="records")
