@@ -1,6 +1,5 @@
 """Async application services for cloning detection"""
 
-import asyncio
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
@@ -46,7 +45,6 @@ class AsyncCloningReportService:
         plate: str,
         date_start: datetime,
         date_end: datetime,
-        output_dir: str = "report",
         project_id: str | None = None,
         credentials_path: str | None = None,
         report_id: str | None = None,
@@ -58,7 +56,6 @@ class AsyncCloningReportService:
             plate: Vehicle plate to analyze
             date_start: Start date for analysis
             date_end: End date for analysis
-            output_dir: Directory to save the report
             project_id: BigQuery project ID (optional, uses global client)
             credentials_path: BigQuery credentials path (optional, uses global client)
             report_id: External report ID to use (optional, generates one if not provided)
@@ -90,7 +87,7 @@ class AsyncCloningReportService:
             generator = ClonagemReportGenerator(
                 df, plate, periodo_inicio, periodo_fim, report_id
             )
-            report_path = self._generate_report_sync(generator, plate, output_dir)
+            report_path = self._generate_report_sync(generator)
 
             return self._create_report_entity(
                 generator, plate, date_start, date_end, report_path
@@ -100,29 +97,12 @@ class AsyncCloningReportService:
             logger.exception("Async cloning detection failed")
             raise
 
-    async def _generate_report_async(
-        self, generator: ClonagemReportGenerator, plate: str, output_dir: str
-    ) -> str:
-        """Generate report asynchronously"""
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            self.executor, self._generate_report_sync, generator, plate, output_dir
-        )
-
-    def _generate_report_sync(
-        self, generator: ClonagemReportGenerator, plate: str, output_dir: str
-    ) -> str:
+    def _generate_report_sync(self, generator: ClonagemReportGenerator) -> str:
         """Generate report synchronously (runs in thread pool)"""
         try:
-            import os
-
-            os.makedirs(output_dir, exist_ok=True)
-            report_filename = f"relatorio_clonagem_{plate}_{generator.periodo_inicio.strftime('%Y%m%d')}_{generator.periodo_fim.strftime('%Y%m%d')}.pdf"
-            report_path = os.path.join(output_dir, report_filename)
-
-            report_path = generator.generate(report_path)
+            report_path = generator.generate()
             logger.info(f"Report generated: {report_path}")
-            return report_path
+            return str(report_path)
         except Exception:
             logger.exception("Report generation failed")
             raise
