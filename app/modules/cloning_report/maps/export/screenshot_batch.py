@@ -18,17 +18,15 @@ logger = get_logger()
 
 
 try:
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
+    from app.modules.cloning_report.utils.webdriver import setup_driver_options
 
     _HAVE_SELENIUM = True
 except Exception:
     _HAVE_SELENIUM = False
-    webdriver = None
-    Options = None
+    setup_driver_options = None
 
 
 @dataclass
@@ -42,19 +40,6 @@ class ScreenshotTask:
     only_layers: list[str] | None = None
 
 
-def setup_chrome_options():
-    chrome_options = Options()
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-logging")
-    chrome_options.add_argument("--log-level=3")
-    chrome_options.add_argument("--force-device-scale-factor=1")
-    chrome_options.add_argument("--high-dpi-support=1")
-    return chrome_options
-
-
 def process_screenshot_task(task: ScreenshotTask) -> tuple[bool, str]:
     """
     Process a single screenshot task in a separate thread.
@@ -64,22 +49,17 @@ def process_screenshot_task(task: ScreenshotTask) -> tuple[bool, str]:
     png_name = os.path.basename(task.png_path)
 
     if not _HAVE_SELENIUM:
-        return False, f"Thread {thread_id}: Selenium/Chrome WebDriver not available"
+        return False, f"Thread {thread_id}: Selenium WebDriver not available"
 
     task_start = time.time()
     logger.info(f"Thread {thread_id}: Starting screenshot for {png_name}")
 
-    chrome_options = setup_chrome_options()
-
     driver = None
     try:
         init_start = time.time()
-        driver = webdriver.Chrome(options=chrome_options)
+        driver = setup_driver_options(task.width, task.height)
         init_time = time.time() - init_start
         logger.debug(f"Thread {thread_id}: WebDriver initialized in {init_time:.2f}s")
-
-        # Configure window size to exact target dimensions
-        driver.set_window_size(task.width, task.height)
 
         # Set viewport and ensure proper positioning
         js = get_viewport_setup_script(task.width, task.height)
@@ -87,10 +67,6 @@ def process_screenshot_task(task: ScreenshotTask) -> tuple[bool, str]:
 
         load_start = time.time()
         driver.get(f"file:///{os.path.abspath(task.html_path)}")
-
-        from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
 
         try:
             WebDriverWait(driver, 5).until(
@@ -147,22 +123,12 @@ class ScreenshotWorker:
     def initialize(self):
         """Initialize WebDriver instance for this worker."""
         if not _HAVE_SELENIUM:
-            raise RuntimeError("Selenium/Chrome WebDriver não disponível.")
+            raise RuntimeError("Selenium WebDriver não disponível.")
 
         start_time = time.time()
         logger.info(f"🔧 Worker {self.worker_id}: Initializing WebDriver...")
 
-        chrome_options = Options()
-        chrome_options.add_argument("--headless=new")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.add_argument("--disable-logging")
-        chrome_options.add_argument("--log-level=3")
-        chrome_options.add_argument("--force-device-scale-factor=1")
-        chrome_options.add_argument("--high-dpi-support=1")
-
-        self.driver = webdriver.Chrome(options=chrome_options)
+        self.driver = setup_driver_options()
 
         init_time = time.time() - start_time
         logger.info(
