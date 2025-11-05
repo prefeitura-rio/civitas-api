@@ -154,3 +154,4 @@ htmls/
 
 # Specific generated files
 figs/*
+.devcontainer/
