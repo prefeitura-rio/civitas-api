@@ -11,14 +11,12 @@ from app.modules.cloning_report.maps.export.screenshot_batch import (
 
 # Optional Selenium import for backward compatibility
 try:
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
+    from app.modules.cloning_report.utils.webdriver import setup_driver_options
 
     _HAVE_SELENIUM = True
 except Exception:
     _HAVE_SELENIUM = False
-    webdriver = None
-    Options = None
+    setup_driver_options = None
 
 # Import JavaScript utilities
 from app.modules.cloning_report.utils.js_loader import (
@@ -82,16 +80,9 @@ def take_html_screenshot_legacy(
 ) -> None:
     """Original implementation - kept for backward compatibility"""
     if not _HAVE_SELENIUM:
-        raise RuntimeError("Selenium/Chrome WebDriver não disponível.")
+        raise RuntimeError("Selenium WebDriver não disponível.")
 
-    chrome_options = Options()
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument(f"--window-size={width},{height}")
-
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = setup_driver_options(width, height)
     try:
         driver.get(f"file:///{os.path.abspath(html_path)}")
         time.sleep(2.5)
