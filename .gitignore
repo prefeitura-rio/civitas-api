@@ -155,3 +155,4 @@ report/
 
 # Specific generated files
 figs/*
+.devcontainer/
