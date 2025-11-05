@@ -3,6 +3,7 @@
 import os
 import shutil
 from pathlib import Path
+import platform
 from threading import Lock
 
 from loguru import logger
@@ -63,22 +64,18 @@ def setup_driver_options(width: int = 1800, height: int = 1400) -> webdriver.Fir
     options.add_argument(f"--width={width}")
     options.add_argument(f"--height={height}")
 
-    firefox_binary = _resolve_firefox_binary()
-    if firefox_binary:
-        options.binary_location = firefox_binary
+    arch = platform.machine().lower()
+    use_explicit_service = arch not in ("x86_64", "amd64")
+
+    if use_explicit_service:
+        geckodriver_path = _resolve_geckodriver_binary()
+        if not geckodriver_path:
+            raise RuntimeError(
+                "geckodriver não encontrado. Instale o binário ou defina GECKODRIVER_PATH."
+            )
+        service = Service(executable_path=geckodriver_path)
+        driver = webdriver.Firefox(options=options, service=service)
     else:
-        logger.warning(
-            "Firefox não encontrado nos caminhos padrão; usando detecção padrão."
-        )
-
-    geckodriver_path = _resolve_geckodriver_binary()
-    if not geckodriver_path:
-        raise RuntimeError(
-            "geckodriver não encontrado. Instale o binário ou defina GECKODRIVER_PATH."
-        )
-
-    service = Service(executable_path=geckodriver_path)
-
-    driver = webdriver.Firefox(options=options, service=service)
+        driver = webdriver.Firefox(options=options)
 
     return driver
