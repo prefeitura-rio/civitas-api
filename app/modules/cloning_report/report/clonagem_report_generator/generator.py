@@ -386,7 +386,6 @@ class ClonagemReportGenerator:
             "mas pode ser ajustado conforme o contexto urbano."
         )
         pdf.ln(2)
-        self._add_structure_section(pdf)
 
     def _add_structure_section(self, pdf):
         # Verificar se há espaço suficiente para o título + conteúdo
