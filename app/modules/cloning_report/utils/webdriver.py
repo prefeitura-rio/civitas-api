@@ -53,6 +53,27 @@ def _resolve_geckodriver_binary() -> str | None:
         return None
 
 
+def _get_driver_by_architecture(
+    options: webdriver.firefox.options.Options,
+) -> webdriver.Firefox:
+    """
+    Instantiate a Firefox WebDriver, resolving geckodriver path based on system architecture.
+    """
+    arch = platform.machine().lower()
+    use_explicit_service = arch not in ("x86_64", "amd64")
+
+    if use_explicit_service:
+        geckodriver_path = _resolve_geckodriver_binary()
+        if not geckodriver_path:
+            raise RuntimeError(
+                "geckodriver não encontrado. Instale o binário ou defina GECKODRIVER_PATH."
+            )
+        service = Service(executable_path=geckodriver_path)
+        return webdriver.Firefox(options=options, service=service)
+    else:
+        return webdriver.Firefox(options=options)
+
+
 def setup_driver_options(width: int = 1800, height: int = 1400) -> webdriver.Firefox:
     """
     Configure and instantiate a Firefox WebDriver suitable for headless usage inside
@@ -64,18 +85,6 @@ def setup_driver_options(width: int = 1800, height: int = 1400) -> webdriver.Fir
     options.add_argument(f"--width={width}")
     options.add_argument(f"--height={height}")
 
-    arch = platform.machine().lower()
-    use_explicit_service = arch not in ("x86_64", "amd64")
-
-    if use_explicit_service:
-        geckodriver_path = _resolve_geckodriver_binary()
-        if not geckodriver_path:
-            raise RuntimeError(
-                "geckodriver não encontrado. Instale o binário ou defina GECKODRIVER_PATH."
-            )
-        service = Service(executable_path=geckodriver_path)
-        driver = webdriver.Firefox(options=options, service=service)
-    else:
-        driver = webdriver.Firefox(options=options)
+    driver = webdriver.Firefox(options=options)
 
     return driver

@@ -1,5 +1,6 @@
 """Async application services for cloning detection"""
 
+import asyncio
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
@@ -27,7 +28,7 @@ class AsyncCloningReportService:
         Args:
             executor: Optional thread pool executor for BigQuery operations
         """
-        self.executor = executor or ThreadPoolExecutor(max_workers=4)
+        self.executor = executor or ThreadPoolExecutor(max_workers=10)
         self._repository = None
         self._container = None
 
@@ -87,7 +88,7 @@ class AsyncCloningReportService:
             generator = ClonagemReportGenerator(
                 df, plate, periodo_inicio, periodo_fim, report_id
             )
-            report_path = self._generate_report_sync(generator)
+            report_path = await self._generate_report_async(generator)
 
             return self._create_report_entity(
                 generator, plate, date_start, date_end, report_path
@@ -97,10 +98,11 @@ class AsyncCloningReportService:
             logger.exception("Async cloning detection failed")
             raise
 
-    def _generate_report_sync(self, generator: ClonagemReportGenerator) -> str:
-        """Generate report synchronously (runs in thread pool)"""
+    async def _generate_report_async(self, generator: ClonagemReportGenerator) -> str:
+        """Generate report in a background thread to avoid blocking the event loop."""
+        loop = asyncio.get_running_loop()
         try:
-            report_path = generator.generate()
+            report_path = await loop.run_in_executor(self.executor, generator.generate)
             logger.info(f"Report generated: {report_path}")
             return str(report_path)
         except Exception:
