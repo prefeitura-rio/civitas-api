@@ -830,7 +830,17 @@ class GetCarsByRadarIn:
         self.end_time = end_time
         self.plate_hint = plate_hint
 
-      
+
+class GCSDownloadOut(BaseModel):
+    download_url: str = Field(..., description="The signed URL for downloading the file.")
+    expires_in_seconds: int = Field(..., description="Number of seconds until the URL expires.")
+
+
+class GCSDownloadIn(BaseModel):
+    file_name: str = Field(..., description="The full path to the file in the bucket (can include folders).")
+    bucket_name: str = Field(..., description="The name of the bucket.")
+    expiration_minutes: int = Field(15, ge=1, le=10080, description="URL expiration time in minutes (1-10080, max 7 days).")
+
 
 MonitoredPlateOut.update_forward_refs()
 MonitoredPlateHistory.update_forward_refs()

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import re
 import traceback
@@ -20,7 +20,7 @@ import requests
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi_cache.decorator import cache as cache_decorator
-from google.cloud import bigquery
+from google.cloud import bigquery, storage
 from google.cloud.bigquery.table import Row
 from google.oauth2 import service_account
 from httpx import AsyncClient
@@ -45,6 +45,8 @@ from app.pydantic_models import (
 from app.rate_limiter_cpf import cpf_limiter
 from app.redis_cache import cache
 from weasyprint import HTML
+from google.cloud.exceptions import NotFound, Forbidden
+from google.api_core import exceptions as google_exceptions
 
 
 class ReportsOrderBy(str, Enum):
@@ -1050,6 +1052,16 @@ def get_bigquery_client() -> bigquery.Client:
     """
     credentials = get_gcp_credentials()
     return bigquery.Client(credentials=credentials, project=credentials.project_id)
+
+
+def get_storage_client() -> storage.Client:
+    """Get the Storage client.
+
+    Returns:
+        storage.Client: The Storage client.
+    """
+    credentials = get_gcp_credentials()
+    return storage.Client(credentials=credentials, project=credentials.project_id)
 
 
 def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials:
@@ -2151,3 +2163,66 @@ def generate_pdf_report_from_html_template(context: dict, template_relative_path
         
     logger.info(f"✅ PDF report created: {output_path}")
     return output_path
+
+
+async def generate_download_signed_url(
+    file_name: str, bucket_name: str, expiration_minutes: int = 15
+) -> str:
+    """
+    Generates a v4 signed URL for downloading a file from Google Cloud Storage.
+    
+    Raises:
+        HTTPException: If bucket or file is not found, access is forbidden, or URL generation fails.
+    """
+    # Validate expiration_minutes (GCS limit is 7 days = 10080 minutes)
+    if expiration_minutes < 1 or expiration_minutes > 10080:
+        raise HTTPException(
+            status_code=400,
+            detail="expiration_minutes must be between 1 and 10080 (7 days)"
+        )
+    
+    def _generate():
+        try:
+            storage_client = get_storage_client()
+            bucket = storage_client.bucket(bucket_name)
+            blob = bucket.blob(file_name)
+
+            if not blob.exists():
+                raise HTTPException(
+                    status_code=403,
+                    detail="Access denied to this resource. Check your permissions."
+                )
+
+            signed_url = blob.generate_signed_url(
+                version="v4",
+                expiration=timedelta(minutes=expiration_minutes),
+                method="GET",
+            )
+            return signed_url
+        except HTTPException:
+            raise
+        except NotFound:
+            logger.warning(f"Bucket '{bucket_name}' or file '{file_name}' not found or access denied")
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied to this resource. Check your permissions."
+            )
+        except Forbidden:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied to bucket '{bucket_name}' or file '{file_name}'. Check your permissions."
+            )
+        except google_exceptions.GoogleAPIError as e:
+            logger.exception(f"Google Cloud Storage API error generating download URL: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate download URL. Please try again later."
+            )
+        except Exception as e:
+            logger.exception(f"Unexpected error generating download URL: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="An unexpected error occurred while generating the download URL"
+            )
+    
+    return await asyncio.to_thread(_generate)

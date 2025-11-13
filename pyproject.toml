@@ -37,6 +37,7 @@ selenium = "^4.32.0"
 pyvis = "^0.3.2"
 db-dtypes = "^1.4.3"
 google-cloud-bigquery-storage = "^2.31.0"
+google-cloud-storage = "^2.11.0"
 
 
 [tool.poetry.group.dev.dependencies]

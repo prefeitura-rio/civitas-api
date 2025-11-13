@@ -28,6 +28,7 @@ from app.routers import (
     cameras_cor,
     cars,
     companies,
+    gcs,
     layers,
     notification_channels,
     operations,
@@ -109,6 +110,7 @@ app.include_router(radars.router)
 app.include_router(reports.router)
 app.include_router(users.router)
 app.include_router(waze.router)
+app.include_router(gcs.router)
 
 
 add_pagination(app)
