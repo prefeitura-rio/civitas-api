@@ -13,7 +13,6 @@ class QueryParameters:
     start_date: datetime
     end_date: datetime
     timezone: str = "America/Sao_Paulo"
-    banned_codcets: list[str] = None
 
 
 class BigQueryQueryBuilder:
