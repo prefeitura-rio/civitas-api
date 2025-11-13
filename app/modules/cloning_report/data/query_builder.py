@@ -23,16 +23,21 @@ class BigQueryQueryBuilder:
       SELECT DISTINCT
         datahora,
         placa,
-        codcet,
+        a.codcet,
         camera_latitude,
         camera_longitude,
         velocidade
-      FROM `rj-civitas.cerco_digital.vw_readings`
+      FROM `rj-civitas.cerco_digital.vw_readings` a
       WHERE
         placa = '{plate}'
         AND (camera_latitude != 0 AND camera_longitude != 0)
         AND datahora >= TIMESTAMP('{start_date}')
         AND datahora <= TIMESTAMP('{end_date}')
+        AND NOT EXISTS (
+          SELECT 1
+          FROM `rj-civitas.cerco_digital.radares_quarentena` AS r
+          WHERE r.codcet = a.codcet
+        )
       ORDER BY datahora ASC, placa ASC
     ),
     loc AS (
