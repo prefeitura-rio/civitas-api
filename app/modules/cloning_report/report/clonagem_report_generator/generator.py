@@ -17,6 +17,7 @@ from app.modules.cloning_report.analytics import (
 from app.modules.cloning_report.maps import render_overall_map_png, generate_trails_map
 from app.modules.cloning_report.report import ReportPDF
 from app.modules.cloning_report.report.font_config import FontSize
+from app.modules.cloning_report.utils import strftime_safe
 from app.modules.cloning_report.utils.archive import create_report_temp_dir
 
 
@@ -24,6 +25,8 @@ from app.modules.cloning_report.utils.archive import create_report_temp_dir
 # GERADOR - estrutura com KPIs de clonagem
 # =========================================================
 class ClonagemReportGenerator:
+    DATETIME_DISPLAY_FORMAT = "%d/%m/%Y %H:%M:%S"
+
     def __init__(
         self,
         df: pd.DataFrame,
@@ -786,13 +789,20 @@ class ClonagemReportGenerator:
             pdf.chapter_body("Não há registros suspeitos para exibir no mapa geral.")
 
     def _add_general_table_section(self, pdf: ReportPDF, suspeitos):
+        if not isinstance(suspeitos, pd.DataFrame) or suspeitos.empty:
+            self._add_no_suspicious_records_message(pdf)
+            return
+
+        table_df = self._format_datetime_columns(
+            suspeitos, ["Data", "DataDestino", "DataFormatada"]
+        )
         table_text = (
             "A tabela apresenta os registros suspeitos identificados no período. "
             "Ela mostra Data (primeira detecção), Primeira Detecção (local e radar), "
             "Detecção Seguinte (local e radar) e a velocidade média."
         )
         pdf.add_table(
-            suspeitos[["Data", "Origem", "Destino", "Km", "s", "Km/h"]],
+            table_df[["Data", "Origem", "Destino", "Km", "s", "Km/h"]],
             title="1.2 Tabela geral de detecções suspeitas",
             text=table_text,
         )
@@ -866,7 +876,10 @@ class ClonagemReportGenerator:
         dt = pd.to_datetime(df_tmp["Data"], errors="coerce")
         mask = dt.dt.strftime("%d/%m/%Y") == day_key
         cols = ["Data", "Origem", "Destino", "Km", "s", "Km/h"]
-        return df_tmp.loc[mask, cols] if mask.any() else pd.DataFrame(columns=cols)
+        subset = df_tmp.loc[mask, cols] if mask.any() else pd.DataFrame(columns=cols)
+        if subset.empty:
+            return subset
+        return self._format_datetime_columns(subset, ["Data", "DataDestino"])
 
     def _add_day_table(self, pdf: ReportPDF, df_day, day_key):
         try:
@@ -874,6 +887,9 @@ class ClonagemReportGenerator:
             df_print["Km/h"] = pd.to_numeric(df_print["Km/h"], errors="coerce")
         except Exception:
             df_print = df_day
+        df_print = self._format_datetime_columns(
+            df_print, ["Data", "DataDestino", "DataFormatada"]
+        )
 
         pdf.add_table(
             df_print[["Data", "Origem", "Destino", "Km", "s", "Km/h"]],
@@ -909,8 +925,14 @@ class ClonagemReportGenerator:
         )
 
     def _add_single_pair_tracks(self, pdf: ReportPDF, df_c1, df_c2, day_key):
-        pdf.add_table(df_c1, title=f"Tabela da trilha - Carro 1 - {day_key}")
-        pdf.add_table(df_c2, title=f"Tabela da trilha - Carro 2 - {day_key}")
+        df_c1_fmt = self._format_datetime_columns(
+            df_c1, ["Data", "DataDestino", "DataHora", "DataHora_str"]
+        )
+        df_c2_fmt = self._format_datetime_columns(
+            df_c2, ["Data", "DataDestino", "DataHora", "DataHora_str"]
+        )
+        pdf.add_table(df_c1_fmt, title=f"Tabela da trilha - Carro 1 - {day_key}")
+        pdf.add_table(df_c2_fmt, title=f"Tabela da trilha - Carro 2 - {day_key}")
 
     def _add_multiple_tracks(self, pdf: ReportPDF, day_key, tracks, df_c1, df_c2):
         pdf.add_page()
@@ -934,14 +956,34 @@ class ClonagemReportGenerator:
         pdf.sub_title(f"Mapa da trilha - Carro 1 - {day_key}")
         if "carro1" in pngs and os.path.exists(pngs["carro1"]):
             pdf.image(pngs["carro1"], x=10, y=None, w=190)
-        pdf.add_table(df_c1, title=f"Tabela da trilha - Carro 1 - {day_key}")
+        df_c1_fmt = self._format_datetime_columns(
+            df_c1, ["Data", "DataDestino", "DataHora", "DataHora_str"]
+        )
+        pdf.add_table(df_c1_fmt, title=f"Tabela da trilha - Carro 1 - {day_key}")
 
     def _add_car2_track(self, pdf: ReportPDF, pngs, df_c2, day_key):
         pdf.add_page()
         pdf.sub_title(f"Mapa da trilha - Carro 2 - {day_key}")
         if "carro2" in pngs and os.path.exists(pngs["carro2"]):
             pdf.image(pngs["carro2"], x=10, y=None, w=190)
-        pdf.add_table(df_c2, title=f"Tabela da trilha - Carro 2 - {day_key}")
+        df_c2_fmt = self._format_datetime_columns(
+            df_c2, ["Data", "DataDestino", "DataHora", "DataHora_str"]
+        )
+        pdf.add_table(df_c2_fmt, title=f"Tabela da trilha - Carro 2 - {day_key}")
+
+    def _format_datetime_columns(
+        self, df: pd.DataFrame, columns: list[str]
+    ) -> pd.DataFrame:
+        if df is None or df.empty:
+            return df
+
+        formatted = df.copy()
+        for col in columns:
+            if col in formatted.columns:
+                formatted[col] = formatted[col].apply(
+                    lambda value: strftime_safe(value, self.DATETIME_DISPLAY_FORMAT)
+                )
+        return formatted
 
     def get_suspicious_pairs(self):
         """Get suspicious pairs data"""
