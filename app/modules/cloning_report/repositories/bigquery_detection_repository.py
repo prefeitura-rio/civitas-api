@@ -29,13 +29,14 @@ class BigQueryDetectionRepository(DetectionRepository):
             "GOOGLE_APPLICATION_CREDENTIALS"
         )
         self.client = None
+        self._bigquery = None
         logger.info(f"BigQuery repository initialized for project: {self.project_id}")
-        self._initialize_client()
 
     def find_by_plate_and_period(
         self, plate: str, start_date: datetime, end_date: datetime
     ) -> list[Detection]:
         """Find detections for plate in time period from BigQuery"""
+        self._ensure_client()
         if not self.client:
             raise RuntimeError("BigQuery client not initialized")
 
@@ -43,8 +44,13 @@ class BigQueryDetectionRepository(DetectionRepository):
 
         params = QueryParameters(plate=plate, start_date=start_date, end_date=end_date)
 
-        query = BigQueryQueryBuilder.build_vehicle_query(params)
-        df = self.client.query(query).to_dataframe()
+        query, query_params = BigQueryQueryBuilder.build_vehicle_query(params)
+        bq_params = [
+            self._bigquery.ScalarQueryParameter(name, param_type, value)
+            for name, param_type, value in query_params
+        ]
+        job_config = self._bigquery.QueryJobConfig(query_parameters=bq_params)
+        df = self.client.query(query, job_config=job_config).to_dataframe()
 
         logger.info(f"Found {len(df)} detections for {plate}")
         return DetectionMapper.dataframe_to_detections(df)
@@ -52,6 +58,7 @@ class BigQueryDetectionRepository(DetectionRepository):
     def test_connection(self) -> bool:
         """Test BigQuery connection"""
         try:
+            self._ensure_client()
             if not self.client:
                 return False
 
@@ -63,8 +70,10 @@ class BigQueryDetectionRepository(DetectionRepository):
             logger.exception("BigQuery connection test failed")
             return False
 
-    def _initialize_client(self):
-        """Initialize BigQuery client"""
+    def _ensure_client(self):
+        """Initialize client lazily to allow environment setup before use."""
+        if self.client:
+            return
         try:
             from google.cloud import bigquery
             from google.auth import default
@@ -76,6 +85,7 @@ class BigQueryDetectionRepository(DetectionRepository):
             self.client = bigquery.Client(
                 project=self.project_id or project, credentials=credentials
             )
+            self._bigquery = bigquery
             logger.info("BigQuery client initialized successfully")
 
         except ImportError:

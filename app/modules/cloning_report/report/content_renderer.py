@@ -68,7 +68,7 @@ class ContentRenderer:
         pad_bottom=6,
     ):
         """Render KPI box with title, value and icon"""
-        from .kpi_renderer import KPIRenderer
+        from app.modules.cloning_report.report.kpi_renderer import KPIRenderer
 
         kpi_renderer = KPIRenderer(self.pdf)
         kpi_renderer.render_kpi_box(
@@ -111,7 +111,7 @@ class ContentRenderer:
 
     def render_params_table(self, rows: list[tuple[str, str]], *, label_w_ratio=0.38):
         """Render 2-column parameters table"""
-        from .table_renderer import TableRenderer
+        from app.modules.cloning_report.report.table_renderer import TableRenderer
 
         table_renderer = TableRenderer(self.pdf)
         table_renderer.render_params_table(rows, label_w_ratio=label_w_ratio)

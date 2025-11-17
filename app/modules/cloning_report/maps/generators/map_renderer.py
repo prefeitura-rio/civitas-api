@@ -4,8 +4,9 @@ import multiprocessing
 import pandas as pd
 import os
 from pathlib import Path
+from uuid import uuid4
 
-from app.modules.cloning_report.utils import VMAX_KMH, ensure_dir
+from app.modules.cloning_report.utils import VMAX_KMH, ensure_dir, get_temp_dir
 from app.modules.cloning_report.maps.generators.map_generator import MapGenerator
 from app.modules.cloning_report.maps.export.screenshot import (
     take_html_screenshot,
@@ -22,18 +23,22 @@ class MapRenderer:
         vmax_kmh: float = VMAX_KMH,
         enable_parallel: bool = True,
         max_workers: int | None = None,
+        output_dir: Path | None = None,
     ):
         self.map_generator = MapGenerator(use_clusters, vmax_kmh)
         self.enable_parallel = enable_parallel
         self.max_workers = max_workers or min(multiprocessing.cpu_count(), 8)
+        base_dir = get_temp_dir("maps")
+        self.temp_dir = ensure_dir(base_dir / "html")
+        self.output_dir = ensure_dir(output_dir or base_dir / "png")
 
     def render_overall_map_png(self, df_sus: pd.DataFrame) -> str | None:
         """Render overall map as PNG"""
         if df_sus is None or df_sus.empty:
             return None
 
-        tmp = ensure_dir("temp_files") / "mapa_clonagem_overall.html"
-        out = ensure_dir("app/assets/cloning_report/figs") / "mapa_clonagem_overall.png"
+        tmp = self._temp_file("mapa_clonagem_overall", suffix=".html")
+        out = self.output_dir / "mapa_clonagem_overall.png"
 
         html = self.map_generator.generate_map_clonagem(df_sus, base_only=True)
 
@@ -64,11 +69,8 @@ class MapRenderer:
         for day, day_data in daily_data:
             html_str = self.map_generator.generate_map_clonagem(day_data)
             safe_day = pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
-            tmp = ensure_dir("temp_files") / f"mapa_clonagem_{safe_day}.html"
-            out = (
-                ensure_dir("app/assets/cloning_report/figs")
-                / f"mapa_clonagem_{safe_day}.png"
-            )
+            tmp = self._temp_file(f"mapa_clonagem_{safe_day}", suffix=".html")
+            out = self.output_dir / f"mapa_clonagem_{safe_day}.png"
 
             result = self._save_html_to_png(html_str, tmp, out)
             if result:
@@ -86,11 +88,8 @@ class MapRenderer:
             html_str = self.map_generator.generate_map_clonagem(day_data)
             safe_day = pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
 
-            tmp_path = ensure_dir("temp_files") / f"mapa_clonagem_{safe_day}.html"
-            out_path = (
-                ensure_dir("app/assets/cloning_report/figs")
-                / f"mapa_clonagem_{safe_day}.png"
-            )
+            tmp_path = self._temp_file(f"mapa_clonagem_{safe_day}", suffix=".html")
+            out_path = self.output_dir / f"mapa_clonagem_{safe_day}.png"
 
             with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(html_str)
@@ -147,3 +146,8 @@ class MapRenderer:
                 os.remove(tmp_path)
             except Exception:
                 pass
+
+    def _temp_file(self, base_name: str, suffix: str = "") -> Path:
+        """Generate a unique temporary file path for parallel-safe usage."""
+        unique_name = f"{base_name}_{uuid4().hex}{suffix}"
+        return self.temp_dir / unique_name

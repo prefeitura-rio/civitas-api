@@ -3,10 +3,18 @@
 import pandas as pd
 import time
 from typing import Any
+from pathlib import Path
+from uuid import uuid4
 
 from collections.abc import Callable
 
-from app.modules.cloning_report.utils import get_logger, configure_logging, LogLevel
+from app.modules.cloning_report.utils import (
+    get_logger,
+    configure_logging,
+    LogLevel,
+    ensure_dir,
+    get_temp_dir,
+)
 from app.modules.cloning_report.utils.progress import TaskProgress
 from app.modules.cloning_report.maps.generators import MapRenderer, TrailsMapGenerator
 from app.modules.cloning_report.maps.export.screenshot_clean import (
@@ -35,8 +43,13 @@ class APIMapRenderer:
     def _initialize_components(
         self, progress_callback: Callable[[TaskProgress], None] | None
     ):
-        self.map_renderer = MapRenderer(enable_parallel=True)
-        self.trails_generator = TrailsMapGenerator()
+        api_root = get_temp_dir("api")
+        self.temp_dir = ensure_dir(api_root / "html")
+        self.output_dir = ensure_dir(api_root / "png")
+        self.map_renderer = MapRenderer(
+            enable_parallel=True, output_dir=self.output_dir
+        )
+        self.trails_generator = TrailsMapGenerator(output_dir=self.output_dir)
         self.screenshot_processor = CleanScreenshotProcessor(
             max_workers=ScreenshotConfig.DEFAULT_MAX_WORKERS,
             progress_callback=progress_callback,
@@ -158,13 +171,8 @@ class APIMapRenderer:
         return pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
 
     def _get_daily_paths(self, safe_day: str):
-        from app.modules.cloning_report.utils import ensure_dir
-
-        tmp_path = ensure_dir("temp_files") / f"api_daily_{safe_day}.html"
-        out_path = (
-            ensure_dir("app/assets/cloning_report/figs")
-            / f"mapa_clonagem_{safe_day}.png"
-        )
+        tmp_path = self._temp_html_path(f"api_daily_{safe_day}")
+        out_path = self.output_dir / f"mapa_clonagem_{safe_day}.png"
         return tmp_path, out_path
 
     def _save_daily_html(self, html_str: str, tmp_path):
@@ -193,12 +201,8 @@ class APIMapRenderer:
         return self._create_overall_task(tmp_path, out_path)
 
     def _get_overall_paths(self):
-        from app.modules.cloning_report.utils import ensure_dir
-
-        tmp_path = ensure_dir("temp_files") / "api_overall.html"
-        out_path = (
-            ensure_dir("app/assets/cloning_report/figs") / "mapa_clonagem_overall.png"
-        )
+        tmp_path = self._temp_html_path("api_overall")
+        out_path = self.output_dir / "mapa_clonagem_overall.png"
         return tmp_path, out_path
 
     def _generate_overall_html(self, df_sus: pd.DataFrame) -> str:
@@ -286,13 +290,8 @@ class APIMapRenderer:
         return pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
 
     def _get_trail_paths(self, safe_day: str, car_key: str):
-        from app.modules.cloning_report.utils import ensure_dir
-
-        tmp_path = ensure_dir("temp_files") / f"api_trail_{safe_day}_{car_key}.html"
-        out_path = (
-            ensure_dir("app/assets/cloning_report/figs")
-            / f"trilha_{safe_day}_{car_key}.png"
-        )
+        tmp_path = self._temp_html_path(f"api_trail_{safe_day}_{car_key}")
+        out_path = self.output_dir / f"trilha_{safe_day}_{car_key}.png"
         return tmp_path, out_path
 
     def _write_trail_html(self, trail_html: str, tmp_path):
@@ -404,6 +403,9 @@ class APIMapRenderer:
                 task["temp_html"].unlink(missing_ok=True)
             except Exception:
                 pass
+
+    def _temp_html_path(self, prefix: str) -> Path:
+        return self.temp_dir / f"{prefix}_{uuid4().hex}.html"
 
     def _empty_result(self) -> dict[str, Any]:
         """Return empty result structure"""

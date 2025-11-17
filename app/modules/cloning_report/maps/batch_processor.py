@@ -2,8 +2,10 @@
 
 import pandas as pd
 from typing import Any
+from pathlib import Path
+from uuid import uuid4
 
-from app.modules.cloning_report.utils import ensure_dir
+from app.modules.cloning_report.utils import ensure_dir, get_temp_dir
 from app.modules.cloning_report.maps.generators import MapRenderer, TrailsMapGenerator
 from app.modules.cloning_report.maps.export import (
     take_html_screenshots_batch,
@@ -16,8 +18,13 @@ class UnifiedMapBatchProcessor:
 
     def __init__(self, enable_parallel: bool = True):
         self.enable_parallel = enable_parallel
-        self.map_renderer = MapRenderer(enable_parallel=enable_parallel)
-        self.trails_generator = TrailsMapGenerator()
+        batch_root = get_temp_dir("batch")
+        self.temp_dir = ensure_dir(batch_root / "html")
+        self.output_dir = ensure_dir(batch_root / "png")
+        self.map_renderer = MapRenderer(
+            enable_parallel=enable_parallel, output_dir=self.output_dir
+        )
+        self.trails_generator = TrailsMapGenerator(output_dir=self.output_dir)
 
     def process_all_maps(
         self, df_sus: pd.DataFrame, trails_tables: dict[str, Any]
@@ -78,11 +85,8 @@ class UnifiedMapBatchProcessor:
             html_str = self.map_renderer.map_generator.generate_map_clonagem(day_data)
             safe_day = pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
 
-            tmp_path = ensure_dir("temp_files") / f"batch_daily_{safe_day}.html"
-            out_path = (
-                ensure_dir("app/assets/cloning_report/figs")
-                / f"mapa_clonagem_{safe_day}.png"
-            )
+            tmp_path = self._temp_html_path(f"batch_daily_{safe_day}")
+            out_path = self.output_dir / f"mapa_clonagem_{safe_day}.png"
 
             # Write HTML file
             with open(tmp_path, "w", encoding="utf-8") as f:
@@ -106,10 +110,8 @@ class UnifiedMapBatchProcessor:
         if df_sus is None or df_sus.empty:
             return None
 
-        tmp_path = ensure_dir("temp_files") / "batch_overall.html"
-        out_path = (
-            ensure_dir("app/assets/cloning_report/figs") / "mapa_clonagem_overall.png"
-        )
+        tmp_path = self._temp_html_path("batch_overall")
+        out_path = self.output_dir / "mapa_clonagem_overall.png"
 
         html = self.map_renderer.map_generator.generate_map_clonagem(
             df_sus, base_only=True
@@ -149,14 +151,8 @@ class UnifiedMapBatchProcessor:
                 )
                 if trail_html:
                     safe_day = pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
-                    tmp_path = (
-                        ensure_dir("temp_files")
-                        / f"batch_trail_{safe_day}_{car_key}.html"
-                    )
-                    out_path = (
-                        ensure_dir("app/assets/cloning_report/figs")
-                        / f"trilha_{safe_day}_{car_key}.png"
-                    )
+                    tmp_path = self._temp_html_path(f"batch_trail_{safe_day}_{car_key}")
+                    out_path = self.output_dir / f"trilha_{safe_day}_{car_key}.png"
 
                     # Write HTML file
                     with open(tmp_path, "w", encoding="utf-8") as f:
@@ -231,6 +227,9 @@ class UnifiedMapBatchProcessor:
                 task["temp_html"].unlink(missing_ok=True)
             except Exception:
                 pass
+
+    def _temp_html_path(self, prefix: str) -> Path:
+        return self.temp_dir / f"{prefix}_{uuid4().hex}.html"
 
     def _process_sequential(
         self, df_sus: pd.DataFrame, trails_tables: dict[str, Any]

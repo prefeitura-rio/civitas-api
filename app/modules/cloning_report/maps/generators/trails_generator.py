@@ -4,6 +4,8 @@ import folium
 import pandas as pd
 import numpy as np
 import os
+from pathlib import Path
+from uuid import uuid4
 from folium.plugins import BeautifyIcon
 
 from app.modules.cloning_report.clustering.graph_builder import GraphBuilder
@@ -11,7 +13,7 @@ from app.modules.cloning_report.clustering.graph_builder import GraphBuilder
 from app.modules.cloning_report.utils import BLUE_LIGHT, BLUE_DARK
 
 # from ...clustering import graph_from_pairs_day
-from app.modules.cloning_report.utils import ensure_dir
+from app.modules.cloning_report.utils import ensure_dir, get_temp_dir
 from app.modules.cloning_report.maps.utils.formatting import format_timestamp
 from app.modules.cloning_report.maps.export.screenshot import take_html_screenshot
 
@@ -19,9 +21,17 @@ from app.modules.cloning_report.maps.export.screenshot import take_html_screensh
 class TrailsMapGenerator:
     """Gerador de mapas de trilhas"""
 
-    def __init__(self, width: int = 1200, height: int = 800):
+    def __init__(
+        self,
+        width: int = 1200,
+        height: int = 800,
+        output_dir: Path | None = None,
+    ):
         self.width = width
         self.height = height
+        base_temp = get_temp_dir("trails")
+        self.temp_dir = ensure_dir(base_temp / "html")
+        self.output_dir = ensure_dir(output_dir or base_temp / "png")
 
     def generate_trails_map(
         self, df_sus: pd.DataFrame, day: str, trails_tables_day: dict
@@ -237,11 +247,8 @@ class TrailsMapGenerator:
     def _save_map(self, m: folium.Map, day: str, car_key: str) -> str | None:
         """Salva mapa como PNG"""
         safe_day = pd.to_datetime(day, dayfirst=True).strftime("%Y-%m-%d")
-        tmp_html = ensure_dir("temp_files") / f"trilha_{safe_day}_{car_key}.html"
-        out_png = (
-            ensure_dir("app/assets/cloning_report/figs")
-            / f"trilha_{safe_day}_{car_key}.png"
-        )
+        tmp_html = self._temp_html_path(f"trilha_{safe_day}_{car_key}")
+        out_png = self.output_dir / f"trilha_{safe_day}_{car_key}.png"
 
         with open(tmp_html, "w", encoding="utf-8") as f:
             f.write(m.get_root().render())
@@ -256,3 +263,6 @@ class TrailsMapGenerator:
                 os.remove(tmp_html)
             except Exception:
                 pass
+
+    def _temp_html_path(self, prefix: str) -> Path:
+        return self.temp_dir / f"{prefix}_{uuid4().hex}.html"

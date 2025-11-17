@@ -7,10 +7,7 @@ from app.modules.cloning_report.container import Container, get_container
 
 from app.modules.cloning_report.domain.entities import CloningReport
 from app.modules.cloning_report.report import ClonagemReportGenerator
-from app.modules.cloning_report.repositories import (
-    DetectionRepositoryFactory,
-    DetectionMapper,
-)
+from app.modules.cloning_report.repositories import DetectionMapper
 from app.modules.cloning_report.utils import get_logger
 
 logger = get_logger()
@@ -24,11 +21,12 @@ class CloningReportService:
         plate: str,
         date_start: datetime,
         date_end: datetime,
-        container: Container = get_container(),
+        container: Container | None = None,
         project_id: str | None = None,
         credentials_path: str | None = None,
     ) -> CloningReport:
         """Execute cloning detection with flexible data source selection"""
+        container = container or get_container()
         logger.info(f"Executing cloning detection for plate {plate}")
 
         repository = container.detection_repository
@@ -60,8 +58,7 @@ class CloningReportService:
     ):
         """Load detections with automatic fallback"""
         if not repository.test_connection():
-            logger.warning("Repository connection failed, falling back to CSV")
-            repository = DetectionRepositoryFactory.create_csv_repository()
+            raise RuntimeError("Detection repository connection failed")
 
         detections = repository.find_by_plate_and_period(plate, date_start, date_end)
         logger.info(f"Loaded {len(detections)} detections")
@@ -100,17 +97,11 @@ class RepositoryTestService:
         results = {}
 
         try:
-            csv_repo = DetectionRepositoryFactory.create_csv_repository()
-            results["csv"] = {
-                "available": csv_repo.test_connection(),
-                "type": "CSV Files",
-                "description": "Local CSV files for development",
-            }
-        except Exception as e:
-            results["csv"] = {"available": False, "error": str(e)}
+            from app.modules.cloning_report.repositories.bigquery_detection_repository import (
+                BigQueryDetectionRepository,
+            )
 
-        try:
-            bq_repo = DetectionRepositoryFactory.create_repository("bigquery")
+            bq_repo = BigQueryDetectionRepository()
             results["bigquery"] = {
                 "available": bq_repo.test_connection(),
                 "type": "Google BigQuery",

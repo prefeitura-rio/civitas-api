@@ -80,7 +80,7 @@ class ClusteringValidator:
     @staticmethod
     def _prepare_clustering_data(df_day: pd.DataFrame) -> dict[str, Any]:
         """Prepares data structures needed for clustering"""
-        from .graph_builder import GraphBuilder
+        from app.modules.cloning_report.clustering.graph_builder import GraphBuilder
 
         df_clean = df_day.reset_index(drop=True).copy()
         df_nodes, edges = GraphBuilder.create_nodes_and_edges(df_clean)
@@ -155,7 +155,9 @@ class ClusteringValidator:
     @staticmethod
     def _handle_two_pairs(metadata: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
         """Handles two pairs case"""
-        from .clustering_algorithm import TwoPairsChainHandler
+        from app.modules.cloning_report.clustering.clustering_algorithm import (
+            TwoPairsChainHandler,
+        )
 
         is_chain, chain_labels = TwoPairsChainHandler.handle_chain_partition(
             metadata["edges"]
@@ -172,7 +174,7 @@ class ClusteringValidator:
         metadata: dict[str, Any], vmax_kmh: float
     ) -> tuple[bool, dict[str, Any]]:
         """Handles multiple pairs case with algorithm selection"""
-        from .clustering_algorithm import (
+        from app.modules.cloning_report.clustering.clustering_algorithm import (
             GreedyTemporalClustering,
             SpatialKMeansClustering,
         )

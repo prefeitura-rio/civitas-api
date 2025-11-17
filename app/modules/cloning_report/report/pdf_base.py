@@ -4,7 +4,7 @@ from fpdf import FPDF
 import pandas as pd
 from app.modules.cloning_report.report.layout_manager import PDFLayoutManager
 from app.modules.cloning_report.report.content_renderer import ContentRenderer
-from .table_renderer import TableRenderer
+from app.modules.cloning_report.report.table_renderer import TableRenderer
 
 
 class ReportPDF(FPDF):

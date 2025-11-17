@@ -50,19 +50,30 @@ class AsyncBigQueryDetectionRepository(DetectionRepository):
 
         params = QueryParameters(plate=plate, start_date=start_date, end_date=end_date)
 
-        query = BigQueryQueryBuilder.build_vehicle_query(params)
+        query, query_params = BigQueryQueryBuilder.build_vehicle_query(params)
 
         # Run the BigQuery operation in a thread pool
         loop = asyncio.get_event_loop()
-        df = await loop.run_in_executor(self.executor, self._execute_query, query)
+        df = await loop.run_in_executor(
+            self.executor, self._execute_query, query, query_params
+        )
 
         logger.info(f"Found {len(df)} detections for {plate}")
         return DetectionMapper.dataframe_to_detections(df)
 
-    def _execute_query(self, query: str) -> pd.DataFrame:
+    def _execute_query(
+        self, query: str, query_params: list[tuple[str, str, str]]
+    ) -> pd.DataFrame:
         """Execute BigQuery query synchronously (runs in thread pool)"""
         try:
-            query_job = self.client.query(query)
+            from google.cloud import bigquery
+
+            bq_params = [
+                bigquery.ScalarQueryParameter(name, param_type, value)
+                for name, param_type, value in query_params
+            ]
+            job_config = bigquery.QueryJobConfig(query_parameters=bq_params)
+            query_job = self.client.query(query, job_config=job_config)
             return query_job.to_dataframe()
         except Exception:
             logger.exception("BigQuery query execution failed")
