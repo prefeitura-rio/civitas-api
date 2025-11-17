@@ -3,6 +3,8 @@
 from datetime import datetime
 import os
 
+from google.cloud import bigquery
+
 from app.modules.cloning_report.repositories.detection_repository import (
     DetectionRepository,
     DetectionMapper,
@@ -43,8 +45,14 @@ class BigQueryDetectionRepository(DetectionRepository):
 
         params = QueryParameters(plate=plate, start_date=start_date, end_date=end_date)
 
-        query = BigQueryQueryBuilder.build_vehicle_query(params)
-        df = self.client.query(query).to_dataframe()
+        query, query_params = BigQueryQueryBuilder.build_vehicle_query(params)
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter(name, param_type, value)
+                for name, param_type, value in query_params
+            ]
+        )
+        df = self.client.query(query, job_config=job_config).to_dataframe()
 
         logger.info(f"Found {len(df)} detections for {plate}")
         return DetectionMapper.dataframe_to_detections(df)
@@ -66,7 +74,6 @@ class BigQueryDetectionRepository(DetectionRepository):
     def _initialize_client(self):
         """Initialize BigQuery client"""
         try:
-            from google.cloud import bigquery
             from google.auth import default
 
             if self.credentials_path:
