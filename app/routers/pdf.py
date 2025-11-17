@@ -141,8 +141,6 @@ class PdfReportCloningIn(BaseModel):
     plate: str
     date_start: datetime
     date_end: datetime
-    # project_id: Optional[str] = None
-    # credentials_path: Optional[str] = None
 
     @validator("date_start", "date_end")
     @classmethod
@@ -155,10 +153,10 @@ class PdfReportCloningIn(BaseModel):
         return v
 
 
-@router.post("/cloning-report")
+@router_request(method="POST", router=router, path="/cloning-report")
 async def generate_cloning_report(
     request: Request,
-    # user: Annotated[User, Depends(is_user)],  # Temporariamente comentado para teste
+    user: Annotated[User, Depends(is_user)],
     data: PdfReportCloningIn,
 ) -> StreamingResponse:
     """
@@ -260,7 +258,7 @@ def _build_cloning_report_response(
         generate_report_bundle_stream(pdf_path, html_path),
         media_type="application/zip",
         headers={
-            "Content-Disposition": f"attachment; filename=cloning_report_{plate}_{report_id}.zip",
+            "Content-Disposition": f"attachment; filename={report_id}.zip",
             "X-Report-ID": report_id,
             "X-Plate": plate,
             "X-Total-Detections": str(report.total_detections),
