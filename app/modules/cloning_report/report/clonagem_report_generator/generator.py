@@ -401,11 +401,29 @@ class ClonagemReportGenerator:
         self._add_structure_content(pdf)
 
     def _add_structure_content(self, pdf):
-        self._add_analysis_parameters_section(pdf)
-        self._add_summary_section(pdf)
-        self._add_reading_guide_section(pdf)
-        self._add_general_analysis_section(pdf)
-        self._add_daily_analysis_section(pdf)
+        pdf.chapter_body(
+            "Este relatório busca apresentar análises de suspeita de clonagem de placas de \n"
+            "veículos, a partir dos registros de passagem capturados pelos radares da cidade. \n"
+            "Especificamente, pretende-se separar as detecções suspeitas em diferentes trilhas \n"
+            "atribuíveis a dois veículos distintos (Veículo 1 e Veículo 2), com foco em evidenciar e \n"
+            "caracterizar as possíveis dinâmicas de circulação de cada um deles paralelamente na \n"
+            "cidade. O processo é dividido em quatro etapas: \n\n"
+            "        <b>1. Recebimento da demanda</b>\n"
+            "        Autoridade solicitante fornece a placa de veículo e período de busca para identificação de possíveis suspeitas de clonagem\n"
+            "        <b>2. Identificação de suspeita de clonagem</b>\n"
+            "        Mapeamento de pares de detecções (duas passagens consecutivas) que apontem suspeita de clone no período\n"
+            "        <b>3. Geração de Mapa Geral da Análise</b>\n"
+            "        Consolidação de todos os pares de detecções classificados como suspeitos ao longo do período analisado. \n\n"
+            "        <b>4. Geração de Mapas Diários: separação em trilhas</b>\n"
+            "        Identificação de pontos de detecções atribuíveis a possíveis veículos distintos (Veículo 1 e Veículo 2) diariamente."
+            ""
+        )
+        # self._add_analysis_parameters_section(pdf)
+        # self._add_summary_section(pdf)
+        # self._add_reading_guide_section(pdf)
+        # self._add_general_analysis_section(pdf)
+        # self._add_daily_analysis_section(pdf)
+        pass
 
     def _add_structure_title(self, pdf):
         pdf.set_font("Helvetica", "B", FontSize.SECTION_TITLE)
