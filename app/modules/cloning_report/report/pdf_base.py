@@ -78,9 +78,9 @@ class ReportPDF(FPDF):
         """Add figure"""
         self.content_renderer.render_figure(fig_or_path, title, text, width_factor)
 
-    def add_params_table(self, rows: list[tuple[str, str]], *, label_w_ratio=0.38):
-        """Add parameters table"""
-        self.content_renderer.render_params_table(rows, label_w_ratio=label_w_ratio)
+    # def add_params_table(self, rows: list[tuple[str, str]], *, label_w_ratio=0.38):
+    #     """Add parameters table"""
+    #     self.content_renderer.render_params_table(rows, label_w_ratio=label_w_ratio)
 
     # ---------- Table rendering methods (delegate to table_renderer) ----------
     def add_table(self, df: pd.DataFrame, title: str, text: str | None = None):
