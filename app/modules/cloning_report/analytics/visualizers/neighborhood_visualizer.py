@@ -3,6 +3,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from app.modules.cloning_report.utils import ensure_dir
+from app.modules.cloning_report.utils.filesystem import FileSystemService
 
 
 class NeighborhoodVisualizer:
@@ -43,7 +44,8 @@ class NeighborhoodVisualizer:
     @staticmethod
     def _save_chart(fig) -> str:
         """Save chart to file and return path"""
-        output_path = ensure_dir("app/assets/cloning_report") / "bairro_pairs_top.png"
+        filename = FileSystemService.build_unique_filename("bairro_pairs_top.png")
+        output_path = ensure_dir("app/assets/cloning_report") / filename
         fig.savefig(output_path, dpi=220)
         plt.close(fig)
         return str(output_path)
