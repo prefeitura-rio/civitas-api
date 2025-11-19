@@ -10,6 +10,7 @@ from collections.abc import Iterator
 from fastapi import HTTPException
 
 from app import config
+from app.modules.cloning_report.utils.filesystem import FileSystemService
 from app.modules.cloning_report.utils.logging import get_logger
 
 logger = get_logger()
@@ -24,8 +25,7 @@ def create_report_temp_dir(report_id: str) -> Path:
     Artifacts generated during the request are stored under
     /tmp/cloning_report/<report_id>.
     """
-    base_tmp = Path("/tmp")
-    base_dir = base_tmp / "cloning_report" / report_id
+    base_dir = FileSystemService.get_report_temp_dir(report_id)
     base_dir.mkdir(parents=True, exist_ok=True)
     return base_dir
 
@@ -41,12 +41,25 @@ def resolve_pdf_path(report_path: str | Path | None) -> Path:
 
 def prepare_map_html(report_id: str, destination_dir: Path) -> Path | None:
     """
-    Copy the static cloning map HTML to the destination directory for bundling.
+    Copy the generated cloning map HTML from /tmp/cloning_report to the destination
+    directory used for bundling. Falls back to the repository asset when the
+    runtime artifact is missing.
     """
-    source = config.ASSETS_DIR / "cloning_report" / "htmls" / "mapa_clonagem.html"
+    runtime_dir = FileSystemService.get_report_temp_dir(report_id) / "htmls"
+    generated_name = FileSystemService.build_unique_filename(
+        "mapa_clonagem.html", report_id
+    )
+    source = runtime_dir / generated_name
+
     if not source.exists():
-        logger.warning(f"HTML source file not found: {source}")
-        return None
+        base_source = (
+            config.ASSETS_DIR / "cloning_report" / "htmls" / "mapa_clonagem.html"
+        )
+        if base_source.exists():
+            source = base_source
+        else:
+            logger.warning(f"HTML source file not found: {source}")
+            return None
 
     destination_dir.mkdir(parents=True, exist_ok=True)
     destination = destination_dir / f"mapa_clonagem_{report_id}.html"
