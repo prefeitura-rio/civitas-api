@@ -5,7 +5,6 @@ from pathlib import Path
 from datetime import datetime
 from typing import Any
 
-from fpdf import Align
 import pandas as pd
 from fpdf.enums import XPos, YPos
 from app.modules.cloning_report.detection.preprocessing import DetectionPreprocessor
@@ -549,41 +548,91 @@ class ClonagemReportGenerator:
 
     def _add_parameters_section(self, pdf: ReportPDF):
         pdf.add_page()
-        pdf.set_font("Helvetica", "B", FontSize.PARAMETERS_SECTION_TITLE)
-        pdf.cell(
-            0, 10, "Parâmetros de Busca", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L"
-        )
-        pdf.ln(4)
+        self._render_parameters_header(pdf)
+        self._add_parameters_intro(pdf)
         self._add_parameters_table(pdf)
 
-    def _add_parameters_table(self, pdf: ReportPDF) -> None:
-        pdf.chapter_body(
-            "Abaixo estão os parâmetros utilizados para a geração do relatório. Eles são definidos pelo solicitante."
-        )
+    def _render_parameters_header(self, pdf: ReportPDF) -> None:
+        pdf.set_font("Helvetica", "B", FontSize.PARAMETERS_SECTION_TITLE)
         pdf.cell(
             w=0,
             h=10,
-            text="1. Placa demandada",
+            text="Parâmetros de Busca",
             new_x=XPos.LMARGIN,
             new_y=YPos.NEXT,
-            align=Align.C,
+            align="L",
         )
-        pdf.set
-        # periodo_txt = (
-        #     f"De {self.periodo_inicio:%d/%m/%Y às %H:%M:%S} "
-        #     f"até {self.periodo_fim:%d/%m/%Y às %H:%M:%S}"
-        # )
-        # suspeita_txt = "Sim" if getattr(self, "num_suspeitos", 0) > 0 else "Não"
-        # rows = [
-        #     ("Placa monitorada:", self.placa),
-        #     ("Marca/Modelo:", self.meta_marca_modelo),
-        #     ("Cor:", self.meta_cor),
-        #     ("Ano Modelo:", str(self.meta_ano_modelo)),
-        #     ("Período analisado:", periodo_txt),
-        #     ("Total de pontos detectados:", str(self.total_deteccoes)),
-        #     ("Suspeita de placa clonada:", suspeita_txt),
-        # ]
-        # pdf.add_params_table(rows)
+        pdf.ln(3)
+
+    def _add_parameters_intro(self, pdf: ReportPDF) -> None:
+        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
+        pdf.chapter_body(
+            "Abaixo estão os parâmetros utilizados para a geração do relatório. Eles são definidos pelo solicitante."
+        )
+        pdf.ln(2)
+
+    def _add_parameters_table(self, pdf: ReportPDF) -> None:
+        # periodo_inicio_fmt = strftime_safe(self.periodo_inicio, "%d/%m/%Y %H:%M:%S")
+        # periodo_fim_fmt = strftime_safe(self.periodo_fim, "%d/%m/%Y %H:%M:%S")
+
+        parameter_blocks = [
+            (
+                "1. Placa Demandada",
+                [
+                    "Placa de veículo fornecida pela autoridade de segurança.",
+                    # f"Placa analisada: {self.placa}",
+                ],
+            ),
+            (
+                "2. Data Inicial e Final",
+                ["Intervalo de tempo para a busca suspeita de placa clonada."],
+            ),
+        ]
+
+        for title, lines in parameter_blocks:
+            self._render_parameter_block(pdf, title, lines)
+        self._add_cloning_pointer_section(pdf)
+
+    def _add_cloning_pointer_section(self, pdf: ReportPDF) -> None:
+        title_indent = pdf.l_margin + 1
+        content_indent = pdf.l_margin + 4
+        pdf.set_font("Helvetica", "B", FontSize.SUBSECTION_TITLE + 3)
+        pdf.set_x(title_indent)
+        pdf.cell(
+            0,
+            8,
+            "Apontamento da Suspeita de Clonagem",
+            new_x=XPos.LMARGIN,
+            new_y=YPos.NEXT,
+        )
+        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
+        bullets = [
+            "A suspeita de clone é sinalizada quando o intervalo de tempo e a distância entre duas detecções sucessivas de uma mesma placa são incompatíveis com o deslocamento urbano normal. Um curto intervalo aliado a uma longa distância pode sugerir a presença de dois veículos distintos com a mesma placa circulando simultaneamente.",
+            "A classificação de suspeita ocorre quando a velocidade média estimada para percorrer a distância entre dois pontos excede 110 km/h, considerando uma linha reta entre os pontos e desconsiderando possíveis rotas reais.",
+        ]
+
+        for text in bullets:
+            pdf.render_bullet_point(pdf, text, content_indent)
+
+        pdf.ln(1)
+        pdf.chapter_html(
+            "<b>Importante: este relatório não comprova a existência de clonagem de placa. "
+            "Ele apenas indica situações que requerem verificação adicional.</b>"
+        )
+        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
+        pdf.ln(2)
+
+    def _render_parameter_block(
+        self, pdf: ReportPDF, title: str, lines: list[str]
+    ) -> None:
+        pdf.set_font("Helvetica", "B", FontSize.SUBSECTION_TITLE)
+        indent = pdf.l_margin + 4
+        pdf.set_x(indent)
+        pdf.cell(0, 8, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
+        for line in lines:
+            pdf.chapter_body(line)
+        pdf.ln(1.5)
 
     # def _add_kpi_section(self, pdf: ReportPDF):
     #     pdf.set_font("Helvetica", "B", FontSize.KPI_SECTION_TITLE)
