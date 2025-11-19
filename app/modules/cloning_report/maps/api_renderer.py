@@ -7,6 +7,7 @@ from typing import Any
 from collections.abc import Callable
 
 from app.modules.cloning_report.utils import get_logger, configure_logging, LogLevel
+from app.modules.cloning_report.utils.filesystem import FileSystemService
 from app.modules.cloning_report.utils.progress import TaskProgress
 from app.modules.cloning_report.maps.generators import MapRenderer, TrailsMapGenerator
 from app.modules.cloning_report.maps.export.screenshot_clean import (
@@ -160,11 +161,14 @@ class APIMapRenderer:
     def _get_daily_paths(self, safe_day: str):
         from app.modules.cloning_report.utils import ensure_dir
 
-        tmp_path = ensure_dir("temp_files") / f"api_daily_{safe_day}.html"
-        out_path = (
-            ensure_dir("app/assets/cloning_report/figs")
-            / f"mapa_clonagem_{safe_day}.png"
+        tmp_filename = FileSystemService.build_unique_filename(
+            f"api_daily_{safe_day}.html"
         )
+        out_filename = FileSystemService.build_unique_filename(
+            f"mapa_clonagem_{safe_day}.png"
+        )
+        tmp_path = ensure_dir("temp_files") / tmp_filename
+        out_path = ensure_dir("app/assets/cloning_report/figs") / out_filename
         return tmp_path, out_path
 
     def _save_daily_html(self, html_str: str, tmp_path):
@@ -195,10 +199,12 @@ class APIMapRenderer:
     def _get_overall_paths(self):
         from app.modules.cloning_report.utils import ensure_dir
 
-        tmp_path = ensure_dir("temp_files") / "api_overall.html"
-        out_path = (
-            ensure_dir("app/assets/cloning_report/figs") / "mapa_clonagem_overall.png"
+        tmp_filename = FileSystemService.build_unique_filename("api_overall.html")
+        out_filename = FileSystemService.build_unique_filename(
+            "mapa_clonagem_overall.png"
         )
+        tmp_path = ensure_dir("temp_files") / tmp_filename
+        out_path = ensure_dir("app/assets/cloning_report/figs") / out_filename
         return tmp_path, out_path
 
     def _generate_overall_html(self, df_sus: pd.DataFrame) -> str:
@@ -288,11 +294,14 @@ class APIMapRenderer:
     def _get_trail_paths(self, safe_day: str, car_key: str):
         from app.modules.cloning_report.utils import ensure_dir
 
-        tmp_path = ensure_dir("temp_files") / f"api_trail_{safe_day}_{car_key}.html"
-        out_path = (
-            ensure_dir("app/assets/cloning_report/figs")
-            / f"trilha_{safe_day}_{car_key}.png"
+        tmp_filename = FileSystemService.build_unique_filename(
+            f"api_trail_{safe_day}_{car_key}.html"
         )
+        out_filename = FileSystemService.build_unique_filename(
+            f"trilha_{safe_day}_{car_key}.png"
+        )
+        tmp_path = ensure_dir("temp_files") / tmp_filename
+        out_path = ensure_dir("app/assets/cloning_report/figs") / out_filename
         return tmp_path, out_path
 
     def _write_trail_html(self, trail_html: str, tmp_path):
