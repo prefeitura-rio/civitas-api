@@ -5,6 +5,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Any
 
+from fpdf import Align
 import pandas as pd
 from fpdf.enums import XPos, YPos
 from app.modules.cloning_report.detection.preprocessing import DetectionPreprocessor
@@ -409,17 +410,29 @@ class ClonagemReportGenerator:
         pdf.set_font("Helvetica", "B", FontSize.SECTION_TITLE)
         pdf.cell(0, 8, "3. Estrutura do Relatório", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-    def _add_structure_content(self, pdf):
+    def _add_structure_content(self, pdf: ReportPDF):
         pdf.ln(0.5)
         # pdf.ln(1)
         pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
         pdf.chapter_html(
-            f"{'&nbsp;' * 4}Este relatório busca apresentar análises de suspeita de clonagem de placas de"
-            "veículos, a partir dos registros de passagem capturados pelos radares da cidade."
-            "Especificamente, pretende-se separar as detecções suspeitas em diferentes trilhas"
-            "atribuíveis a dois veículos distintos (Veículo 1 e Veículo 2), com foco em evidenciar e"
-            "caracterizar as possíveis dinâmicas de circulação de cada um deles paralelamente na"
-            "cidade. O processo é dividido em quatro etapas: <br><br>"
+            f"{'&nbsp;' * 4}Este relatório foi elaborado para aprofundar a análise de casos suspeitos de"
+            "clonagem de placas identificados pelos radares da cidade. Em algumas situações, uma "
+            "mesma placa aparece registrada em pontos diferentes com intervalos de tempo que não "
+            "são compatíveis com o deslocamento real de um único veículo. Esses padrões exigem "
+            "investigação, pois podem indicar que dois automóveis distintos estão circulando "
+            "simultaneamente com a mesma placa. <br><br>"
+            f"{'&nbsp;' * 4}A partir dessa necessidade, o foco deste relatório é separar as detecções em duas "
+            "trilhas coerentes de circulação, cada qual atribuída a um veículo, identificados, aqui, como "
+            "Veículo A e Veículo B.  O objetivo central é reconstruir o trajeto provável de cada trilha, "
+            "permitindo separar os trajetos de carros distintos e identificar padrões de deslocamento "
+            "independentes. <br><br>"
+            f"{'&nbsp;' * 4}Ao final, o relatório apresenta as rotas reconstruídas de cada trilha, oferecendo "
+            "subsídios para a compreensão da dinâmica de circulação e para reforçar, ou descartar, a "
+            "hipótese de clonagem da placa analisada.",
+            font_family="Helvetica",
+            font_size_pt=int(FontSize.BODY_TEXT),
+        )
+        pdf.chapter_html(
             f"{'&nbsp;' * 8}<b>1. Recebimento da demanda</b><br>"
             f"{'&nbsp;' * 12}Autoridade solicitante fornece a placa de veículo e período de busca para identificação de possíveis suspeitas de clonagem<br>"
             f"{'&nbsp;' * 8}<b>2. Identificação de suspeita de clonagem</b><br>"
@@ -546,11 +559,19 @@ class ClonagemReportGenerator:
         pdf.ln(4)
         self._add_parameters_table(pdf)
 
-    def _add_parameters_table(self, pdf: ReportPDF):
+    def _add_parameters_table(self, pdf: ReportPDF) -> None:
         pdf.chapter_body(
             "Abaixo estão os parâmetros utilizados para a geração do relatório. Eles são definidos pelo solicitante."
         )
-        pdf.chapter_html("")
+        pdf.cell(
+            w=0,
+            h=10,
+            text="1. Placa demandada",
+            new_x=XPos.LMARGIN,
+            new_y=YPos.NEXT,
+            align=Align.C,
+        )
+        pdf.set
         # periodo_txt = (
         #     f"De {self.periodo_inicio:%d/%m/%Y às %H:%M:%S} "
         #     f"até {self.periodo_fim:%d/%m/%Y às %H:%M:%S}"
