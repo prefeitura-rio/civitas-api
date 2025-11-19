@@ -19,6 +19,7 @@ from app.modules.cloning_report.report import ReportPDF
 from app.modules.cloning_report.report.font_config import FontSize
 from app.modules.cloning_report.utils import strftime_safe
 from app.modules.cloning_report.utils.archive import create_report_temp_dir
+from app.modules.cloning_report.utils.filesystem import FileSystemService
 
 
 # =========================================================
@@ -42,22 +43,26 @@ class ClonagemReportGenerator:
 
     # ---------- geração ----------
     def generate(self, output_path: str | Path | None = None):
-        if output_path is None:
-            base_dir = create_report_temp_dir(self.report_id)
-            file_name = (
-                f"relatorio_clonagem_{self.placa}_"
-                f"{self.periodo_inicio.strftime('%Y%m%d')}_"
-                f"{self.periodo_fim.strftime('%Y%m%d')}.pdf"
-            )
-            output_path = base_dir / file_name
-        else:
-            output_path = Path(output_path)
+        context_token = FileSystemService.set_report_context(self.report_id)
+        try:
+            if output_path is None:
+                base_dir = create_report_temp_dir(self.report_id)
+                file_name = (
+                    f"relatorio_clonagem_{self.placa}_"
+                    f"{self.periodo_inicio.strftime('%Y%m%d')}_"
+                    f"{self.periodo_fim.strftime('%Y%m%d')}.pdf"
+                )
+                output_path = base_dir / file_name
+            else:
+                output_path = Path(output_path)
 
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        pdf = self._create_pdf()
-        self._add_all_pages(pdf)
-        pdf.output(str(output_path))
-        return output_path
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            pdf = self._create_pdf()
+            self._add_all_pages(pdf)
+            pdf.output(str(output_path))
+            return output_path
+        finally:
+            FileSystemService.reset_report_context(context_token)
 
     def _generate_unique_report_id(self):
         """Generate unique report ID"""
