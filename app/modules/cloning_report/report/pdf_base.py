@@ -2,6 +2,7 @@
 
 from fpdf import FPDF
 import pandas as pd
+from app.modules.cloning_report.report.font_config import FontSize
 from app.modules.cloning_report.report.layout_manager import PDFLayoutManager
 from app.modules.cloning_report.report.content_renderer import ContentRenderer
 from .table_renderer import TableRenderer
@@ -86,3 +87,18 @@ class ReportPDF(FPDF):
     def add_table(self, df: pd.DataFrame, title: str, text: str | None = None):
         """Add table to PDF"""
         self.table_renderer.render_table(df, title, text)
+
+    def render_bullet_point(
+        self, pdf: FPDF, text: str, indent: float, line_height: float = 5.0
+    ) -> None:
+        bullet_width = 4
+        text_x = indent + bullet_width + 1
+        available_width = pdf.w - pdf.r_margin - text_x
+        pdf.set_xy(indent, pdf.get_y())
+        pdf.set_font("ZapfDingbats", "", 8)
+        pdf.cell(bullet_width, line_height, chr(108), align="C")
+
+        pdf.set_xy(text_x, pdf.get_y())
+        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
+        pdf.multi_cell(available_width, line_height, text)
+        pdf.ln(0.5)
