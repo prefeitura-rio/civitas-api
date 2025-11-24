@@ -18,7 +18,6 @@ from app.modules.cloning_report.maps import render_overall_map_png, generate_tra
 from app.modules.cloning_report.report import ReportPDF
 from app.modules.cloning_report.report.font_config import FontSize
 from app.modules.cloning_report.utils.archive import create_report_temp_dir
-from app.modules.cloning_report.utils.filesystem import FileSystemService
 
 
 # =========================================================
@@ -40,26 +39,22 @@ class ClonagemReportGenerator:
 
     # ---------- geração ----------
     def generate(self, output_path: str | Path | None = None):
-        context_token = FileSystemService.set_report_context(self.report_id)
-        try:
-            if output_path is None:
-                base_dir = create_report_temp_dir(self.report_id)
-                file_name = (
-                    f"relatorio_clonagem_{self.placa}_"
-                    f"{self.periodo_inicio.strftime('%Y%m%d')}_"
-                    f"{self.periodo_fim.strftime('%Y%m%d')}.pdf"
-                )
-                output_path = base_dir / file_name
-            else:
-                output_path = Path(output_path)
+        if output_path is None:
+            base_dir = create_report_temp_dir(self.report_id)
+            file_name = (
+                f"relatorio_clonagem_{self.placa}_"
+                f"{self.periodo_inicio.strftime('%Y%m%d')}_"
+                f"{self.periodo_fim.strftime('%Y%m%d')}.pdf"
+            )
+            output_path = base_dir / file_name
+        else:
+            output_path = Path(output_path)
 
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            pdf = self._create_pdf()
-            self._add_all_pages(pdf)
-            pdf.output(str(output_path))
-            return output_path
-        finally:
-            FileSystemService.reset_report_context(context_token)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf = self._create_pdf()
+        self._add_all_pages(pdf)
+        pdf.output(str(output_path))
+        return output_path
 
     def _generate_unique_report_id(self):
         """Generate unique report ID"""
@@ -395,109 +390,76 @@ class ClonagemReportGenerator:
     def _add_structure_section(self, pdf):
         # Verificar se há espaço suficiente para o título + conteúdo
         # Se não houver, forçar nova página
-        # if pdf.get_y() > 250:  # Se estiver muito próximo do final da página
-        pdf.add_page()
+        if pdf.get_y() > 250:  # Se estiver muito próximo do final da página
+            pdf.add_page()
 
         self._add_structure_title(pdf)
-        # self._add_structure_intro(pdf)
+        self._add_structure_intro(pdf)
         self._add_structure_content(pdf)
+
+    def _add_structure_content(self, pdf):
+        self._add_analysis_parameters_section(pdf)
+        self._add_summary_section(pdf)
+        self._add_reading_guide_section(pdf)
+        self._add_general_analysis_section(pdf)
+        self._add_daily_analysis_section(pdf)
 
     def _add_structure_title(self, pdf):
         pdf.set_font("Helvetica", "B", FontSize.SECTION_TITLE)
         pdf.cell(0, 8, "3. Estrutura do Relatório", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-
-    def _add_structure_content(self, pdf: ReportPDF):
         pdf.ln(0.5)
-        # pdf.ln(1)
-        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
-        pdf.chapter_html(
-            f"{'&nbsp;' * 4}Este relatório foi elaborado para aprofundar a análise de casos suspeitos de"
-            "clonagem de placas identificados pelos radares da cidade. Em algumas situações, uma "
-            "mesma placa aparece registrada em pontos diferentes com intervalos de tempo que não "
-            "são compatíveis com o deslocamento real de um único veículo. Esses padrões exigem "
-            "investigação, pois podem indicar que dois automóveis distintos estão circulando "
-            "simultaneamente com a mesma placa. <br><br>"
-            f"{'&nbsp;' * 4}A partir dessa necessidade, o foco deste relatório é separar as detecções em duas "
-            "trilhas coerentes de circulação, cada qual atribuída a um veículo, identificados, aqui, como "
-            "Veículo A e Veículo B.  O objetivo central é reconstruir o trajeto provável de cada trilha, "
-            "permitindo separar os trajetos de carros distintos e identificar padrões de deslocamento "
-            "independentes. <br><br>"
-            f"{'&nbsp;' * 4}Ao final, o relatório apresenta as rotas reconstruídas de cada trilha, oferecendo "
-            "subsídios para a compreensão da dinâmica de circulação e para reforçar, ou descartar, a "
-            "hipótese de clonagem da placa analisada.",
-            font_family="Helvetica",
-            font_size_pt=int(FontSize.BODY_TEXT),
+        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT_LARGE)
+
+    def _add_structure_intro(self, pdf):
+        pdf.chapter_body("    O relatório está organizado da seguinte forma:")
+        pdf.ln(0.5)
+
+    def _add_analysis_parameters_section(self, pdf):
+        pdf.chapter_body("3.1 Parâmetros da Análise")
+        pdf.chapter_body(
+            "    Tabela com as informações de referência da análise, incluindo:\n"
+            "     - Placa consultada\n"
+            "     - Data de início e data de fim do período analisado"
         )
-        pdf.chapter_html(
-            f"{'&nbsp;' * 8}<b>1. Recebimento da demanda</b><br>"
-            f"{'&nbsp;' * 12}Autoridade solicitante fornece a placa de veículo e período de busca para identificação de possíveis suspeitas de clonagem<br>"
-            f"{'&nbsp;' * 8}<b>2. Identificação de suspeita de clonagem</b><br>"
-            f"{'&nbsp;' * 12}Mapeamento de pares de detecções (duas passagens consecutivas) que apontem suspeita de clone no período<br>"
-            f"{'&nbsp;' * 8}<b>3. Geração de Mapa Geral da Análise</b><br>"
-            f"{'&nbsp;' * 12}Consolidação de todos os pares de detecções classificados como suspeitos ao longo do período analisado. <br>"
-            f"{'&nbsp;' * 8}<b>4. Geração de Mapas Diários: separação em trilhas</b><br>"
-            f"{'&nbsp;' * 12}Identificação de pontos de detecções atribuíveis a possíveis veículos distintos (Veículo 1 e Veículo 2) diariamente."
-            ""
-            "",
-            font_family="Helvetica",
-            font_size_pt=int(FontSize.BODY_TEXT),
+        pdf.ln(1)
+
+    def _add_summary_section(self, pdf):
+        pdf.chapter_body("3.2 Quadro Resumo Inicial")
+        pdf.chapter_body(
+            "    Panorama geral da análise, reunindo os principais indicadores:\n"
+            "     - Número total de passagens analisadas.\n"
+            "     - Quantidade de pares classificados como suspeitos.\n"
+            "     - Dia com mais registros de suspeita de clonagem"
         )
-        # self._add_analysis_parameters_section(pdf)
-        # self._add_summary_section(pdf)
-        # self._add_reading_guide_section(pdf)
-        # self._add_general_analysis_section(pdf)
-        # self._add_daily_analysis_section(pdf)
+        pdf.ln(1)
 
-    # def _add_structure_intro(self, pdf):
-    #     pdf.chapter_body("    O relatório está organizado da seguinte forma:")
-    #     pdf.ln(0.5)
+    def _add_reading_guide_section(self, pdf):
+        pdf.chapter_body("3.3 Introdução: como ler este relatório")
+        pdf.chapter_body(
+            "    Seção que tem como finalidade orientar a interpretação das informações "
+            "apresentadas."
+        )
+        pdf.ln(1)
 
-    # def _add_analysis_parameters_section(self, pdf):
-    #     pdf.chapter_body("3.1 Parâmetros da Análise")
-    #     pdf.chapter_body(
-    #         "    Tabela com as informações de referência da análise, incluindo:\n"
-    #         "     - Placa consultada\n"
-    #         "     - Data de início e data de fim do período analisado"
-    #     )
-    #     pdf.ln(1)
+    def _add_general_analysis_section(self, pdf):
+        pdf.chapter_body("3.4 Mapa e Tabela Geral da Análise")
+        pdf.chapter_body(
+            "     Representação consolidada de todas as ocorrências suspeitas identificadas ao longo "
+            "do período. Permite observar a distribuição espacial dos registros e identificar "
+            "concentrações de ocorrências em determinadas regiões da cidade."
+        )
+        pdf.ln(1)
 
-    # def _add_summary_section(self, pdf):
-    #     pdf.chapter_body("3.2 Quadro Resumo Inicial")
-    #     pdf.chapter_body(
-    #         "    Panorama geral da análise, reunindo os principais indicadores:\n"
-    #         "     - Número total de passagens analisadas.\n"
-    #         "     - Quantidade de pares classificados como suspeitos.\n"
-    #         "     - Dia com mais registros de suspeita de clonagem"
-    #     )
-    #     pdf.ln(1)
-
-    # def _add_reading_guide_section(self, pdf):
-    #     pdf.chapter_body("3.3 Introdução: como ler este relatório")
-    #     pdf.chapter_body(
-    #         "    Seção que tem como finalidade orientar a interpretação das informações "
-    #         "apresentadas."
-    #     )
-    #     pdf.ln(1)
-
-    # def _add_general_analysis_section(self, pdf):
-    #     pdf.chapter_body("3.4 Mapa e Tabela Geral da Análise")
-    #     pdf.chapter_body(
-    #         "     Representação consolidada de todas as ocorrências suspeitas identificadas ao longo "
-    #         "do período. Permite observar a distribuição espacial dos registros e identificar "
-    #         "concentrações de ocorrências em determinadas regiões da cidade."
-    #     )
-    #     pdf.ln(1)
-
-    # def _add_daily_analysis_section(self, pdf):
-    #     pdf.chapter_body("3.5 Mapas e Tabelas Diários")
-    #     pdf.chapter_body(
-    #         "    Detalham, dia a dia, os pares de detecção suspeitos. Quando há condições mínimas "
-    #         "para reconstrução de duas trilhas distintas (Veículo 1 e Veículo 2), os pontos são "
-    #         "representados em cores diferentes (azul escuro e azul claro), evidenciando os trajetos "
-    #         "alternativos. Quando a separação não é possível, os registros aparecem em cinza, indicando "
-    #         "ausência de evidências suficientes para segmentar as trilhas."
-    #     )
-    #     pdf.ln(2)
+    def _add_daily_analysis_section(self, pdf):
+        pdf.chapter_body("3.5 Mapas e Tabelas Diários")
+        pdf.chapter_body(
+            "    Detalham, dia a dia, os pares de detecção suspeitos. Quando há condições mínimas "
+            "para reconstrução de duas trilhas distintas (Veículo 1 e Veículo 2), os pontos são "
+            "representados em cores diferentes (azul escuro e azul claro), evidenciando os trajetos "
+            "alternativos. Quando a separação não é possível, os registros aparecem em cinza, indicando "
+            "ausência de evidências suficientes para segmentar as trilhas."
+        )
+        pdf.ln(2)
 
     def _add_limitations_section(self, pdf):
         self._add_limitations_title(pdf)
@@ -543,106 +505,43 @@ class ClonagemReportGenerator:
 
     def _add_summary_page(self, pdf: ReportPDF):
         self._add_parameters_section(pdf)
-
-        # self._add_kpi_section(pdf)
+        self._add_kpi_section(pdf)
 
     def _add_parameters_section(self, pdf: ReportPDF):
         pdf.add_page()
-        self._render_parameters_header(pdf)
-        self._add_parameters_intro(pdf)
-        self._add_parameters_table(pdf)
-
-    def _render_parameters_header(self, pdf: ReportPDF) -> None:
         pdf.set_font("Helvetica", "B", FontSize.PARAMETERS_SECTION_TITLE)
         pdf.cell(
-            w=0,
-            h=10,
-            text="Parâmetros de Busca",
-            new_x=XPos.LMARGIN,
-            new_y=YPos.NEXT,
-            align="L",
+            0, 10, "Parâmetros de Busca", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L"
         )
-        pdf.ln(3)
+        pdf.ln(4)
+        self._add_parameters_table(pdf)
 
-    def _add_parameters_intro(self, pdf: ReportPDF) -> None:
-        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
-        pdf.chapter_body(
-            "Abaixo estão os parâmetros utilizados para a geração do relatório. Eles são definidos pelo solicitante."
+    def _add_parameters_table(self, pdf: ReportPDF):
+        periodo_txt = (
+            f"De {self.periodo_inicio:%d/%m/%Y às %H:%M:%S} "
+            f"até {self.periodo_fim:%d/%m/%Y às %H:%M:%S}"
         )
-        pdf.ln(2)
-
-    def _add_parameters_table(self, pdf: ReportPDF) -> None:
-        # periodo_inicio_fmt = strftime_safe(self.periodo_inicio, "%d/%m/%Y %H:%M:%S")
-        # periodo_fim_fmt = strftime_safe(self.periodo_fim, "%d/%m/%Y %H:%M:%S")
-
-        parameter_blocks = [
-            (
-                "1. Placa Demandada",
-                [
-                    "Placa de veículo fornecida pela autoridade de segurança.",
-                    # f"Placa analisada: {self.placa}",
-                ],
-            ),
-            (
-                "2. Data Inicial e Final",
-                ["Intervalo de tempo para a busca suspeita de placa clonada."],
-            ),
+        suspeita_txt = "Sim" if getattr(self, "num_suspeitos", 0) > 0 else "Não"
+        rows = [
+            ("Placa monitorada:", self.placa),
+            ("Marca/Modelo:", self.meta_marca_modelo),
+            ("Cor:", self.meta_cor),
+            ("Ano Modelo:", str(self.meta_ano_modelo)),
+            ("Período analisado:", periodo_txt),
+            ("Total de pontos detectados:", str(self.total_deteccoes)),
+            ("Suspeita de placa clonada:", suspeita_txt),
         ]
+        pdf.add_params_table(rows)
 
-        for title, lines in parameter_blocks:
-            self._render_parameter_block(pdf, title, lines)
-        self._add_cloning_pointer_section(pdf)
+    def _add_kpi_section(self, pdf: ReportPDF):
+        pdf.set_font("Helvetica", "B", FontSize.KPI_SECTION_TITLE)
+        pdf.cell(0, 10, "Quadro Resumo", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+        pdf.ln(6)
+        self._add_kpi_boxes(pdf)
 
-    def _add_cloning_pointer_section(self, pdf: ReportPDF) -> None:
-        title_indent = pdf.l_margin + 1
-        content_indent = pdf.l_margin + 4
-        pdf.set_font("Helvetica", "B", FontSize.SUBSECTION_TITLE + 3)
-        pdf.set_x(title_indent)
-        pdf.cell(
-            0,
-            8,
-            "Apontamento da Suspeita de Clonagem",
-            new_x=XPos.LMARGIN,
-            new_y=YPos.NEXT,
-        )
-        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
-        bullets = [
-            "A suspeita de clone é sinalizada quando o intervalo de tempo e a distância entre duas detecções sucessivas de uma mesma placa são incompatíveis com o deslocamento urbano normal. Um curto intervalo aliado a uma longa distância pode sugerir a presença de dois veículos distintos com a mesma placa circulando simultaneamente.",
-            "A classificação de suspeita ocorre quando a velocidade média estimada para percorrer a distância entre dois pontos excede 110 km/h, considerando uma linha reta entre os pontos e desconsiderando possíveis rotas reais.",
-        ]
-
-        for text in bullets:
-            pdf.render_bullet_point(pdf, text, content_indent)
-
-        pdf.ln(1)
-        pdf.chapter_html(
-            "<b>Importante: este relatório não comprova a existência de clonagem de placa. "
-            "Ele apenas indica situações que requerem verificação adicional.</b>"
-        )
-        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
-        pdf.ln(2)
-
-    def _render_parameter_block(
-        self, pdf: ReportPDF, title: str, lines: list[str]
-    ) -> None:
-        pdf.set_font("Helvetica", "B", FontSize.SUBSECTION_TITLE)
-        indent = pdf.l_margin + 4
-        pdf.set_x(indent)
-        pdf.cell(0, 8, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-        pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
-        for line in lines:
-            pdf.chapter_body(line)
-        pdf.ln(1.5)
-
-    # def _add_kpi_section(self, pdf: ReportPDF):
-    #     pdf.set_font("Helvetica", "B", FontSize.KPI_SECTION_TITLE)
-    #     pdf.cell(0, 10, "Quadro Resumo", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
-    #     pdf.ln(6)
-    #     self._add_kpi_boxes(pdf)
-
-    # def _add_kpi_boxes(self, pdf: ReportPDF):
-    #     self._setup_kpi_layout(pdf)
-    #     self._add_kpi_boxes_content(pdf)
+    def _add_kpi_boxes(self, pdf: ReportPDF):
+        self._setup_kpi_layout(pdf)
+        self._add_kpi_boxes_content(pdf)
 
     def _setup_kpi_layout(self, pdf: ReportPDF):
         self._calculate_kpi_dimensions(pdf)
