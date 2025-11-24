@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import uuid
 
 import aiohttp
+from google.api_core.page_iterator import HTTPIterator
 import jinja2
 import orjson as json
 import pendulum
@@ -2349,23 +2350,23 @@ async def list_blobs(
             storage_client = get_storage_client()
             bucket = storage_client.bucket(bucket_name)
             
-            # List all blobs
-            blobs = list(bucket.list_blobs())
-            total = len(blobs)
+            fields = "items(name,size,contentType,timeCreated,updated,etag),nextPageToken"
+            blobs_iter = bucket.list_blobs(fields=fields)
+            all_blobs: list[storage.Blob] = list(blobs_iter)
+            total = len(all_blobs)
             
             # Convert to GCSFileInfoOut
-            files = []
-            for blob in blobs:
-                files.append(
-                    GCSFileInfoOut(
-                        name=blob.name,
-                        size=blob.size or 0,
-                        content_type=blob.content_type,
-                        time_created=blob.time_created,
-                        updated=blob.updated,
-                        etag=blob.etag,
-                    )
+            files = [
+                GCSFileInfoOut(
+                    name=blob.name,
+                    size=blob.size or 0,
+                    content_type=blob.content_type,
+                    time_created=blob.time_created,
+                    updated=blob.updated,
+                    etag=blob.etag,
                 )
+                for blob in all_blobs
+            ]
             
             # Sort based on order_by
             if order_by == GCSFileOrderBy.NAME_ASC:
@@ -2394,6 +2395,7 @@ async def list_blobs(
             paginated_files = files[offset : offset + limit]
             
             return paginated_files, total
+
         except HTTPException:
             raise
         except NotFound:
