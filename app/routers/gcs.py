@@ -97,7 +97,12 @@ async def get_gcs_upload_signed_url(
     - Headers: `Content-Type` (must exactly match the `content_type` provided)
     """
     file_exists, signed_url = await asyncio.gather(
-        check_file_exists(data.file_name, data.bucket_name),
+        check_file_exists(
+            file_name=data.file_name, 
+            bucket_name=data.bucket_name,
+            file_path=data.file_path,
+            expected_crc32c=data.crc32c,
+        ),
         generate_upload_signed_url(
             file_name=data.file_name,
             content_type=data.content_type,

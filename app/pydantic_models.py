@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Dict, List, Literal, Optional
 from uuid import UUID
 from enum import Enum
+from zlib import crc32
 
 from fastapi import Query
 from pydantic import BaseModel, Field, root_validator, validator
@@ -837,6 +838,8 @@ class GCSUploadIn(BaseModel):
     file_size: int = Field(..., description="The size of the file in bytes.")
     resumable: bool = Field(False, description="Whether to use resumable upload.")
     file_path: Optional[str] = Field(None, description="The path of the file to upload.")
+    crc32c: Optional[str] = Field(None, description="The CRC32C checksum of the file.")
+    
     
 class GCSUploadOut(BaseModel):
     signed_url: str

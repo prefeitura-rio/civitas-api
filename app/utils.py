@@ -2217,7 +2217,7 @@ async def generate_upload_signed_url(
                     content_type=content_type,
                     size=file_size,
                     timeout=60, # 60 seconds timeout for the session creation request
-                    checksum="md5",
+                    checksum="crc32c",
                     origin=origin                   
                 )
             else:
@@ -2318,9 +2318,15 @@ async def generate_download_signed_url(
     return await asyncio.to_thread(_generate)
 
 
-async def check_file_exists(file_name: str, bucket_name: str) -> bool:
+async def check_file_exists(
+    file_name: str, 
+    bucket_name: str, 
+    file_path: str | None = None, 
+    expected_crc32c: str | None = None
+) -> bool:
     """
     Checks if a file exists in the bucket.
+    If expected_crc32c is provided, also checks if the file's CRC32C matches.
     
     Raises:
         HTTPException: If bucket is not found or access is forbidden.
@@ -2329,8 +2335,19 @@ async def check_file_exists(file_name: str, bucket_name: str) -> bool:
         try:
             storage_client = get_storage_client()
             bucket = storage_client.bucket(bucket_name)
-            blob = bucket.blob(file_name)
-            return blob.exists()
+            
+            blob_name = f"{file_path.rstrip('/')}/{file_name}" if file_path else file_name
+            blob = bucket.blob(blob_name)
+            
+            if not blob.exists():
+                return False
+                
+            if expected_crc32c:
+                blob.reload()
+                if blob.crc32c != expected_crc32c:
+                    return False
+                    
+            return True
         except HTTPException:
             raise
         except NotFound:
