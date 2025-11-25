@@ -2169,19 +2169,33 @@ def generate_pdf_report_from_html_template(context: dict, template_relative_path
 
 
 async def generate_upload_signed_url(
-    file_name: str, content_type: str, bucket_name: str, expiration_minutes: int = 15
+    file_name: str,
+    content_type: str,
+    bucket_name: str,
+    file_size: int,
+    expiration_minutes: int = 60,
+    resumable: bool = False,
+    origin: str | None = None,
+    file_path: str | None = None,
 ) -> str:
     """
     Generates a v4 signed URL for uploading a file to Google Cloud Storage.
     
-    Frontend Instructions:
-    ---------------------
-    The client-side code must perform a PUT request to the generated signed_url.
-    The 'Content-Type' header in the PUT request MUST exactly match the
-    'content_type' provided when generating this URL.
+    Args:
+        file_name: Name of the file to upload.
+        content_type: MIME type of the file.
+        bucket_name: Name of the GCS bucket.
+        file_size: Size of the file in bytes.
+        expiration_minutes: Expiration time for the signed URL in minutes (default: 60).
+        resumable: Whether to use resumable upload (default: False).
+        origin: Origin header from the client request for CORS validation.
+        file_path: If provided, the file will be uploaded to the specified path in the bucket.
+    
+    Returns:
+        str: Signed URL for uploading the file.
     
     Raises:
-        HTTPException: If bucket is not found, access is forbidden, or URL generation fails.
+        HTTPException: If URL generation fails.
     """
     # Validate expiration_minutes (GCS limit is 7 days = 10080 minutes)
     if expiration_minutes < 1 or expiration_minutes > 10080:
@@ -2194,13 +2208,26 @@ async def generate_upload_signed_url(
         try:
             storage_client = get_storage_client()
             bucket = storage_client.bucket(bucket_name)
-            blob = bucket.blob(file_name)
-            return blob.generate_signed_url(
-                version="v4",
-                expiration=timedelta(minutes=expiration_minutes),
-                method="PUT",
-                content_type=content_type,
-            )
+            blob_name = f"{file_path.rstrip('/')}/{file_name}" if file_path else file_name
+            blob = bucket.blob(blob_name)
+            
+            if resumable:
+                # Create the resumable upload session
+                return blob.create_resumable_upload_session(
+                    content_type=content_type,
+                    size=file_size,
+                    timeout=60, # 60 seconds timeout for the session creation request
+                    checksum="md5",
+                    origin=origin                   
+                )
+            else:
+                # Simple upload via PUT
+                return blob.generate_signed_url(
+                    version="v4",
+                    expiration=timedelta(minutes=expiration_minutes),
+                    method="PUT",
+                    content_type=content_type,
+                )
         except NotFound:
             logger.warning(f"Bucket '{bucket_name}' not found or access denied")
             raise HTTPException(

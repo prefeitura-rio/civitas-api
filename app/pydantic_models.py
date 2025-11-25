@@ -834,6 +834,9 @@ class GCSUploadIn(BaseModel):
     file_name: str = Field(..., description="The name of the file to upload.")
     content_type: str = Field(..., description="The MIME type of the file.")
     bucket_name: str = Field(..., description="The name of the bucket to upload the file to.")
+    file_size: int = Field(..., description="The size of the file in bytes.")
+    resumable: bool = Field(False, description="Whether to use resumable upload.")
+    file_path: Optional[str] = Field(None, description="The path of the file to upload.")
     
 class GCSUploadOut(BaseModel):
     signed_url: str

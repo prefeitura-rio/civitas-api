@@ -82,6 +82,19 @@ async def get_gcs_upload_signed_url(
     """
     Provides a signed URL to allow direct file upload to Google Cloud Storage.
     Also returns whether a file with the same name already exists.
+
+    **How to upload the file:**
+
+    1. Call this endpoint to get a signed URL
+    2. Use the returned URL to upload your file directly to GCS (not to this API):
+
+    **If resumable = True:**
+    - PUT request to the signed URL (session already started)
+    - Headers: `Content-Type` (matching file type), `Content-Length` (file size)
+
+    **If resumable = False:**
+    - PUT request to the signed URL (session not started)
+    - Headers: `Content-Type` (must exactly match the `content_type` provided)
     """
     file_exists, signed_url = await asyncio.gather(
         check_file_exists(data.file_name, data.bucket_name),
@@ -89,6 +102,10 @@ async def get_gcs_upload_signed_url(
             file_name=data.file_name,
             content_type=data.content_type,
             bucket_name=data.bucket_name,
+            file_size=data.file_size,
+            resumable=data.resumable,
+            origin=request.headers.get("Origin", None),
+            file_path=data.file_path,
         ),
     )
     return GCSUploadOut(signed_url=signed_url, file_exists=file_exists)
