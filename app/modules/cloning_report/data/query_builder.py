@@ -18,21 +18,26 @@ class QueryParameters:
 class BigQueryQueryBuilder:
     """Builds optimized BigQuery queries for vehicle detection data"""
 
-    BASE_QUERY = """
+    PARAM_QUERY = """
     WITH ordered_positions AS (
       SELECT DISTINCT
         datahora,
         placa,
-        codcet,
+        a.codcet,
         camera_latitude,
         camera_longitude,
         velocidade
-      FROM `rj-civitas.cerco_digital.vw_readings`
+      FROM `rj-civitas.cerco_digital.vw_readings` a
       WHERE
-        placa = '{plate}'
+        placa = @plate
         AND (camera_latitude != 0 AND camera_longitude != 0)
-        AND datahora >= TIMESTAMP('{start_date}')
-        AND datahora <= TIMESTAMP('{end_date}')
+        AND datahora >= TIMESTAMP(@start_date)
+        AND datahora <= TIMESTAMP(@end_date)
+        AND NOT EXISTS (
+          SELECT 1
+          FROM `rj-civitas.cerco_digital.radares_quarentena` AS r
+          WHERE r.codcet = a.codcet
+        )
       ORDER BY datahora ASC, placa ASC
     ),
     loc AS (
@@ -62,35 +67,16 @@ class BigQueryQueryBuilder:
     """
 
     @classmethod
-    def build_vehicle_query(cls, params: QueryParameters) -> str:
-        """Build the complete BigQuery SQL for vehicle detection"""
-        return cls.BASE_QUERY.format(
-            plate=cls._escape_sql_string(params.plate),
-            start_date=params.start_date.strftime("%Y-%m-%d %H:%M:%S"),
-            end_date=params.end_date.strftime("%Y-%m-%d %H:%M:%S"),
-        )
-
-    @classmethod
-    def build_parametrized_query(
-        cls, timezone: str = "America/Sao_Paulo"
-    ) -> tuple[str, list]:
-        """Build parametrized query for better performance and security"""
-        parametrized_query = (
-            cls.BASE_QUERY.replace('"{timezone}"', "@timezone")
-            .replace("'{plate}'", "@plate")
-            .replace("'{start_date}'", "@start_date")
-            .replace("'{end_date}'", "@end_date")
-            .replace('"localidade (codcet)"', "`localidade (codcet)`")
-        )
-
-        job_config_params = [
-            {"name": "plate", "parameterType": {"type": "STRING"}},
-            {"name": "start_date", "parameterType": {"type": "STRING"}},
-            {"name": "end_date", "parameterType": {"type": "STRING"}},
-            {"name": "timezone", "parameterType": {"type": "STRING"}},
+    def build_vehicle_query(
+        cls, params: QueryParameters
+    ) -> tuple[str, list[tuple[str, str, str]]]:
+        """Build the complete BigQuery SQL for vehicle detection with parameters"""
+        query_parameters = [
+            ("plate", "STRING", params.plate),
+            ("start_date", "STRING", cls._format_timestamp(params.start_date)),
+            ("end_date", "STRING", cls._format_timestamp(params.end_date)),
         ]
-
-        return parametrized_query, job_config_params
+        return cls.PARAM_QUERY, query_parameters
 
     @classmethod
     def build_test_query(cls, limit: int = 1000) -> str:
@@ -116,9 +102,9 @@ class BigQueryQueryBuilder:
         """
 
     @staticmethod
-    def _escape_sql_string(value: str) -> str:
-        """Escape SQL string to prevent injection"""
-        return value.replace("'", "''").replace("\\", "\\\\")
+    def _format_timestamp(value: datetime) -> str:
+        """Format datetime for BigQuery parameters"""
+        return value.strftime("%Y-%m-%d %H:%M:%S")
 
     @classmethod
     def estimate_query_cost(cls, params: QueryParameters) -> dict[str, Any]:
