@@ -12,14 +12,14 @@ from .trails_generator import TrailsMapGenerator
 from .map_renderer import MapRenderer
 
 __all__ = [
-    'generate_map_clonagem',
-    'generate_map_clonagem_single_day_html',
-    'MapGenerator',
-    'DataProcessor',
-    'BoundsManager',
-    'BaseLayer',
-    'ClusteredPairsLayer',
-    'OtherDetectionsLayer',
-    'TrailsMapGenerator',
-    'MapRenderer'
+    "generate_map_clonagem",
+    "generate_map_clonagem_single_day_html",
+    "MapGenerator",
+    "DataProcessor",
+    "BoundsManager",
+    "BaseLayer",
+    "ClusteredPairsLayer",
+    "OtherDetectionsLayer",
+    "TrailsMapGenerator",
+    "MapRenderer",
 ]

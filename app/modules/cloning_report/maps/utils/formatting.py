@@ -1,4 +1,5 @@
 """Timestamp and data formatting utilities"""
+
 import pandas as pd
 from typing import Any
 
