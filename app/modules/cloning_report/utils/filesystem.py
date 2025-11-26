@@ -28,6 +28,13 @@ class FileSystemService:
         return directory
 
     @staticmethod
+    def get_asset(asset_name: str) -> str:
+        """Get path to an asset, redirecting if necessary"""
+        base_path = Path("app/assets/cloning_report") / asset_name
+        with open(base_path, encoding="utf-8") as f:
+            return f.read()
+
+    @staticmethod
     def resolve_path(path: str | Path) -> Path:
         """
         Resolve a path, redirecting cloning report asset paths to /tmp/cloning_report.
