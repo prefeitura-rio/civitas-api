@@ -4,9 +4,11 @@ import os
 from pathlib import Path
 from datetime import datetime
 from typing import Any
+from markdown import markdown
 
 import pandas as pd
 from fpdf.enums import XPos, YPos
+from fpdf import TextStyle
 from app.modules.cloning_report.detection.preprocessing import DetectionPreprocessor
 from app.modules.cloning_report.detection.pipeline import DetectionPipeline
 from app.modules.cloning_report.analytics import (
@@ -19,6 +21,7 @@ from app.modules.cloning_report.report import ReportPDF
 from app.modules.cloning_report.report.font_config import FontSize
 from app.modules.cloning_report.utils import strftime_safe
 from app.modules.cloning_report.utils.archive import create_report_temp_dir
+from app.modules.cloning_report.utils.filesystem import FileSystemService
 
 
 # =========================================================
@@ -158,10 +161,11 @@ class ClonagemReportGenerator:
     # =====================================================
     def _add_instructions_page(self, pdf):
         self._add_title_section(pdf)
-        self._add_objective_section(pdf)
-        self._add_methodology_section(pdf)
-        self._add_structure_section(pdf)
-        self._add_limitations_section(pdf)
+        if not self._add_markdown_instructions(pdf):
+            self._add_objective_section(pdf)
+            self._add_methodology_section(pdf)
+            self._add_structure_section(pdf)
+            self._add_limitations_section(pdf)
 
     def _add_title_section(self, pdf):
         pdf.add_page()
@@ -179,6 +183,46 @@ class ClonagemReportGenerator:
     def _add_objective_section(self, pdf):
         self._add_objective_title(pdf)
         self._add_objective_content(pdf)
+
+    def _add_markdown_instructions(self, pdf) -> bool:
+        """
+        Render instructions from app/assets/cloning_report/static_text.md when available.
+
+        Falls back to the hardcoded sections if the file is missing or rendering fails.
+        """
+        try:
+            md_text = FileSystemService.get_asset("static_text.md")
+            md_text = md_text.replace("“", '"').replace("”", '"')
+        except FileNotFoundError:
+            return False
+
+        try:
+            html = markdown(md_text)
+            tag_styles = {
+                "p": TextStyle(
+                    font_family="Helvetica", font_size_pt=10, color=0, t_margin=0
+                ),
+                "ul": TextStyle(font_family="Helvetica", font_size_pt=10, color=0),
+                "ol": TextStyle(font_family="Helvetica", font_size_pt=10, color=0),
+                "li": TextStyle(font_family="Helvetica", font_size_pt=10, color=0),
+                "strong": TextStyle(
+                    font_family="Helvetica", font_style="B", font_size_pt=10, color=0
+                ),
+                "h1": TextStyle(
+                    font_family="Helvetica", font_style="B", font_size_pt=17, color=0
+                ),
+                "h2": TextStyle(
+                    font_family="Helvetica", font_style="B", font_size_pt=13, color=0
+                ),
+                "h3": TextStyle(
+                    font_family="Helvetica", font_style="B", font_size_pt=12, color=0
+                ),
+            }
+            pdf.write_html(html, font_family="Helvetica", tag_styles=tag_styles)
+            pdf.ln(2)
+            return True
+        except Exception:
+            return False
 
     def _add_objective_title(self, pdf):
         pdf.set_font("Helvetica", "B", FontSize.SECTION_TITLE)
