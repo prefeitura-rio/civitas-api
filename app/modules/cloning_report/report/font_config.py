@@ -36,5 +36,7 @@ class FontSize(IntEnum):
     # Special formatting
     ITALIC_TEXT = 9
     BOLD_TEXT = 9
-    PARAMETERS_TABLE = 11
-    PARAMETERS_SECTION_TITLE = 22
+
+    # Instructions
+    INSTRUCTIONS_TITLE = 12
+    INSTRUCTIONS_BODY = 9
