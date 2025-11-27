@@ -429,9 +429,9 @@ class InstructionsBuilderManual:
         end_date = getattr(self, "periodo_fim", "")
 
         if isinstance(start_date, (datetime,)):
-            start_date = start_date.strftime("%d/%m/%Y")
+            start_date = start_date.strftime("%d/%m/%Y às %H:%M:%S")
         if isinstance(end_date, (datetime,)):
-            end_date = end_date.strftime("%d/%m/%Y")
+            end_date = end_date.strftime("%d/%m/%Y às %H:%M:%S")
 
         self._set_h3(pdf)
         pdf.multi_cell(
