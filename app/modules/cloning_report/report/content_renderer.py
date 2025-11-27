@@ -30,33 +30,6 @@ class ContentRenderer:
         self.pdf.multi_cell(0, 5, body)
         self.pdf.ln(2)
 
-    # def render_chapter_html(
-    #     self,
-    #     html_body: str,
-    #     *,
-    #     font_family: str = "Helvetica",
-    #     font_size_pt: int = 10,
-    #     line_step_mm: float = 5.0,
-    #     tag_styles: dict | None = None,
-    # ) -> None:
-    #     """Render HTML content with consistent formatting"""
-    #     lh_factor = line_step_mm / (font_size_pt * 0.3527777778)
-    #     html = self._build_html_content(html_body, font_family, font_size_pt, lh_factor)
-
-    #     if tag_styles is None:
-    #         tag_styles = {"p": TextStyle(t_margin=0, b_margin=0)}
-
-    #     self.pdf.write_html(html, font_family=font_family, tag_styles=tag_styles)
-    #     self.pdf.ln(2)
-
-    def _build_html_content(self, html_body, font_family, font_size_pt, lh_factor):
-        """Build HTML content string"""
-        return (
-            f'<font face="{font_family}" size="{font_size_pt}">'
-            f'<p line-height="{lh_factor:.3f}">{html_body}</p>'
-            f"</font>"
-        )
-
     def render_kpi_box(
         self,
         title,
