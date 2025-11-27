@@ -42,12 +42,11 @@ class InstructionsBuilderManual:
         """
         Manually render the content of static_text_2.html using FPDF primitives.
         """
-        pdf.add_page()
-
         # Content
+        pdf.ln(10)
         self._set_h2(pdf)
         pdf.multi_cell(
-            pdf.epw,
+            0,
             6,
             "Como ler o relatório",
             new_x=XPos.LMARGIN,
@@ -145,6 +144,7 @@ class InstructionsBuilderManual:
             new_y=YPos.NEXT,
             align="L",
         )
+        pdf.add_page()
 
         return True
 

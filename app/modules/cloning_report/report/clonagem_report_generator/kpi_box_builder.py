@@ -43,7 +43,7 @@ class KpiBoxBuilder:
         col_gap = 8
         cols = 3
         box_w = (pdf.epw - (cols - 1) * col_gap) / cols
-        row_h1 = 50
+        row_h1 = 44
         self._kpi_dims = {
             "col_gap": col_gap,
             "cols": cols,
