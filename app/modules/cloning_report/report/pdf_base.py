@@ -45,7 +45,7 @@ class ReportPDF(FPDF):
         x,
         y,
         w=40,
-        h=47,
+        h=44,
         num_suspeitos=0,
         pad_x=5,
         pad_top=6,

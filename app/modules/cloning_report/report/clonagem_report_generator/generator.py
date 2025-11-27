@@ -173,11 +173,15 @@ class ClonagemReportGenerator(KpiBoxBuilder, InstructionsBuilderManual):
             self._add_no_suspicious_records_message(pdf)
 
     def _add_general_map_section(self, pdf: ReportPDF, suspeitos):
-        pdf.sub_title("1.1 Mapa geral do período - todas as detecções suspeitas")
         if isinstance(suspeitos, pd.DataFrame) and not suspeitos.empty:
             png_all = render_overall_map_png(suspeitos)
             if png_all:
-                pdf.add_figure(png_all, title="", text=None, width_factor=0.98)
+                pdf.add_figure(
+                    png_all,
+                    title="1.1 Mapa geral do período - todas as detecções suspeitas",
+                    text=None,
+                    width_factor=0.98,
+                )
         else:
             pdf.chapter_body("Não há registros suspeitos para exibir no mapa geral.")
 
