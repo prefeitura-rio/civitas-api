@@ -3,7 +3,6 @@
 import os
 from io import BytesIO
 from fpdf.enums import XPos, YPos
-from fpdf import TextStyle
 from app.modules.cloning_report.report.font_config import FontSize
 
 
@@ -31,20 +30,24 @@ class ContentRenderer:
         self.pdf.multi_cell(0, 5, body)
         self.pdf.ln(2)
 
-    def render_chapter_html(
-        self,
-        html_body: str,
-        *,
-        font_family: str = "Helvetica",
-        font_size_pt: int = 10,
-        line_step_mm: float = 5.0,
-    ) -> None:
-        """Render HTML content with consistent formatting"""
-        lh_factor = line_step_mm / (font_size_pt * 0.3527777778)
-        html = self._build_html_content(html_body, font_family, font_size_pt, lh_factor)
-        tag_styles = {"p": TextStyle(t_margin=0, b_margin=0)}
-        self.pdf.write_html(html, font_family=font_family, tag_styles=tag_styles)
-        self.pdf.ln(2)
+    # def render_chapter_html(
+    #     self,
+    #     html_body: str,
+    #     *,
+    #     font_family: str = "Helvetica",
+    #     font_size_pt: int = 10,
+    #     line_step_mm: float = 5.0,
+    #     tag_styles: dict | None = None,
+    # ) -> None:
+    #     """Render HTML content with consistent formatting"""
+    #     lh_factor = line_step_mm / (font_size_pt * 0.3527777778)
+    #     html = self._build_html_content(html_body, font_family, font_size_pt, lh_factor)
+
+    #     if tag_styles is None:
+    #         tag_styles = {"p": TextStyle(t_margin=0, b_margin=0)}
+
+    #     self.pdf.write_html(html, font_family=font_family, tag_styles=tag_styles)
+    #     self.pdf.ln(2)
 
     def _build_html_content(self, html_body, font_family, font_size_pt, lh_factor):
         """Build HTML content string"""
@@ -108,10 +111,3 @@ class ContentRenderer:
         buf.seek(0)
         self.pdf.image(buf, x=x_pos, w=img_width)
         buf.close()
-
-    def render_params_table(self, rows: list[tuple[str, str]], *, label_w_ratio=0.38):
-        """Render 2-column parameters table"""
-        from .table_renderer import TableRenderer
-
-        table_renderer = TableRenderer(self.pdf)
-        table_renderer.render_params_table(rows, label_w_ratio=label_w_ratio)

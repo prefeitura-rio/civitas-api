@@ -1,10 +1,7 @@
 """PDF layout management for headers, footers, and positioning."""
 
 import os
-import random
 from fpdf import FPDF
-from datetime import datetime
-
 from app.modules.cloning_report.report.font_config import FontSize
 
 
@@ -23,11 +20,6 @@ class PDFLayoutManager:
         self._add_title(layout)
         self._add_id_line(layout)
         self._advance_cursor(layout)
-
-    def _generate_report_id(self):
-        """Generate unique report ID"""
-        now = datetime.now()
-        return f"{now.strftime('%Y%m%d.%H%M%S')}{random.randint(0, 999):03d}"
 
     def _calculate_header_layout(self):
         """Calculate header layout dimensions"""
