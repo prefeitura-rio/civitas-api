@@ -54,8 +54,8 @@ class PDFLayoutManager:
 
     def _add_logos(self, layout):
         """Add logos to header"""
-        prefeitura_path = "app/assets/cloning_report/logo_prefeitura.png"
-        civitas_path = "app/assets/cloning_report/logo_civitas.png"
+        prefeitura_path = "app/assets/logo_prefeitura.png"
+        civitas_path = "app/assets/logo_civitas.png"
 
         if not (os.path.exists(prefeitura_path) and os.path.exists(civitas_path)):
             return

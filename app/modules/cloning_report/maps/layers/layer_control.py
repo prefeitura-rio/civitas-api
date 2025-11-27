@@ -1,4 +1,5 @@
 """Layer control functionality"""
+
 import folium
 
 
