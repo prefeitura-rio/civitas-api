@@ -169,28 +169,28 @@ class InstructionsBuilderManual:
         self._set_p(pdf)
 
         pdf.chapter_body(
-            "    Este relatório foi elaborado para aprofundar a análise de casos suspeitos de"
-            "clonagem de placas identificados pelos radares da cidade. Em algumas situações, uma"
-            "mesma placa aparece registrada em pontos diferentes com intervalos de tempo que não"
-            "são compatíveis com o deslocamento real de um único veículo. Esses padrões exigem"
-            "investigação, pois podem indicar que dois automóveis distintos estão circulando"
+            "    Este relatório foi elaborado para aprofundar a análise de casos suspeitos de "
+            "clonagem de placas identificados pelos radares da cidade. Em algumas situações, uma "
+            "mesma placa aparece registrada em pontos diferentes com intervalos de tempo que não "
+            "são compatíveis com o deslocamento real de um único veículo. Esses padrões exigem "
+            "investigação, pois podem indicar que dois automóveis distintos estão circulando "
             "simultaneamente com a mesma placa.",
         )
         pdf.ln(2)
 
         pdf.chapter_body(
-            "    A partir dessa necessidade, o foco deste relatório é separar as detecções em duas"
-            "trilhas coerentes de circulação, cada qual atribuída a um veículo, identificados, aqui, como"
-            "Veículo A e Veículo B. O objetivo central é reconstruir o trajeto provável de cada trilha,"
-            "permitindo separar os trajetos de carros distintos e identificar padrões de deslocamento"
+            "    A partir dessa necessidade, o foco deste relatório é separar as detecções em duas "
+            "trilhas coerentes de circulação, cada qual atribuída a um veículo, identificados, aqui, como "
+            "Veículo A e Veículo B. O objetivo central é reconstruir o trajeto provável de cada trilha, "
+            "permitindo separar os trajetos de carros distintos e identificar padrões de deslocamento "
             "independentes.",
         )
         pdf.ln(2)
 
         pdf.chapter_body(
-            "    Ao final, o relatório apresenta as rotas reconstruídas de cada trilha, oferecendo"
-            "subsídios para a compreensão da dinâmica de circulação e para reforçar, ou descartar, a"
-            "hipótese de clonagem da placa analisada.",
+            "    Ao final, o relatório apresenta as rotas reconstruídas de cada trilha, oferecendo "
+            "subsídios para a compreensão da dinâmica de circulação e para reforçar, ou descartar, a "
+            "hipótese de clonagem da placa analisada. ",
         )
         pdf.ln(2)
 
