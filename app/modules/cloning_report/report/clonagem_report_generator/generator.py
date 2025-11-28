@@ -25,6 +25,7 @@ from app.modules.cloning_report.utils.archive import create_report_temp_dir
 from app.modules.cloning_report.report.clonagem_report_generator.kpi_box_builder import (
     KpiBoxBuilder,
 )
+from app.modules.cloning_report.utils.filesystem import FileSystemService
 
 
 # =========================================================
@@ -44,26 +45,38 @@ class ClonagemReportGenerator(KpiBoxBuilder, InstructionsBuilderManual):
         self.report_id = report_id or self._generate_unique_report_id()
         self._initialize_parameters(df, placa, periodo_inicio, periodo_fim)
         self._initialize_attributes()
-        self._setup()
+        self._setup_done = False
 
     # ---------- geração ----------
     def generate(self, output_path: str | Path | None = None):
-        if output_path is None:
-            base_dir = create_report_temp_dir(self.report_id)
-            file_name = (
-                f"relatorio_clonagem_{self.placa}_"
-                f"{self.periodo_inicio.strftime('%Y%m%d')}_"
-                f"{self.periodo_fim.strftime('%Y%m%d')}.pdf"
-            )
-            output_path = base_dir / file_name
-        else:
-            output_path = Path(output_path)
+        token = FileSystemService.set_report_context(self.report_id)
+        try:
+            if not self._setup_done:
+                self._setup()
+                self._setup_done = True
 
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        pdf = self._create_pdf()
-        self._add_all_pages(pdf)
-        pdf.output(str(output_path))
-        return output_path
+            if output_path is None:
+                base_dir = create_report_temp_dir(self.report_id)
+                file_name = (
+                    f"relatorio_clonagem_{self.placa}_"
+                    f"{self.periodo_inicio.strftime('%Y%m%d')}_"
+                    f"{self.periodo_fim.strftime('%Y%m%d')}.pdf"
+                )
+                output_path = base_dir / file_name
+            else:
+                output_path = Path(output_path)
+
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            pdf = self._create_pdf()
+            self._add_all_pages(pdf)
+            pdf.output(str(output_path))
+            return output_path
+        finally:
+            try:
+                FileSystemService.reset_report_context(token)
+            except Exception:
+                # ignore TokenErrors from cross-context usage; context is best-effort
+                pass
 
     def _generate_unique_report_id(self):
         """Generate unique report ID"""
