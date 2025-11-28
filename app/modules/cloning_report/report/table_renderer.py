@@ -16,14 +16,29 @@ class TableRenderer:
 
     def render_table(self, df: pd.DataFrame, title: str, text: str | None = None):
         """Render table with proper formatting"""
-        self._add_table_header(title, text)
         df = DataFormatter.prepare_table_data(df)
         table_type = DataFormatter.identify_table_type(df)
         df = self._process_table_data(df, table_type)
         col_widths = self._calculate_column_widths(df, table_type)
+        self._ensure_space_for_table(df, col_widths, text)
+        self._add_table_header(title, text)
         self._draw_table_header(df, col_widths)
         self._draw_table_data(df, col_widths)
         self.pdf.ln(3)
+
+    def _ensure_space_for_table(
+        self, df: pd.DataFrame, col_widths: dict, text: str | None
+    ) -> None:
+        """Ensure header + first row fit on current page, otherwise start a new one."""
+        header_h = 8
+        line_h = 5.5
+        bottom_limit = self.pdf.h - max(self.pdf.b_margin, 20)
+
+        required_h = header_h + self._estimate_first_row_height(df, col_widths, line_h)
+        required_h += self._estimate_title_block_height(text)
+
+        if self.pdf.get_y() + required_h > bottom_limit:
+            self.pdf.add_page()
 
     def _add_table_header(self, title: str, text: str | None):
         """Add table title and optional text"""
@@ -114,7 +129,7 @@ class TableRenderer:
         """Draw table data rows"""
         self.style_manager.apply_table_data_style()
         line_h = 5.5
-        bottom_limit = self.pdf.h - max(self.pdf.b_margin, 17)
+        bottom_limit = self.pdf.h - max(self.pdf.b_margin, 20)
 
         for _, row in df.iterrows():
             self._draw_table_row(row, df.columns, col_widths, line_h, bottom_limit)
@@ -197,6 +212,31 @@ class TableRenderer:
             )
         self.pdf.ln(8)
         self.style_manager.apply_table_data_style()
+
+    def _estimate_first_row_height(
+        self, df: pd.DataFrame, col_widths: dict, line_h: float
+    ) -> float:
+        """Measure the height of the first data row for pagination checks."""
+        if df.empty:
+            return 0.0
+
+        # Use the same styling used when rendering rows for accurate measurement.
+        self.style_manager.apply_table_data_style()
+        _, nlines = self._prepare_row_data(df.iloc[0], df.columns, col_widths, line_h)
+        return max(nlines) * line_h
+
+    def _estimate_title_block_height(self, text: str | None) -> float:
+        """Estimate the vertical space used by the table title and optional text."""
+        title_h = 12.0  # cell height 10 + ln(2)
+        if text is None:
+            return title_h
+
+        self.pdf.set_font("Helvetica", "", FontSize.BODY_TEXT)
+        parts = self.pdf.multi_cell(
+            0, 5, text, dry_run=True, output="LINES", align="L", border=0
+        )
+        line_count = len(parts) if isinstance(parts, (list, tuple)) else 1
+        return title_h + max(1, line_count) * 5 + 2
 
     def render_params_table(self, rows: list[tuple[str, str]], *, label_w_ratio=0.38):
         """Render 2-column parameters table"""

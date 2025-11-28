@@ -38,22 +38,6 @@ class ReportPDF(FPDF):
         """Render chapter body"""
         self.content_renderer.render_chapter_body(body)
 
-    def chapter_html(
-        self,
-        html_body: str,
-        *,
-        font_family: str = "Helvetica",
-        font_size_pt: int = 10,
-        line_step_mm: float = 5.0,
-    ) -> None:
-        """Render HTML content"""
-        self.content_renderer.render_chapter_html(
-            html_body,
-            font_family=font_family,
-            font_size_pt=font_size_pt,
-            line_step_mm=line_step_mm,
-        )
-
     def add_kpi_box(
         self,
         title,
@@ -61,7 +45,7 @@ class ReportPDF(FPDF):
         x,
         y,
         w=40,
-        h=47,
+        h=44,
         num_suspeitos=0,
         pad_x=5,
         pad_top=6,
@@ -77,10 +61,6 @@ class ReportPDF(FPDF):
     ):
         """Add figure"""
         self.content_renderer.render_figure(fig_or_path, title, text, width_factor)
-
-    def add_params_table(self, rows: list[tuple[str, str]], *, label_w_ratio=0.38):
-        """Add parameters table"""
-        self.content_renderer.render_params_table(rows, label_w_ratio=label_w_ratio)
 
     # ---------- Table rendering methods (delegate to table_renderer) ----------
     def add_table(self, df: pd.DataFrame, title: str, text: str | None = None):
