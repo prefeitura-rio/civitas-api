@@ -76,7 +76,7 @@ class InstructionsBuilderManual:
         </ul>
         """
 
-        pdf.write_html(html_content)
+        pdf.write_html(html_content, li_prefix_color=(0, 0, 0))
         pdf.add_page()
 
         return True
@@ -224,18 +224,20 @@ class InstructionsBuilderManual:
         )
         pdf.ln(2)
 
-        ul_items = [
-            "A suspeita de clone é sinalizada quando o intervalo de tempo e a distância entre duas detecções sucessivas de uma mesma placa são incompatíveis com um deslocamento urbano normal. Por exemplo, um curto intervalo de tempo aliado a uma longa distância pode sugerir a presença de dois veículos com a mesma placa circulando simultaneamente.",
-            "A classificação de suspeita ocorre quando a velocidade média estimada para percorrer a distância entre dois pontos excede 110 km/h, considerando uma linha reta entre os pontos e desconsiderando possíveis rotas reais.",
-        ]
-
-        for item in ul_items:
-            self._set_p(pdf)
-            pdf.multi_cell(
-                pdf.epw, 4, f"- {item}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L"
-            )
-            pdf.ln(1)
-
+        # Use HTML list for bullets (non-numerical)
+        self._set_p(pdf)
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_draw_color(0, 0, 0)
+        pdf.set_fill_color(0, 0, 0)
+        pdf.write_html(
+            """
+            <ul>
+                <li>A suspeita de clone é sinalizada quando o intervalo de tempo e a distância entre duas detecções sucessivas de uma mesma placa são incompatíveis com um deslocamento urbano normal. Por exemplo, um curto intervalo de tempo aliado a uma longa distância pode sugerir a presença de dois veículos com a mesma placa circulando simultaneamente.</li>
+                <li>A classificação de suspeita ocorre quando a velocidade média estimada para percorrer a distância entre dois pontos excede 110 km/h, considerando uma linha reta entre os pontos e desconsiderando possíveis rotas reais.</li>
+            </ul>
+            """,
+            li_prefix_color=(0, 0, 0),
+        )
         pdf.ln(2)
 
         self._set_p_bold(pdf)
@@ -307,10 +309,13 @@ class InstructionsBuilderManual:
             'Leitura equivocada de caracteres similares como "O/0" ou "B/8";',
             "Dependência da qualidade e integridade dos dados capturados pelos radares, sujeitos a variações técnicas ou climáticas.",
         ]
-        for item in ul_items_2:
-            pdf.multi_cell(
-                pdf.epw, 4, f"- {item}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L"
-            )
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_draw_color(0, 0, 0)
+        pdf.set_fill_color(0, 0, 0)
+        pdf.write_html(
+            "<ul>" + "".join(f"<li>{item}</li>" for item in ul_items_2) + "</ul>",
+            li_prefix_color=(0, 0, 0),
+        )
         pdf.ln(3)
 
         # Item 3
@@ -338,10 +343,13 @@ class InstructionsBuilderManual:
             "Erro de leitura de radar;",
             "Parâmetros fixos de velocidade que podem não contemplar situações excepcionais (ex.: deslocamentos de emergência).",
         ]
-        for item in ul_items_3:
-            pdf.multi_cell(
-                pdf.epw, 4, f"- {item}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L"
-            )
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_draw_color(0, 0, 0)
+        pdf.set_fill_color(0, 0, 0)
+        pdf.write_html(
+            "<ul>" + "".join(f"<li>{item}</li>" for item in ul_items_3) + "</ul>",
+            li_prefix_color=(0, 0, 0),
+        )
         pdf.ln(2)
 
         self._set_p(pdf)
