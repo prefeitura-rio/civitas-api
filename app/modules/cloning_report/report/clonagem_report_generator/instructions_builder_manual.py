@@ -56,94 +56,27 @@ class InstructionsBuilderManual:
         pdf.ln(4)
 
         self._set_p(pdf)
-        pdf.multi_cell(
-            pdf.epw, 4, "Definições:", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L"
-        )
-        pdf.ln(2)
 
-        # Item 1
-        pdf.multi_cell(
-            pdf.epw,
-            4,
-            "- Linhas tracejadas conectando pontos nos mapas",
-            new_x=XPos.LMARGIN,
-            new_y=YPos.NEXT,
-            align="L",
-        )
+        html_content = """
+        Definições:
+        <ul>
+            <li><b>Linhas tracejadas conectando pontos nos mapas</b><br>
+            Representam pares de detecções consecutivas que sugerem um deslocamento improvável para um único veículo, funcionando como sinalizadores de inconsistências.</li>
+            <br>
+            <li><b>Interpretação das cores nos mapas</b>
+                <ul>
+                    <li>Cinza: pares suspeitos onde não foi possível separar os registros em duas trilhas distintas. O deslocamento parece improvável, mas os dados não permitem identificar com clareza dois veículos diferentes.</li>
+                    <li>Azul claro e azul escuro: usados quando os registros foram agrupados em duas trilhas consistentes, sugerindo a possibilidade de dois veículos distintos utilizando a mesma placa. Cada cor corresponde a uma trilha independente.</li>
+                </ul>
+            </li>
+            <br>
+            <li><b>O que são as trilhas neste relatório?</b><br>
+            A trilha é a sequência ordenada, no tempo, de detecções atribuídas ao possível Veículo 1 e ao Veículo 2.<br>
+            Quando os dados permitem separar os registros em duas trilhas consistentes, isso sugere a presença de dois veículos distintos usando a mesma placa. Quando não é possível estabelecer duas trilhas coerentes, os registros permanecem em cinza, sinalizando suspeita que requer investigação adicional.</li>
+        </ul>
+        """
 
-        indent = 10
-        pdf.set_x(pdf.l_margin + indent)
-        pdf.multi_cell(
-            pdf.epw - indent,
-            4,
-            "Representam pares de detecções consecutivas que sugerem um deslocamento improvável para um único veículo, funcionando como sinalizadores de inconsistências.",
-            new_x=XPos.LMARGIN,
-            new_y=YPos.NEXT,
-            align="L",
-        )
-        pdf.ln(3)
-
-        # Item 2
-        pdf.multi_cell(
-            pdf.epw,
-            4,
-            "- Interpretação das cores nos mapas",
-            new_x=XPos.LMARGIN,
-            new_y=YPos.NEXT,
-            align="L",
-        )
-
-        sub_indent = 15
-        pdf.set_x(pdf.l_margin + sub_indent)
-        pdf.multi_cell(
-            pdf.epw - sub_indent,
-            4,
-            "- o Cinza: pares suspeitos onde não foi possível separar os registros em duas trilhas distintas. O deslocamento parece improvável, mas os dados não permitem identificar com clareza dois veículos diferentes.",
-            new_x=XPos.LMARGIN,
-            new_y=YPos.NEXT,
-            align="L",
-        )
-
-        pdf.set_x(pdf.l_margin + sub_indent)
-        pdf.multi_cell(
-            pdf.epw - sub_indent,
-            4,
-            "- o Azul claro e azul escuro: usados quando os registros foram agrupados em duas trilhas consistentes, sugerindo a possibilidade de dois veículos distintos utilizando a mesma placa. Cada cor corresponde a uma trilha independente.",
-            new_x=XPos.LMARGIN,
-            new_y=YPos.NEXT,
-            align="L",
-        )
-        pdf.ln(3)
-
-        # Item 3
-        pdf.multi_cell(
-            pdf.epw,
-            4,
-            "- O que são as trilhas neste relatório?",
-            new_x=XPos.LMARGIN,
-            new_y=YPos.NEXT,
-            align="L",
-        )
-
-        pdf.set_x(pdf.l_margin + indent)
-        pdf.multi_cell(
-            pdf.epw - indent,
-            4,
-            "    A trilha é a sequência ordenada, no tempo, de detecções atribuídas ao possível Veículo 1 e ao Veículo 2.",
-            new_x=XPos.LMARGIN,
-            new_y=YPos.NEXT,
-            align="L",
-        )
-
-        pdf.set_x(pdf.l_margin + indent)
-        pdf.multi_cell(
-            pdf.epw - indent,
-            4,
-            "    Quando os dados permitem separar os registros em duas trilhas consistentes, isso sugere a presença de dois veículos distintos usando a mesma placa. Quando não é possível estabelecer duas trilhas coerentes, os registros permanecem em cinza, sinalizando suspeita que requer investigação adicional.",
-            new_x=XPos.LMARGIN,
-            new_y=YPos.NEXT,
-            align="L",
-        )
+        pdf.write_html(html_content)
         pdf.add_page()
 
         return True
