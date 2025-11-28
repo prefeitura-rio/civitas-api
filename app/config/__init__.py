@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
+import os
 from os import getenv
-from typing import List
 
 from infisical import InfisicalClient
 from loguru import logger
@@ -31,7 +30,7 @@ def getenv_or_action(
     value = getenv(env_name, default)
     if value is None:
         if action == "raise":
-            raise EnvironmentError(f"Environment variable {env_name} is not set.")
+            raise OSError(f"Environment variable {env_name} is not set.")
         elif action == "warn":
             logger.warning(f"Warning: Environment variable {env_name} is not set.")
     return value
@@ -39,7 +38,7 @@ def getenv_or_action(
 
 def getenv_list_or_action(
     env_name: str, *, action: str = "raise", default: str = None
-) -> List[str]:
+) -> list[str]:
     """Get an environment variable or raise an exception.
 
     Args:
@@ -101,11 +100,16 @@ def inject_environment_variables(environment: str):
         site_url=site_url,
     )
     secrets = infisical_client.get_all_secrets(
-        environment=environment, attach_to_os_environ=True
+        environment=environment, attach_to_os_environ=False
     )
     logger.info(f"Injecting {len(secrets)} environment variables from Infisical:")
     for secret in secrets:
-        logger.info(f" - {secret.secret_name}: {mask_string(secret.secret_value)}")
+        if environment == "dev" and secret.secret_name in os.environ:
+            secret_value = os.environ[secret.secret_name]
+        else:
+            os.environ[secret.secret_name] = secret.secret_value
+            secret_value = secret.secret_value
+        logger.info(f" - {secret.secret_name}: {mask_string(secret_value)}")
 
 
 environment = getenv_or_action("ENVIRONMENT", action="warn", default="dev")
