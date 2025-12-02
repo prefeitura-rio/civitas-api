@@ -12,7 +12,6 @@ from collections.abc import Iterable
 import uuid
 
 import aiohttp
-from google.api_core.page_iterator import HTTPIterator
 import jinja2
 import orjson as json
 import pendulum
@@ -1076,7 +1075,7 @@ def get_storage_client() -> storage.Client:
     return storage.Client(credentials=credentials, project=credentials.project_id)
 
 
-def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials:
+def get_gcp_credentials(scopes: list[str] = None) -> service_account.Credentials:
     """Get the GCP credentials.
 
     Args:
@@ -2190,7 +2189,7 @@ async def generate_upload_signed_url(
 ) -> str:
     """
     Generates a v4 signed URL for uploading a file to Google Cloud Storage.
-    
+
     Args:
         file_name: Name of the file to upload.
         content_type: MIME type of the file.
@@ -2200,10 +2199,10 @@ async def generate_upload_signed_url(
         resumable: Whether to use resumable upload (default: False).
         origin: Origin header from the client request for CORS validation.
         file_path: If provided, the file will be uploaded to the specified path in the bucket.
-    
+
     Returns:
         str: Signed URL for uploading the file.
-    
+
     Raises:
         HTTPException: If URL generation fails.
     """
@@ -2211,24 +2210,26 @@ async def generate_upload_signed_url(
     if expiration_minutes < 1 or expiration_minutes > 10080:
         raise HTTPException(
             status_code=400,
-            detail="expiration_minutes must be between 1 and 10080 (7 days)"
+            detail="expiration_minutes must be between 1 and 10080 (7 days)",
         )
-    
+
     def _generate():
         try:
             storage_client = get_storage_client()
             bucket = storage_client.bucket(bucket_name)
-            blob_name = f"{file_path.rstrip('/')}/{file_name}" if file_path else file_name
+            blob_name = (
+                f"{file_path.rstrip('/')}/{file_name}" if file_path else file_name
+            )
             blob = bucket.blob(blob_name)
-            
+
             if resumable:
                 # Create the resumable upload session
                 return blob.create_resumable_upload_session(
                     content_type=content_type,
                     size=file_size,
-                    timeout=60, # 60 seconds timeout for the session creation request
+                    timeout=60,  # 60 seconds timeout for the session creation request
                     checksum="crc32c",
-                    origin=origin                   
+                    origin=origin,
                 )
             else:
                 # Simple upload via PUT
@@ -2242,26 +2243,28 @@ async def generate_upload_signed_url(
             logger.warning(f"Bucket '{bucket_name}' not found or access denied")
             raise HTTPException(
                 status_code=403,
-                detail="Access denied to this resource. Check your permissions."
+                detail="Access denied to this resource. Check your permissions.",
             )
         except Forbidden:
             raise HTTPException(
                 status_code=403,
-                detail=f"Access denied to bucket '{bucket_name}'. Check your permissions."
+                detail=f"Access denied to bucket '{bucket_name}'. Check your permissions.",
             )
         except google_exceptions.GoogleAPIError as e:
-            logger.exception(f"Google Cloud Storage API error generating upload URL: {e}")
+            logger.exception(
+                f"Google Cloud Storage API error generating upload URL: {e}"
+            )
             raise HTTPException(
                 status_code=500,
-                detail="Failed to generate upload URL. Please try again later."
+                detail="Failed to generate upload URL. Please try again later.",
             )
         except Exception as e:
             logger.exception(f"Unexpected error generating upload URL: {e}")
             raise HTTPException(
                 status_code=500,
-                detail="An unexpected error occurred while generating the upload URL"
+                detail="An unexpected error occurred while generating the upload URL",
             )
-    
+
     return await asyncio.to_thread(_generate)
 
 
@@ -2270,7 +2273,7 @@ async def generate_download_signed_url(
 ) -> str:
     """
     Generates a v4 signed URL for downloading a file from Google Cloud Storage.
-    
+
     Raises:
         HTTPException: If bucket or file is not found, access is forbidden, or URL generation fails.
     """
@@ -2278,9 +2281,9 @@ async def generate_download_signed_url(
     if expiration_minutes < 1 or expiration_minutes > 10080:
         raise HTTPException(
             status_code=400,
-            detail="expiration_minutes must be between 1 and 10080 (7 days)"
+            detail="expiration_minutes must be between 1 and 10080 (7 days)",
         )
-    
+
     def _generate():
         try:
             storage_client = get_storage_client()
@@ -2290,7 +2293,7 @@ async def generate_download_signed_url(
             if not blob.exists():
                 raise HTTPException(
                     status_code=403,
-                    detail="Access denied to this resource. Check your permissions."
+                    detail="Access denied to this resource. Check your permissions.",
                 )
 
             signed_url = blob.generate_signed_url(
@@ -2302,61 +2305,68 @@ async def generate_download_signed_url(
         except HTTPException:
             raise
         except NotFound:
-            logger.warning(f"Bucket '{bucket_name}' or file '{file_name}' not found or access denied")
+            logger.warning(
+                f"Bucket '{bucket_name}' or file '{file_name}' not found or access denied"
+            )
             raise HTTPException(
                 status_code=403,
-                detail="Access denied to this resource. Check your permissions."
+                detail="Access denied to this resource. Check your permissions.",
             )
         except Forbidden:
             raise HTTPException(
                 status_code=403,
-                detail=f"Access denied to bucket '{bucket_name}' or file '{file_name}'. Check your permissions."
+                detail=f"Access denied to bucket '{bucket_name}' or file '{file_name}'. Check your permissions.",
             )
         except google_exceptions.GoogleAPIError as e:
-            logger.exception(f"Google Cloud Storage API error generating download URL: {e}")
+            logger.exception(
+                f"Google Cloud Storage API error generating download URL: {e}"
+            )
             raise HTTPException(
                 status_code=500,
-                detail="Failed to generate download URL. Please try again later."
+                detail="Failed to generate download URL. Please try again later.",
             )
         except Exception as e:
             logger.exception(f"Unexpected error generating download URL: {e}")
             raise HTTPException(
                 status_code=500,
-                detail="An unexpected error occurred while generating the download URL"
+                detail="An unexpected error occurred while generating the download URL",
             )
-    
+
     return await asyncio.to_thread(_generate)
 
 
 async def check_file_exists(
-    file_name: str, 
-    bucket_name: str, 
-    file_path: str | None = None, 
-    expected_crc32c: str | None = None
+    file_name: str,
+    bucket_name: str,
+    file_path: str | None = None,
+    expected_crc32c: str | None = None,
 ) -> bool:
     """
     Checks if a file exists in the bucket.
     If expected_crc32c is provided, also checks if the file's CRC32C matches.
-    
+
     Raises:
         HTTPException: If bucket is not found or access is forbidden.
     """
+
     def _check():
         try:
             storage_client = get_storage_client()
             bucket = storage_client.bucket(bucket_name)
-            
-            blob_name = f"{file_path.rstrip('/')}/{file_name}" if file_path else file_name
+
+            blob_name = (
+                f"{file_path.rstrip('/')}/{file_name}" if file_path else file_name
+            )
             blob = bucket.blob(blob_name)
-            
+
             if not blob.exists():
                 return False
-                
+
             if expected_crc32c:
                 blob.reload()
                 if blob.crc32c != expected_crc32c:
                     return False
-                    
+
             return True
         except HTTPException:
             raise
@@ -2364,26 +2374,28 @@ async def check_file_exists(
             logger.warning(f"Bucket '{bucket_name}' not found or access denied")
             raise HTTPException(
                 status_code=403,
-                detail="Access denied to this resource. Check your permissions."
+                detail="Access denied to this resource. Check your permissions.",
             )
         except Forbidden:
             raise HTTPException(
                 status_code=403,
-                detail=f"Access denied to bucket '{bucket_name}'. Check your permissions."
+                detail=f"Access denied to bucket '{bucket_name}'. Check your permissions.",
             )
         except google_exceptions.GoogleAPIError as e:
-            logger.exception(f"Google Cloud Storage API error checking file existence: {e}")
+            logger.exception(
+                f"Google Cloud Storage API error checking file existence: {e}"
+            )
             raise HTTPException(
                 status_code=500,
-                detail="Failed to check if file exists. Please try again later."
+                detail="Failed to check if file exists. Please try again later.",
             )
         except Exception as e:
             logger.exception(f"Unexpected error checking file existence: {e}")
             raise HTTPException(
                 status_code=500,
-                detail="An unexpected error occurred while checking file existence"
+                detail="An unexpected error occurred while checking file existence",
             )
-    
+
     return await asyncio.to_thread(_check)
 
 
@@ -2392,23 +2404,26 @@ async def list_blobs(
     order_by: GCSFileOrderBy = GCSFileOrderBy.TIME_CREATED_DESC,
     limit: int = 50,
     offset: int = 0,
-) -> tuple[List[GCSFileInfoOut], int]:
+) -> tuple[list[GCSFileInfoOut], int]:
     """
     Lists all blobs in a bucket with pagination and sorting.
-    
+
     Raises:
         HTTPException: If bucket is not found, access is forbidden, or listing fails.
     """
+
     def _list():
         try:
             storage_client = get_storage_client()
             bucket = storage_client.bucket(bucket_name)
-            
-            fields = "items(name,size,contentType,timeCreated,updated,etag),nextPageToken"
+
+            fields = (
+                "items(name,size,contentType,timeCreated,updated,etag),nextPageToken"
+            )
             blobs_iter = bucket.list_blobs(fields=fields)
             all_blobs: list[storage.Blob] = list(blobs_iter)
             total = len(all_blobs)
-            
+
             # Convert to GCSFileInfoOut
             files = [
                 GCSFileInfoOut(
@@ -2421,7 +2436,7 @@ async def list_blobs(
                 )
                 for blob in all_blobs
             ]
-            
+
             # Sort based on order_by
             if order_by == GCSFileOrderBy.NAME_ASC:
                 files.sort(key=lambda x: x.name.lower())
@@ -2444,10 +2459,10 @@ async def list_blobs(
                 files.sort(key=lambda x: x.size)
             elif order_by == GCSFileOrderBy.SIZE_DESC:
                 files.sort(key=lambda x: x.size, reverse=True)
-            
+
             # Apply pagination
             paginated_files = files[offset : offset + limit]
-            
+
             return paginated_files, total
 
         except HTTPException:
@@ -2456,35 +2471,37 @@ async def list_blobs(
             logger.warning(f"Bucket '{bucket_name}' not found or access denied")
             raise HTTPException(
                 status_code=403,
-                detail="Access denied to this resource. Check your permissions."
+                detail="Access denied to this resource. Check your permissions.",
             )
         except Forbidden:
             raise HTTPException(
                 status_code=403,
-                detail=f"Access denied to bucket '{bucket_name}'. Check your permissions."
+                detail=f"Access denied to bucket '{bucket_name}'. Check your permissions.",
             )
         except google_exceptions.GoogleAPIError as e:
             logger.exception(f"Google Cloud Storage API error listing blobs: {e}")
             raise HTTPException(
                 status_code=500,
-                detail="Failed to list files in bucket. Please try again later."
+                detail="Failed to list files in bucket. Please try again later.",
             )
         except Exception as e:
             logger.exception(f"Unexpected error listing blobs: {e}")
             raise HTTPException(
                 status_code=500,
-                detail="An unexpected error occurred while listing files"
+                detail="An unexpected error occurred while listing files",
             )
-    
+
     return await asyncio.to_thread(_list)
+
 
 async def gcs_delete_file(file_name: str, bucket_name: str) -> dict:
     """
     Deletes a file from the bucket.
-    
+
     Raises:
         HTTPException: If bucket is not found, access is forbidden, or deletion fails.
     """
+
     def _delete():
         try:
             storage_client = get_storage_client()
@@ -2492,38 +2509,43 @@ async def gcs_delete_file(file_name: str, bucket_name: str) -> dict:
             blob = bucket.blob(file_name)
 
             if not blob.exists():
-                logger.warning(f"File '{file_name}' not found in bucket '{bucket_name}'")
+                logger.warning(
+                    f"File '{file_name}' not found in bucket '{bucket_name}'"
+                )
                 raise HTTPException(
                     status_code=403,
-                    detail="Access denied to this resource or file not found."
+                    detail="Access denied to this resource or file not found.",
                 )
 
             blob.delete()
-            return {"message": f"File '{file_name}' deleted successfully from bucket '{bucket_name}'"}
+            return {
+                "message": f"File '{file_name}' deleted successfully from bucket '{bucket_name}'"
+            }
         except HTTPException:
             raise
         except NotFound:
-            logger.warning(f"Bucket '{bucket_name}' or file '{file_name}' not found or access denied")
+            logger.warning(
+                f"Bucket '{bucket_name}' or file '{file_name}' not found or access denied"
+            )
             raise HTTPException(
                 status_code=403,
-                detail="Access denied to this resource. Check your permissions."
+                detail="Access denied to this resource. Check your permissions.",
             )
         except Forbidden:
             raise HTTPException(
                 status_code=403,
-                detail=f"Access denied to bucket '{bucket_name}' or file '{file_name}'. Check your permissions."
+                detail=f"Access denied to bucket '{bucket_name}' or file '{file_name}'. Check your permissions.",
             )
         except google_exceptions.GoogleAPIError as e:
             logger.exception(f"Google Cloud Storage API error deleting file: {e}")
             raise HTTPException(
-                status_code=500,
-                detail="Failed to delete file. Please try again later."
+                status_code=500, detail="Failed to delete file. Please try again later."
             )
         except Exception as e:
             logger.exception(f"Unexpected error deleting file: {e}")
             raise HTTPException(
                 status_code=500,
-                detail="An unexpected error occurred while deleting the file"
+                detail="An unexpected error occurred while deleting the file",
             )
-    
+
     return await asyncio.to_thread(_delete)
