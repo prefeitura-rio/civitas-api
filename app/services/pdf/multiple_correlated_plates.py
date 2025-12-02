@@ -75,6 +75,7 @@ class DataService():
             FROM `rj-cetrio.ocr_radar.vw_readings`
             WHERE
                 __filter_all_readings__
+                AND placa NOT LIKE '%-%'
             QUALIFY(row_num_duplicate) = 1
             ORDER BY codcet, datahora
         ),
@@ -680,6 +681,7 @@ class DataService():
             FROM `rj-cetrio.ocr_radar.vw_readings`
             WHERE
                 __filter_all_readings__
+                AND placa NOT LIKE '%-%'
             QUALIFY(row_num_duplicate) = 1
             ORDER BY codcet, datahora
         )
