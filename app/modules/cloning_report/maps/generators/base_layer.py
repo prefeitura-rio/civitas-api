@@ -1,0 +1,192 @@
+"""Base layer implementation"""
+
+import folium
+import pandas as pd
+import numpy as np
+
+from app.modules.cloning_report.utils import haversine_km
+from app.modules.cloning_report.maps.utils.formatting import (
+    format_timestamp,
+    get_optional_field,
+)
+from app.modules.cloning_report.maps.utils.mapping import add_speed_label
+
+
+class BaseLayer:
+    """Layer base com todas as detecções"""
+
+    def __init__(
+        self,
+        map_obj: folium.Map,
+        name: str = "Todas as detecções",
+        color: str = "#808080",
+        show: bool = True,
+    ):
+        self.map_obj = map_obj
+        self.name = name
+        self.color = color
+        self.show = show
+        self.feature_group = folium.FeatureGroup(name=name, show=show)
+
+    def add_to_map(self, df_pairs: pd.DataFrame) -> folium.FeatureGroup:
+        """Adiciona layer base ao mapa"""
+        if df_pairs is None or df_pairs.empty:
+            self.feature_group.add_to(self.map_obj)
+            return self.feature_group
+
+        for j, r in df_pairs.iterrows():
+            self._add_pair_to_layer(r, j)
+
+        self.feature_group.add_to(self.map_obj)
+        return self.feature_group
+
+    def _add_pair_to_layer(self, row: pd.Series, index: int) -> None:
+        """Adiciona um par ao layer"""
+        coords = self._extract_coordinates(row)
+        if not coords:
+            return
+
+        p1, p2 = coords
+        times = self._extract_times(row)
+        t1, t2 = times
+        locations = self._extract_locations(row)
+        local_origem, local_destino = locations
+        velocity = self._calculate_velocity(row, p1, p2, t1, t2)
+
+        self._add_edge_if_valid(p1, p2, velocity)
+        self._add_markers(p1, p2, t1, t2, local_origem, local_destino, velocity)
+
+    def _extract_coordinates(
+        self, row: pd.Series
+    ) -> tuple[tuple[float, float], tuple[float, float]] | None:
+        """Extrai coordenadas do par"""
+        try:
+            p1 = (float(row["latitude_1"]), float(row["longitude_1"]))
+            p2 = (float(row["latitude_2"]), float(row["longitude_2"]))
+            return p1, p2
+        except Exception:
+            return None
+
+    def _extract_times(self, row: pd.Series) -> tuple[pd.Timestamp, pd.Timestamp]:
+        """Extrai timestamps do par"""
+        t1 = pd.to_datetime(
+            row.get("Data_ts", row.get("Data")), errors="coerce", utc=True
+        )
+        t2 = pd.to_datetime(row.get("DataDestino", t1), errors="coerce", utc=True)
+        return t1, t2
+
+    def _extract_locations(self, row: pd.Series) -> tuple[str, str]:
+        """Extrai localidades do par"""
+        local_origem = get_optional_field(
+            row,
+            "localidade_origem",
+            "Localidade_Origem",
+            "localidade",
+            "Localidade",
+            default=str(row.get("Origem", "") or "").strip(),
+        )
+        local_destino = get_optional_field(
+            row,
+            "localidade_destino",
+            "Localidade_Destino",
+            "localidade",
+            "Localidade",
+            default=str(row.get("Destino", "") or "").strip(),
+        )
+        return local_origem, local_destino
+
+    def _calculate_velocity(
+        self,
+        row: pd.Series,
+        p1: tuple[float, float],
+        p2: tuple[float, float],
+        t1: pd.Timestamp,
+        t2: pd.Timestamp,
+    ) -> float:
+        """Calcula velocidade implícita"""
+        v_measured = pd.to_numeric(row.get("Km/h"), errors="coerce")
+        if pd.notna(v_measured):
+            return float(v_measured)
+
+        dist_km = haversine_km(p1[0], p1[1], p2[0], p2[1])
+        dt_h = (
+            (t2 - t1).total_seconds() / 3600.0
+            if (pd.notna(t1) and pd.notna(t2))
+            else np.nan
+        )
+        return (dist_km / dt_h) if (dt_h and dt_h > 0) else np.nan
+
+    def _add_edge_if_valid(
+        self, p1: tuple[float, float], p2: tuple[float, float], velocity: float
+    ) -> None:
+        """Adiciona aresta se válida"""
+        same_point = (round(p1[0], 6) == round(p2[0], 6)) and (
+            round(p1[1], 6) == round(p2[1], 6)
+        )
+        if not same_point:
+            folium.PolyLine(
+                [p1, p2], color=self.color, weight=3, opacity=0.95, dash_array="5, 10"
+            ).add_to(self.feature_group)
+            if pd.notna(velocity):
+                add_speed_label(p1, p2, float(velocity), self.feature_group)
+
+    def _add_markers(
+        self,
+        p1: tuple[float, float],
+        p2: tuple[float, float],
+        t1: pd.Timestamp,
+        t2: pd.Timestamp,
+        local_origem: str,
+        local_destino: str,
+        velocity: float,
+    ) -> None:
+        """Adiciona marcadores ao layer"""
+        same_point = (round(p1[0], 6) == round(p2[0], 6)) and (
+            round(p1[1], 6) == round(p2[1], 6)
+        )
+        same_second = pd.notna(t1) and pd.notna(t2) and t1.floor("s") == t2.floor("s")
+
+        vel_str = f"{velocity:.1f} km/h" if pd.notna(velocity) else "n/d"
+
+        popup_origem = self._create_popup(
+            local_origem, local_destino, t1, vel_str, "seguinte"
+        )
+        popup_destino = self._create_popup(
+            local_destino, local_origem, t2, vel_str, "anterior"
+        )
+
+        folium.Marker(
+            [p1[0], p1[1]],
+            icon=folium.Icon(icon="car", prefix="fa", color="gray"),
+            tooltip=format_timestamp(t1),
+            popup=popup_origem,
+        ).add_to(self.feature_group)
+
+        if not (same_point and same_second):
+            folium.Marker(
+                [p2[0], p2[1]],
+                icon=folium.Icon(icon="car", prefix="fa", color="gray"),
+                tooltip=format_timestamp(t2),
+                popup=popup_destino,
+            ).add_to(self.feature_group)
+
+    def _create_popup(
+        self,
+        local: str,
+        other_local: str,
+        timestamp: pd.Timestamp,
+        velocity_str: str,
+        relation: str,
+    ) -> folium.Popup:
+        """Cria popup para marcador"""
+        return folium.Popup(
+            "<br>".join(
+                [
+                    f"<b>Localidade:</b> {local}",
+                    f"<b>Detecção {relation}:</b> {other_local if other_local else '-'}",
+                    f"<b>Data/hora:</b> {format_timestamp(timestamp)}",
+                    f"<b>Velocidade (implícita):</b> {velocity_str}",
+                ]
+            ),
+            max_width=360,
+        )
