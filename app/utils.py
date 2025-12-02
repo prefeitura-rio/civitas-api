@@ -1054,6 +1054,7 @@ async def get_plate_details(
     )
 
 
+# teste
 def get_bigquery_client() -> bigquery.Client:
     """Get the BigQuery client.
 
