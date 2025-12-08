@@ -1,35 +1,39 @@
 from dataclasses import dataclass
-from typing import Optional
 from concurrent.futures import ThreadPoolExecutor
 
-from .repositories.csv_detection_repository import CSVDetectionRepository
 from .repositories.detection_repository import DetectionRepository
-from .repositories.async_bigquery_detection_repository import AsyncBigQueryDetectionRepository, AsyncDetectionRepositoryFactory
+from .repositories.repository_factory import DetectionRepositoryFactory
+from .repositories.async_bigquery_detection_repository import (
+    AsyncBigQueryDetectionRepository,
+    AsyncDetectionRepositoryFactory,
+)
 
 
 @dataclass
 class Container:
     detection_repository: DetectionRepository
-    async_detection_repository: Optional[AsyncBigQueryDetectionRepository] = None
-    executor: Optional[ThreadPoolExecutor] = None
+    async_detection_repository: AsyncBigQueryDetectionRepository | None = None
+    executor: ThreadPoolExecutor | None = None
 
 
 def get_container():
-    """Get container with CSV repository (for backward compatibility)"""
+    """Get container with default repository"""
     return Container(
-        detection_repository=CSVDetectionRepository(data_directory="dados_placas")
+        detection_repository=DetectionRepositoryFactory.create_repository()
     )
 
 
-def get_async_container(executor: Optional[ThreadPoolExecutor] = None):
+def get_async_container(executor: ThreadPoolExecutor | None = None):
     """Get container with async BigQuery repository using global BigQuery client"""
     if executor is None:
         executor = ThreadPoolExecutor(max_workers=4)
-    
-    async_repo = AsyncDetectionRepositoryFactory.create_async_bigquery_repository(executor)
-    
+
+    async_repo = AsyncDetectionRepositoryFactory.create_async_bigquery_repository(
+        executor
+    )
+
     return Container(
-        detection_repository=CSVDetectionRepository(data_directory="dados_placas"),  # Keep for compatibility
+        detection_repository=DetectionRepositoryFactory.create_repository(),
         async_detection_repository=async_repo,
-        executor=executor
+        executor=executor,
     )
