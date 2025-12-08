@@ -249,7 +249,7 @@ class InstructionsBuilderManual:
             new_y=YPos.NEXT,
             align="L",
         )
-        pdf.ln(4)
+        pdf.ln(5)
 
         # --- Limitações do Relatório ---
         self._set_h2(pdf)
