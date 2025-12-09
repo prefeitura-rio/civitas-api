@@ -356,6 +356,35 @@ class DataService():
         """
 
 
+    def __merge_time_intervals(self, intervals: list[tuple[pd.Timestamp, pd.Timestamp]]) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
+        """
+        Merges overlapping or adjacent time intervals to optimize database queries.
+        
+        Args:
+            intervals: List of tuples (start, end) representing time intervals.
+            
+        Returns:
+            List of merged time intervals where overlapping periods are combined.
+        """
+        if not intervals:
+            return []
+
+        sorted_intervals = sorted(intervals, key=lambda x: x[0])
+        
+        merged = []
+        current_start, current_end = sorted_intervals[0]
+
+        for next_start, next_end in sorted_intervals[1:]:
+            if next_start <= current_end: 
+                current_end = max(current_end, next_end)
+            else:
+                merged.append((current_start, current_end))
+                current_start, current_end = next_start, next_end
+        
+        merged.append((current_start, current_end))
+        return merged
+
+
     async def __build_filters(
         self,
         monitored: PdfReportMultipleCorrelatedPlatesIn | DetectionWindowList,
@@ -399,39 +428,86 @@ class DataService():
         else:
             filtered_monitored = plate_data_list
 
-        all_readings_filters = []
-        monitored_plates_filters = []
-
-        for i, plate_data in enumerate(filtered_monitored):
-            start_parameter_value = getattr(plate_data, start_parameter)
-            end_parameter_value = getattr(plate_data, end_parameter)
+        if is_detection:
+            all_readings_filters_structs = []
+            raw_intervals = []
             
-            all_readings_filters.append(
-                """
-                        (datahora BETWEEN 
-                        TIMESTAMP_ADD('{start_parameter_value}', INTERVAL 3 HOUR) AND 
-                        TIMESTAMP_ADD('{end_parameter_value}', INTERVAL 3 HOUR)
-                        )""".format(
-                            start_parameter_value=start_parameter_value,
-                            end_parameter_value=end_parameter_value
-                        )
-            )
-
-            if not is_detection:  # only need when it is not detections
-                monitored_plates_filters.append(
-                    f"""
+            for plate_data in filtered_monitored:
+                start_parameter_value = getattr(plate_data, start_parameter)
+                end_parameter_value = getattr(plate_data, end_parameter)
+                
+                start_dt = pd.Timestamp(start_parameter_value) + pd.Timedelta(hours=3)
+                end_dt = pd.Timestamp(end_parameter_value) + pd.Timedelta(hours=3)
+                
+                raw_intervals.append((start_dt, end_dt))
+                
+                all_readings_filters_structs.append(
+                    """
                     STRUCT(
-                        '{plate_data.plate}' AS placa_target,
-                        {i} AS target_id,
-                        {monitored.n_minutes} AS n_minutes,
-                        {monitored.n_plates} AS n_plates,
-                        DATETIME '{plate_data.start}' AS start_time,
-                        DATETIME '{plate_data.end}' AS end_time
-                    )"""
+                        TIMESTAMP('{start_dt}') AS start_t,
+                        TIMESTAMP('{end_dt}') AS end_t
+                    )""".format(
+                        start_dt=start_dt,
+                        end_dt=end_dt
+                    )
                 )
+            
+            merged_intervals = self.__merge_time_intervals(raw_intervals)
+            
+            partition_filters = []
+            for start, end in merged_intervals:
+                partition_filters.append(
+                    f"(datahora BETWEEN '{start}' AND '{end}')"
+                )
+            
+            # Join merged intervals with OR for the partition pruning clause
+            partition_clause = " OR ".join(partition_filters)
+            
+            if all_readings_filters_structs:
+                structs_list = ",\n".join(all_readings_filters_structs)
+                
+                # Combine partition pruning (broad filter) with precise UNNEST/EXISTS (fine filter)
+                __filter_all_readings__ = f"""
+                    ({partition_clause}) 
+                    AND 
+                    EXISTS (
+                        SELECT 1 
+                        FROM UNNEST([
+                            {structs_list}
+                        ]) AS w
+                        WHERE datahora BETWEEN w.start_t AND w.end_t
+                    )"""
+            else:
+                __filter_all_readings__ = "FALSE"
+            
+            __filter_monitored_plates__ = ""
 
-        __filter_monitored_plates__ = ",\n".join(monitored_plates_filters)
-        __filter_all_readings__ = " OR ".join(all_readings_filters)
+        else:
+            monitored_plates_filters = []
+            start_date, end_date = None, None
+            for i, plate_data in enumerate(filtered_monitored):
+                start_parameter_value = getattr(plate_data, start_parameter)
+                end_parameter_value = getattr(plate_data, end_parameter)
+                
+                start_date = start_parameter_value if start_date is None else min(start_date, start_parameter_value)
+                end_date = end_parameter_value if end_date is None else max(end_date, end_parameter_value)
+                
+                if not is_detection:  # only need when it is not detections
+                    
+                    monitored_plates_filters.append(
+                        f"""
+                        STRUCT(
+                            '{plate_data.plate}' AS placa_target,
+                            {i} AS target_id,
+                            {monitored.n_minutes} AS n_minutes,
+                            {monitored.n_plates} AS n_plates,
+                            DATETIME '{plate_data.start}' AS start_time,
+                            DATETIME '{plate_data.end}' AS end_time
+                        )"""
+                    )
+
+            __filter_monitored_plates__ = ",\n".join(monitored_plates_filters)
+            __filter_all_readings__ = f" datahora BETWEEN TIMESTAMP('{start_date}', 'America/Sao_Paulo') AND TIMESTAMP('{end_date}', 'America/Sao_Paulo')"
         
         logger.debug(f"Filters for {period} built.")
         
