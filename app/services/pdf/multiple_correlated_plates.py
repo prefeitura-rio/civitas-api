@@ -71,8 +71,8 @@ class DataService():
                 DATETIME(datahora, 'America/Sao_Paulo') AS datahora_local,
                 empresa,
                 DATETIME(datahora_captura, 'America/Sao_Paulo') AS datahora_captura,
-                ROW_NUMBER() OVER (PARTITION BY placa, datahora ORDER BY datahora) AS row_num_duplicate
-            FROM `rj-cetrio.ocr_radar.vw_readings`
+                ROW_NUMBER() OVER (PARTITION BY placa, datahora ORDER BY datahora, codcet, velocidade) AS row_num_duplicate
+            FROM `rj-civitas.cerco_digital.vw_readings`
             WHERE
                 __filter_all_readings__
             QUALIFY(row_num_duplicate) = 1
@@ -108,7 +108,7 @@ class DataService():
         SELECT
             hashed_coordinates,
             locequip,
-            ROW_NUMBER() OVER(PARTITION BY hashed_coordinates) rn
+            ROW_NUMBER() OVER(PARTITION BY hashed_coordinates ORDER BY locequip) rn
         FROM unique_locations
         QUALIFY(rn) = 1
         ),
@@ -676,8 +676,8 @@ class DataService():
                 placa,
                 codcet,
                 DATETIME(datahora, 'America/Sao_Paulo') AS datahora_local,
-                ROW_NUMBER() OVER (PARTITION BY placa, datahora ORDER BY datahora) AS row_num_duplicate
-            FROM `rj-cetrio.ocr_radar.vw_readings`
+                ROW_NUMBER() OVER (PARTITION BY placa, datahora ORDER BY datahora, codcet) AS row_num_duplicate
+            FROM `rj-civitas.cerco_digital.vw_readings`
             WHERE
                 __filter_all_readings__
             QUALIFY(row_num_duplicate) = 1
