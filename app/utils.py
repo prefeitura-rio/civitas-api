@@ -94,7 +94,7 @@ def build_get_car_by_radar_query(
             placa,
             DATETIME(datahora, "America/Sao_Paulo") AS datahora,
             velocidade
-        FROM `rj-cetrio.ocr_radar.vw_readings`
+        FROM `rj-civitas.cerco_digital.vw_readings`
         WHERE
             datahora >= TIMESTAMP(@min_datetime, "America/Sao_Paulo")
             AND datahora <= TIMESTAMP(@max_datetime, "America/Sao_Paulo")
@@ -513,8 +513,8 @@ def build_n_plates_query(
             camera_longitude AS longitude,
             DATETIME(datahora_captura, 'America/Sao_Paulo') AS datahora_captura,
             ROW_NUMBER() OVER (PARTITION BY placa, datahora ORDER BY datahora) AS row_num_duplicate
-        FROM `rj-cetrio.ocr_radar.vw_readings`
-        WHERE
+        FROM `rj-civitas.cerco_digital.vw_readings`
+        WHERE            
             datahora BETWEEN TIMESTAMP_SUB(@start_datetime, INTERVAL 1 DAY)
             AND TIMESTAMP_ADD(@end_datetime, INTERVAL 1 DAY)
             AND placa != "-------"
@@ -815,7 +815,7 @@ def build_positions_query(
                     camera_latitude,
                     camera_longitude,
                     velocidade
-            FROM `rj-cetrio.ocr_radar.vw_readings`
+            FROM `rj-civitas.cerco_digital.vw_readings`
             WHERE
                 placa = @plate
                 AND (camera_latitude != 0 AND camera_longitude != 0)
@@ -1653,9 +1653,9 @@ def get_radar_positions() -> list[RadarOut]:
             empresa,
             MAX(DATETIME(datahora, "America/Sao_Paulo")) AS last_detection_time,
             'yes' AS has_data
-        FROM `rj-cetrio.ocr_radar.vw_readings`
-        WHERE
-            codcet IS NOT NULL
+        FROM `rj-civitas.cerco_digital.vw_readings`
+        WHERE 
+            codcet IS NOT NULL 
         GROUP BY codcet, camera_latitude, camera_longitude, empresa
         ),
 
