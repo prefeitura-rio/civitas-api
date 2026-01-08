@@ -46,11 +46,3 @@ RATE_LIMIT_DEFAULT = getenv_or_action("RATE_LIMIT_DEFAULT", action="raise")
 GCP_SERVICE_ACCOUNT_CREDENTIALS = getenv_or_action(
     "GCP_SERVICE_ACCOUNT_CREDENTIALS", action="raise"
 )
-
-# Embeddings API configuration
-EMBEDDING_API_BASE_URL = getenv_or_action(
-    "EMBEDDING_API_BASE_URL", action="raise"
-).rstrip("/")
-
-# Weaviate configuration
-WEAVIATE_BASE_URL = getenv_or_action("WEAVIATE_BASE_URL", action="raise").rstrip("/")

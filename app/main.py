@@ -40,7 +40,6 @@ from app.routers import (
     waze,
 )
 from app.utils import (
-    create_update_weaviate_schema,
     register_tortoise,
 )
 
@@ -61,7 +60,6 @@ async def lifespan(app: FastAPI):
     async with register_tortoise(
         app, config=TORTOISE_ORM, generate_schemas=False, add_exception_handlers=True
     ):
-        create_update_weaviate_schema()
         yield
 
     # Run things on shutdown
