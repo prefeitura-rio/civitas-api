@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from . import getenv_list_or_action, getenv_or_action
 from .base import *  # noqa: F401, F403
 

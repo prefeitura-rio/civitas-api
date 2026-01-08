@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import traceback
 from pathlib import Path
 from typing import Dict
@@ -99,18 +100,18 @@ ASSETS_DIR = Path(__file__).parent.parent / "assets"
 
 # Vehicle types mapping
 VEHICLE_TYPES_MAPPING = {
-    "automovel": "automovel",
-    "AUTOMÓVEL": "automovel",
-    "ciclomotor": "ciclomotor",
-    "indefinido": "indefinido",
-    "INDEFINIDO": "indefinido",
-    "onibus": "onibus",
-    "ÔNIBUS": "onibus",
-    "caminhao": "caminhao",
-    "CAMINHÃO": "caminhao",
-    "MOTO": "moto",
-    "CAMINHÃO / ÔNIBUS": "caminhao_onibus",
-}
+        "automovel": "automovel",
+        "AUTOMÓVEL": "automovel",
+        "ciclomotor": "ciclomotor",
+        "indefinido": "indefinido",
+        "INDEFINIDO": "indefinido",
+        "onibus": "onibus",
+        "ÔNIBUS": "onibus",
+        "caminhao": "caminhao",
+        "CAMINHÃO": "caminhao",
+        "MOTO": "moto",
+        "CAMINHÃO / ÔNIBUS": "caminhao_onibus",
+    }
 
 # PDF report paths
 HTML_TEMPLATES_DIR = Path(__file__).parent.parent / "templates"

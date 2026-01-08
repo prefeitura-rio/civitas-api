@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import asyncio
 from datetime import datetime
 from typing import Annotated, List
@@ -50,12 +51,12 @@ async def get_reports(
     semantically_similar: str = None,
     id_report: str = None,
     id_report_original: str = None,
-    id_source_contains: list[str] = Query(None),
+    id_source_contains: List[str] = Query(None),
     data_report_min: datetime = None,
     data_report_max: datetime = None,
-    categoria_contains: list[str] = Query(None),
-    descricao_contains: list[str] = Query(None),
-    keywords: list[str] = Query(None),
+    categoria_contains: List[str] = Query(None),
+    descricao_contains: List[str] = Query(None),
+    keywords: List[str] = Query(None),
     latitude_min: float = None,
     latitude_max: float = None,
     longitude_min: float = None,
@@ -216,7 +217,7 @@ async def get_reports(
     method="GET",
     router=router,
     path="/categories",
-    response_model=list[str],
+    response_model=List[str],
 )
 async def get_report_categories(
     user: Annotated[User, Depends(get_user)],
@@ -232,7 +233,7 @@ async def get_report_categories(
     method="GET",
     router=router,
     path="/dashboard/map",
-    response_model=list[ReportLatLongOut],
+    response_model=List[ReportLatLongOut],
 )
 async def get_reports_dashboard_map(
     user: Annotated[User, Depends(get_user)],
@@ -240,12 +241,12 @@ async def get_reports_dashboard_map(
     semantically_similar: str = None,
     id_report: str = None,
     id_report_original: str = None,
-    id_source_contains: list[str] = Query(None),
+    id_source_contains: List[str] = Query(None),
     data_report_min: datetime = None,
     data_report_max: datetime = None,
-    categoria_contains: list[str] = Query(None),
-    descricao_contains: list[str] = Query(None),
-    keywords: list[str] = Query(None),
+    categoria_contains: List[str] = Query(None),
+    descricao_contains: List[str] = Query(None),
+    keywords: List[str] = Query(None),
     latitude_min: float = None,
     latitude_max: float = None,
     longitude_min: float = None,
@@ -375,7 +376,7 @@ async def get_reports_dashboard_map(
     method="GET",
     router=router,
     path="/dashboard/timeline",
-    response_model=list[ReportTimelineOut],
+    response_model=List[ReportTimelineOut],
 )
 async def get_reports_dashboard_timeline(
     user: Annotated[User, Depends(get_user)],
@@ -383,12 +384,12 @@ async def get_reports_dashboard_timeline(
     semantically_similar: str = None,
     id_report: str = None,
     id_report_original: str = None,
-    id_source_contains: list[str] = Query(None),
+    id_source_contains: List[str] = Query(None),
     data_report_min: datetime = None,
     data_report_max: datetime = None,
-    categoria_contains: list[str] = Query(None),
-    descricao_contains: list[str] = Query(None),
-    keywords: list[str] = Query(None),
+    categoria_contains: List[str] = Query(None),
+    descricao_contains: List[str] = Query(None),
+    keywords: List[str] = Query(None),
     latitude_min: float = None,
     latitude_max: float = None,
     longitude_min: float = None,
@@ -533,7 +534,7 @@ async def get_reports_dashboard_timeline(
     method="GET",
     router=router,
     path="/dashboard/top-subtypes",
-    response_model=list[ReportTopSubtypesOut],
+    response_model=List[ReportTopSubtypesOut],
 )
 async def get_reports_dashboard_top_subtypes(
     user: Annotated[User, Depends(get_user)],
@@ -541,12 +542,12 @@ async def get_reports_dashboard_top_subtypes(
     semantically_similar: str = None,
     id_report: str = None,
     id_report_original: str = None,
-    id_source_contains: list[str] = Query(None),
+    id_source_contains: List[str] = Query(None),
     data_report_min: datetime = None,
     data_report_max: datetime = None,
-    categoria_contains: list[str] = Query(None),
-    descricao_contains: list[str] = Query(None),
-    keywords: list[str] = Query(None),
+    categoria_contains: List[str] = Query(None),
+    descricao_contains: List[str] = Query(None),
+    keywords: List[str] = Query(None),
     latitude_min: float = None,
     latitude_max: float = None,
     longitude_min: float = None,
@@ -690,7 +691,7 @@ async def get_reports_dashboard_top_subtypes(
     method="GET",
     router=router,
     path="/sources",
-    response_model=list[str],
+    response_model=List[str],
 )
 async def get_report_sources(
     user: Annotated[User, Depends(get_user)],
@@ -706,12 +707,12 @@ async def get_report_sources(
     method="GET",
     router=router,
     path="/subtypes",
-    response_model=list[str],
+    response_model=List[str],
 )
 async def get_report_subtypes(
     user: Annotated[User, Depends(get_user)],
     request: Request,
-    type: list[str] = Query(None),
+    type: List[str] = Query(None),
 ):
     metadata: ReportsMetadata | dict = await get_reports_metadata()
     if isinstance(metadata, dict):
@@ -732,7 +733,7 @@ async def get_report_subtypes(
     method="GET",
     router=router,
     path="/types",
-    response_model=list[str],
+    response_model=List[str],
 )
 async def get_report_types(
     user: Annotated[User, Depends(get_user)],
