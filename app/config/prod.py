@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from . import getenv_list_or_action, getenv_or_action
 from .base import *  # noqa: F401, F403
 
@@ -20,7 +19,7 @@ if getenv_or_action("TIMEZONE", action="ignore"):
 ALLOWED_ORIGINS = getenv_list_or_action("ALLOWED_ORIGINS", action="ignore")
 ALLOWED_ORIGINS_REGEX = getenv_or_action("ALLOWED_ORIGINS_REGEX", action="ignore")
 if not ALLOWED_ORIGINS and not ALLOWED_ORIGINS_REGEX:
-    raise EnvironmentError("ALLOWED_ORIGINS or ALLOWED_ORIGINS_REGEX must be set.")
+    raise OSError("ALLOWED_ORIGINS or ALLOWED_ORIGINS_REGEX must be set.")
 ALLOWED_METHODS = getenv_list_or_action("ALLOWED_METHODS", action="raise")
 ALLOWED_HEADERS = getenv_list_or_action("ALLOWED_HEADERS", action="raise")
 ALLOW_CREDENTIALS = (
@@ -46,11 +45,3 @@ RATE_LIMIT_DEFAULT = getenv_or_action("RATE_LIMIT_DEFAULT", action="raise")
 GCP_SERVICE_ACCOUNT_CREDENTIALS = getenv_or_action(
     "GCP_SERVICE_ACCOUNT_CREDENTIALS", action="raise"
 )
-
-# Embeddings API configuration
-EMBEDDING_API_BASE_URL = getenv_or_action(
-    "EMBEDDING_API_BASE_URL", action="raise"
-).rstrip("/")
-
-# Weaviate configuration
-WEAVIATE_BASE_URL = getenv_or_action("WEAVIATE_BASE_URL", action="raise").rstrip("/")

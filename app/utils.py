@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import asyncio
 import base64
 from datetime import datetime
@@ -8,7 +7,8 @@ import traceback
 from contextlib import AbstractAsyncContextManager
 from enum import Enum
 from types import ModuleType
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
+from collections.abc import Iterable
 import uuid
 
 import aiohttp
@@ -69,7 +69,7 @@ def build_get_car_by_radar_query(
     max_datetime: pendulum.DateTime,
     codcet: str,
     plate_hint: str | None = None,
-) -> Tuple[str, List[bigquery.ScalarQueryParameter]]:
+) -> tuple[str, list[bigquery.ScalarQueryParameter]]:
     """
     Build a SQL query to fetch cars by radar within a time range.
 
@@ -98,310 +98,23 @@ def build_get_car_by_radar_query(
 
     query += "AND codcet = @codcet"
     query_params = [
-        bigquery.ScalarQueryParameter("min_datetime", "DATETIME", min_datetime.to_datetime_string()),
-        bigquery.ScalarQueryParameter("max_datetime", "DATETIME", max_datetime.to_datetime_string()),
+        bigquery.ScalarQueryParameter(
+            "min_datetime", "DATETIME", min_datetime.to_datetime_string()
+        ),
+        bigquery.ScalarQueryParameter(
+            "max_datetime", "DATETIME", max_datetime.to_datetime_string()
+        ),
         bigquery.ScalarQueryParameter("codcet", "STRING", codcet),
     ]
 
     if plate_hint:
         query += " AND placa LIKE @plate_hint"
-        query_params.append(bigquery.ScalarQueryParameter("plate_hint", "STRING", plate_hint))
-    
+        query_params.append(
+            bigquery.ScalarQueryParameter("plate_hint", "STRING", plate_hint)
+        )
+
     logger.debug(f"Query: {query}")
     return query, query_params
-
-
-def generate_regular_filters(filters: ReportFilters) -> str:
-    """
-    Generate regular filters for the GraphQL query.
-
-    Args:
-        filters (ReportFilters): The report filters.
-
-    Returns:
-        str: The regular filters.
-    """
-    # Create regular filters
-    base_regular_filters = """
-        where: {
-            operator: And,
-            operands: [{{regular_filter_operands}}]
-        },
-    """
-    regular_filter_operands = []
-    if filters.id_report:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["id_report"],
-                    operator: Equal,
-                    valueText: "%s",
-                }
-            """
-            % filters.id_report
-        )
-    if filters.id_report_original:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["id_report_original"],
-                    operator: Equal,
-                    valueText: "%s",
-                }
-            """
-            % filters.id_report_original
-        )
-    if filters.id_source_contains:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["id_source"],
-                    operator: ContainsAny,
-                    valueText: %s,
-                }
-            """
-            % filters.id_source_contains
-        )
-    if filters.data_report_min:
-        timestamp_min = filters.data_report_min.replace(
-            tzinfo=pytz.timezone(config.TIMEZONE)
-        )
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["%s"],
-                    operator: GreaterThanEqual,
-                    valueDate: "%s",
-                }
-            """
-            % (
-                config.EMBEDDINGS_SOURCE_TABLE_REPORT_TIMESTAMP_COLUMN,
-                timestamp_min.isoformat(),
-            )
-        )
-    if filters.data_report_max:
-        timestamp_max = filters.data_report_max.replace(
-            tzinfo=pytz.timezone(config.TIMEZONE)
-        )
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["%s"],
-                    operator: LessThanEqual,
-                    valueDate: "%s",
-                }
-            """
-            % (
-                config.EMBEDDINGS_SOURCE_TABLE_REPORT_TIMESTAMP_COLUMN,
-                timestamp_max.isoformat(),
-            )
-        )
-    if filters.categoria_contains:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["categoria"],
-                    operator: ContainsAny,
-                    valueText: %s,
-                }
-            """
-            % filters.categoria_contains
-        )
-    if filters.descricao_contains:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["descricao"],
-                    operator: ContainsAny,
-                    valueText: %s,
-                }
-            """
-            % filters.descricao_contains
-        )
-    if filters.keywords:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["report_data_raw"],
-                    operator: ContainsAny,
-                    valueText: %s,
-                }
-            """
-            % filters.keywords
-        )
-    if filters.latitude_min:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["latitude"],
-                    operator: GreaterThanEqual,
-                    valueNumber: %s,
-                }
-            """
-            % filters.latitude_min
-        )
-    if filters.latitude_max:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["latitude"],
-                    operator: LessThanEqual,
-                    valueNumber: %s,
-                }
-            """
-            % filters.latitude_max
-        )
-    if filters.longitude_min:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["longitude"],
-                    operator: GreaterThanEqual,
-                    valueNumber: %s,
-                }
-            """
-            % filters.longitude_min
-        )
-    if filters.longitude_max:
-        regular_filter_operands.append(
-            """
-                {
-                    path: ["longitude"],
-                    operator: LessThanEqual,
-                    valueNumber: %s,
-                }
-            """
-            % filters.longitude_max
-        )
-    if regular_filter_operands:
-        regular_filters = base_regular_filters.replace(
-            "{{regular_filter_operands}}", ", ".join(regular_filter_operands)
-        )
-    else:
-        regular_filters = ""
-
-    return regular_filters
-
-
-async def build_graphql_query(
-    filters: ReportFilters, order_by: ReportsOrderBy, search_mode: ReportsSearchMode
-) -> str:
-    base_query = """
-        {
-            Aggregate {
-                {{weaviate_schema_class}} (
-                    {{regular_filters}}
-                ) {
-                    meta {
-                        count
-                    }
-                }
-            }
-            Get {
-                {{weaviate_schema_class}} (
-                    {{pagination_filters}}
-                    {{regular_filters}}
-                    {{semantic_filter}}
-                    {{sorting}}
-                ) {
-                    {{returned_attributes}}
-                }
-            }
-        }
-    """
-
-    # Create pagination filter
-    pagination_filters = f"limit: {filters.limit}\n offset: {filters.offset}"
-
-    # Create semantic filter
-    base_semantic_filter = """
-        nearVector: {
-            vector: %s,
-        }
-    """
-    if filters.semantically_similar:
-        vector = await generate_embeddings(filters.semantically_similar)
-        semantic_filter = base_semantic_filter % vector
-    else:
-        semantic_filter = ""
-
-    # Create sorting
-    sorting = ""
-    if order_by in [ReportsOrderBy.TIMESTAMP, ReportsOrderBy.TIMESTAMP_DESC]:
-        sorting = (
-            """
-            sort: {
-                path: "%s"
-                order: desc
-            }
-        """
-            % f"{config.EMBEDDINGS_SOURCE_TABLE_REPORT_TIMESTAMP_COLUMN}_seconds"
-        )
-    elif order_by == ReportsOrderBy.TIMESTAMP_ASC:
-        sorting = (
-            """
-            sort: {
-                path: "%s"
-                order: asc
-            }
-        """
-            % f"{config.EMBEDDINGS_SOURCE_TABLE_REPORT_TIMESTAMP_COLUMN}_seconds"
-        )
-
-    # Set returned attributes
-    if search_mode == ReportsSearchMode.FULL:
-        returned_attributes = """
-                    id_report
-                    id_source
-                    id_report_original
-                    data_report
-                    orgaos
-                    categoria
-                    tipo_subtipo {
-                        tipo
-                        subtipo
-                    }
-                    descricao
-                    logradouro
-                    numero_logradouro
-                    latitude
-                    longitude
-                    updated_at
-                    _additional {
-                        certainty
-                    }
-        """
-    elif search_mode == ReportsSearchMode.LATLONG_ONLY:
-        returned_attributes = """
-                    id_report
-                    latitude
-                    longitude
-        """
-    elif search_mode == ReportsSearchMode.SOURCES_ONLY:
-        returned_attributes = """
-                    data_report
-                    id_source
-        """
-    elif search_mode == ReportsSearchMode.SUBTYPES_ONLY:
-        returned_attributes = """
-                    tipo_subtipo {
-                        tipo
-                        subtipo
-                    }
-        """
-    else:
-        raise ValueError("Invalid search mode")
-
-    # Build query
-    query = base_query.replace("{{pagination_filters}}", pagination_filters)
-    query = query.replace("{{regular_filters}}", generate_regular_filters(filters))
-    query = query.replace("{{semantic_filter}}", semantic_filter)
-    query = query.replace("{{sorting}}", sorting)
-    query = query.replace("{{weaviate_schema_class}}", config.WEAVIATE_SCHEMA_CLASS)
-    query = query.replace("{{returned_attributes}}", returned_attributes)
-    query = query.replace("'", '"')
-
-    return query
 
 
 def build_hint_query(
@@ -471,7 +184,7 @@ def build_n_plates_query(
     max_datetime: pendulum.DateTime,
     n_minutes: int,
     n_plates: int,
-) -> Tuple[str, List[bigquery.ScalarQueryParameter]]:
+) -> tuple[str, list[bigquery.ScalarQueryParameter]]:
     """
     Build a SQL query to fetch N plates before and after a plate within a time range.
 
@@ -504,7 +217,7 @@ def build_n_plates_query(
             DATETIME(datahora_captura, 'America/Sao_Paulo') AS datahora_captura,
             ROW_NUMBER() OVER (PARTITION BY placa, datahora ORDER BY datahora) AS row_num_duplicate
         FROM `rj-civitas.cerco_digital.vw_readings`
-        WHERE            
+        WHERE
             datahora BETWEEN TIMESTAMP_SUB(@start_datetime, INTERVAL 1 DAY)
             AND TIMESTAMP_ADD(@end_datetime, INTERVAL 1 DAY)
             AND placa != "-------"
@@ -521,7 +234,7 @@ def build_n_plates_query(
             TRIM(
             REGEXP_REPLACE(
                 REGEXP_REPLACE(t1.locequip, r'^(.*?) -.*', r'\\1'), -- Remove the part after " -"
-                r'\s+', ' ') -- Remove extra spaces
+                r'\\s+', ' ') -- Remove extra spaces
             ) AS locequip,
             COALESCE(CONCAT(' - SENTIDO ', sentido), '') AS sentido,
             TO_BASE64(
@@ -574,11 +287,11 @@ def build_n_plates_query(
             a.datahora_captura,
             DATETIME_SUB(a.datahora_local, INTERVAL @N_minutes MINUTE) AS datahora_inicio,
             DATETIME_ADD(a.datahora_local, INTERVAL @N_minutes MINUTE) AS datahora_fim
-        FROM 
+        FROM
             all_readings a
-        JOIN 
-            radar_group b 
-        ON 
+        JOIN
+            radar_group b
+        ON
             a.codcet = b.codcet
         WHERE
             a.placa = @plate
@@ -586,7 +299,7 @@ def build_n_plates_query(
             BETWEEN DATETIME(@start_datetime, "America/Sao_Paulo")
             AND DATETIME(@end_datetime, "America/Sao_Paulo")
     ),
-    
+
     ordered_readings AS (
         SELECT
             *,
@@ -769,14 +482,12 @@ def build_n_plates_query(
         bigquery.ScalarQueryParameter("N_plates", "INT64", n_plates),
     ]
 
-    logger.info(f"Query: {query}") # TODO: remove this later
+    logger.info(f"Query: {query}")  # TODO: remove this later
     return query, query_params
 
 
 def build_positions_query(
-    placa: str,
-    min_datetime: pendulum.DateTime,
-    max_datetime: pendulum.DateTime
+    placa: str, min_datetime: pendulum.DateTime, max_datetime: pendulum.DateTime
 ) -> str:
     """
     Build a SQL query to fetch the positions of a vehicle within a time range.
@@ -838,11 +549,15 @@ def build_positions_query(
         LEFT JOIN loc l ON p.codcet = l.codcet
         ORDER BY p.datahora ASC
         """
-    
+
     query_params = [
         bigquery.ScalarQueryParameter("plate", "STRING", placa),
-        bigquery.ScalarQueryParameter("min_datetime", "DATETIME", min_datetime.to_datetime_string()),
-        bigquery.ScalarQueryParameter("max_datetime", "DATETIME", max_datetime.to_datetime_string()),
+        bigquery.ScalarQueryParameter(
+            "min_datetime", "DATETIME", min_datetime.to_datetime_string()
+        ),
+        bigquery.ScalarQueryParameter(
+            "max_datetime", "DATETIME", max_datetime.to_datetime_string()
+        ),
         # bigquery.ScalarQueryParameter("min_distance", "FLOAT64", min_distance),
     ]
 
@@ -855,7 +570,7 @@ async def cortex_request(
     cpf: str,
     raise_for_status: bool = True,
     **kwargs: Any,
-) -> Tuple[bool, Any]:
+) -> tuple[bool, Any]:
     """
     Make a request to the Cortex API.
 
@@ -1052,7 +767,7 @@ def get_bigquery_client() -> bigquery.Client:
     return bigquery.Client(credentials=credentials, project=credentials.project_id)
 
 
-def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials:
+def get_gcp_credentials(scopes: list[str] = None) -> service_account.Credentials:
     """Get the GCP credentials.
 
     Args:
@@ -1095,45 +810,6 @@ def check_schema_equality(dict1: dict, dict2: dict) -> bool:
     return True
 
 
-def create_update_weaviate_schema():
-    """
-    Create or update the Weaviate schema.
-    """
-    schema = config.WEAVIATE_SCHEMA
-    # Check if class name already exists
-    response = requests.get(
-        f"{config.WEAVIATE_BASE_URL}/v1/schema/{schema['class']}", timeout=10
-    )
-    if response.status_code == 200:
-        # Check if the schema is the same
-        existing_schema = response.json()
-        if not check_schema_equality(schema, existing_schema):
-            # Update schema
-            # TODO: Failed to update schema: b'{"error":[{"message":"updating schema:
-            # TYPE_UPDATE_CLASS: bad request :parse class update: properties cannot be updated
-            # through updating the class. Use the add property feature (e.g.
-            # \\"POST /v1/schema/{className}/properties\\") to add additional properties"}]}\n'
-            # response = requests.put(
-            #     f"{config.WEAVIATE_BASE_URL}/v1/schema/{schema['class']}", json=schema, timeout=10
-            # )
-            # if response.status_code != 200:
-            #     logger.error(f"Failed to update schema: {response.content}")
-            # else:
-            #     logger.info(f"Schema updated: {response.content}")
-            logger.warning("Schema updating is not yet implemented")
-        else:
-            logger.info("Schema is up to date")
-    else:
-        # Create schema
-        response = requests.post(
-            f"{config.WEAVIATE_BASE_URL}/v1/schema", json=schema, timeout=10
-        )
-        if response.status_code != 200:
-            logger.error(f"Failed to create schema: {response.content}")
-        else:
-            logger.info(f"Schema created: {response.content}")
-
-
 def chunk_locations(locations, N):
     if N >= len(locations) or N == 1:
         return [locations]
@@ -1152,72 +828,13 @@ def chunk_locations(locations, N):
     return chunks
 
 
-async def generate_embeddings(text: str) -> List[float]:
-    """
-    Generate embeddings for a text.
-
-    Args:
-        text (str): The text.
-
-    Returns:
-        List[float]: The embeddings.
-    """
-    # TODO: This is a temporary placeholder for the actual implementation
-    return [0.0] * 256
-    # async with aiohttp.ClientSession() as session:
-    #     async with session.post(
-    #         f"{config.EMBEDDING_API_BASE_URL}/embed/",
-    #         json={"text": text},
-    #     ) as response:
-    #         response.raise_for_status()
-    #         data = await response.json()
-    #         return data["embedding"]
-
-
-async def generate_embeddings_batch(
-    texts: List[str], batch_size: int = None
-) -> List[List[float]]:
-    """
-    Generate embeddings for a batch of texts.
-
-    Args:
-        texts (List[str]): The texts.
-        batch_size (int, optional): The batch size. Defaults to None.
-
-    Returns:
-        List[List[float]]: The embeddings.
-    """
-    # TODO: This is a temporary placeholder for the actual implementation
-    return [[0.0] * 256 for _ in texts]
-    # async with aiohttp.ClientSession() as session:
-    #     if not batch_size:
-    #         async with session.post(
-    #             f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
-    #             json={"texts": texts},
-    #         ) as response:
-    #             response.raise_for_status()
-    #             data = await response.json()
-    #             return data["embeddings"]
-    #     embeddings = []
-    #     for i in range(0, len(texts), batch_size):
-    #         batch = texts[i : i + batch_size]
-    #         async with session.post(
-    #             f"{config.EMBEDDING_API_BASE_URL}/embed/batch/",
-    #             json={"texts": batch},
-    #         ) as response:
-    #             response.raise_for_status()
-    #             data = await response.json()
-    #             embeddings.extend(data["embeddings"])
-    #     return embeddings
-
-
 @cache_decorator(expire=config.CACHE_CAR_BY_RADAR_TTL)
 def get_car_by_radar(
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
     codcet: str,
     plate_hint: str | None = None,
-) -> List[CarPassageOut]:
+) -> list[CarPassageOut]:
     """
     Fetch cars by radar within a time range.
 
@@ -1261,7 +878,7 @@ def get_car_by_radar(
 
 
 @cache_decorator(expire=config.CACHE_FOGOCRUZADO_TTL)
-async def get_fogocruzado_reports() -> List[dict]:
+async def get_fogocruzado_reports() -> list[dict]:
     """
     Fetch reports from Fogo Cruzado API.
 
@@ -1351,12 +968,10 @@ async def get_path(
     max_datetime: pendulum.DateTime,
     max_time_interval: int = 60 * 60,
     polyline: bool = False,
-) -> List[Dict[str, Union[str, List]]]:
-    locations_interval = (
-        await get_positions(
-            placa, min_datetime, max_datetime
-        )
-    )["locations"]
+) -> list[dict[str, str | list]]:
+    locations_interval = (await get_positions(placa, min_datetime, max_datetime))[
+        "locations"
+    ]
     locations_trips_original = get_trips_chunks(
         locations=locations_interval, max_time_interval=max_time_interval
     )
@@ -1392,7 +1007,7 @@ async def get_hints(
     latitude_max: float = None,
     longitude_min: float = None,
     longitude_max: float = None,
-) -> List[str]:
+) -> list[str]:
     """
     Fetch plate hints within a time range.
 
@@ -1420,7 +1035,7 @@ async def get_hints(
     bq_client = get_bigquery_client()
     query_job = bq_client.query(query)
     data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
-    hints = sorted(list(set([row["placa"] for row in data])))
+    hints = sorted(list({row["placa"] for row in data}))
     return hints
 
 
@@ -1430,7 +1045,7 @@ def get_n_plates_before_and_after(
     max_datetime: pendulum.DateTime,
     n_minutes: int,
     n_plates: int,
-) -> List[NPlatesBeforeAfterOut]:
+) -> list[NPlatesBeforeAfterOut]:
     """
     Fetch N plates before and after a plate within a time range.
 
@@ -1469,7 +1084,7 @@ async def get_positions(
     placa: str,
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-) -> Dict[str, list]:
+) -> dict[str, list]:
     """
     Fetch the positions of a vehicle within a time range.
 
@@ -1510,9 +1125,7 @@ async def get_positions(
     # return {"placa": placa, "locations": cached_locations}
 
     # Query database for missing data and cache it
-    query, query_params = build_positions_query(
-        placa, min_datetime, max_datetime
-    )
+    query, query_params = build_positions_query(placa, min_datetime, max_datetime)
     bq_client = get_bigquery_client()
     job_config = bigquery.QueryJobConfig(query_parameters=query_params)
     query_job = bq_client.query(query, job_config=job_config)
@@ -1544,15 +1157,15 @@ def get_reports_metadata_no_cache() -> ReportsMetadata:
     """
     query_sources = f"""
         SELECT DISTINCT id_source
-        FROM `{config.EMBEDDINGS_SOURCE_TABLE}`
+        FROM `rj-civitas.integracao_reports.reports`
     """
     query_categories = f"""
         SELECT DISTINCT categoria
-        FROM `{config.EMBEDDINGS_SOURCE_TABLE}`
+        FROM `rj-civitas.integracao_reports.reports`
     """
     query_types_subtypes = f"""
         SELECT DISTINCT tipo_subtipo.tipo AS tipo, subtipo
-        FROM `{config.EMBEDDINGS_SOURCE_TABLE}`,
+        FROM `rj-civitas.integracao_reports.reports`,
             UNNEST(tipo_subtipo) AS tipo_subtipo,
             UNNEST(tipo_subtipo.subtipo) AS subtipo
     """
@@ -1563,7 +1176,7 @@ def get_reports_metadata_no_cache() -> ReportsMetadata:
     sources = [row["id_source"] for row in query_job_sources]
     categories = [row["categoria"] for row in query_job_categories]
     types_subtypes = [(row["tipo"], row["subtipo"]) for row in query_job_types_subtypes]
-    distinct_types = list(set([t[0] for t in types_subtypes]))
+    distinct_types = list({t[0] for t in types_subtypes})
     types_subtypes_dict = {t: [] for t in distinct_types}
     for t, st in types_subtypes:
         types_subtypes_dict[t].append(st)
@@ -1583,14 +1196,14 @@ async def get_cameras_cor() -> list:
     try:
         # todo: remove this after SSL certificate is ok
         connector = aiohttp.TCPConnector(ssl=False)
-        
+
         async with aiohttp.ClientSession(connector=connector) as session:
             async with session.get(
                 config.TIXXI_CAMERAS_LIST_URL,
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
-                
+
                 # use dev stream url for now
                 data_replaced_stream_url = [
                     {
@@ -1606,7 +1219,7 @@ async def get_cameras_cor() -> list:
 
 
 @cache_decorator(expire=config.CACHE_RADAR_POSITIONS_TTL)
-def get_radar_positions() -> List[RadarOut]:
+def get_radar_positions() -> list[RadarOut]:
     """
     Fetch the radar positions.
 
@@ -1635,16 +1248,16 @@ def get_radar_positions() -> List[RadarOut]:
             MAX(DATETIME(datahora, "America/Sao_Paulo")) AS last_detection_time,
             'yes' AS has_data
         FROM `rj-civitas.cerco_digital.vw_readings`
-        WHERE 
-            codcet IS NOT NULL 
+        WHERE
+            codcet IS NOT NULL
         GROUP BY codcet, camera_latitude, camera_longitude, empresa
         ),
 
         -- some radars has different lat/long in readings tables and it causes duplicated values on previous CTE
         used_radars_deduplicated AS (
-            SELECT 
-                *, 
-                ROW_NUMBER() OVER(PARTITION BY codcet ORDER BY last_detection_time DESC) rn 
+            SELECT
+                *,
+                ROW_NUMBER() OVER(PARTITION BY codcet ORDER BY last_detection_time DESC) rn
             FROM
                 used_radars
             QUALIFY rn = 1
@@ -1690,8 +1303,8 @@ def get_radar_positions() -> List[RadarOut]:
 
 
 async def get_route_path(
-    locations: List[Dict[str, float | pendulum.DateTime]],
-) -> Dict[str, Union[int, List]]:
+    locations: list[dict[str, float | pendulum.DateTime]],
+) -> dict[str, int | list]:
     """
     Get the route path between locations.
 
@@ -1915,7 +1528,7 @@ async def get_waze_alerts(filter_type: str = None) -> list:
     return alerts
 
 
-def normalize_waze_alerts(alerts: List[Dict[str, Any]]) -> List[WazeAlertOut]:
+def normalize_waze_alerts(alerts: list[dict[str, Any]]) -> list[WazeAlertOut]:
     return [
         WazeAlertOut(
             timestamp=DateTime.fromtimestamp(
@@ -1936,10 +1549,10 @@ def normalize_waze_alerts(alerts: List[Dict[str, Any]]) -> List[WazeAlertOut]:
 
 def register_tortoise(
     app: FastAPI,
-    config: Optional[dict] = None,
-    config_file: Optional[str] = None,
-    db_url: Optional[str] = None,
-    modules: Optional[Dict[str, Iterable[Union[str, ModuleType]]]] = None,
+    config: dict | None = None,
+    config_file: str | None = None,
+    db_url: str | None = None,
+    modules: dict[str, Iterable[str | ModuleType]] | None = None,
     generate_schemas: bool = False,
     add_exception_handlers: bool = False,
 ) -> AbstractAsyncContextManager:
@@ -1988,37 +1601,6 @@ def register_tortoise(
     return Manager()
 
 
-async def search_weaviate(
-    filters: ReportFilters,
-    order_by: ReportsOrderBy,
-    search_mode: ReportsSearchMode,
-) -> Tuple[List[dict], int]:
-    query = await build_graphql_query(
-        filters=filters, order_by=order_by, search_mode=search_mode
-    )
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            f"{config.WEAVIATE_BASE_URL}/v1/graphql",
-            json={"query": query},
-        ) as response:
-            response.raise_for_status()
-            data = await response.json()
-            reports = []
-            count = data["data"]["Aggregate"][config.WEAVIATE_SCHEMA_CLASS][0]["meta"][
-                "count"
-            ]
-            for item in data["data"]["Get"][config.WEAVIATE_SCHEMA_CLASS]:
-                reports.append(
-                    dict(
-                        **item,
-                        additional_info=item["_additional"]
-                        if "_additional" in item
-                        else None,
-                    )
-                )
-            return reports, count
-
-
 def translate_method_to_action(method: str) -> str:
     mapping = {
         "GET": "read",
@@ -2058,7 +1640,7 @@ def validate_cpf(cpf: str) -> bool:
 
 def validate_cnpj(cnpj: str) -> bool:
     # Adapted from: https://wiki.python.org.br/VerificadorDeCpfCnpjSimples
-    cnpj = "".join(re.findall("\d", str(cnpj)))
+    cnpj = "".join(re.findall(r"\d", str(cnpj)))
 
     if (not cnpj) or (len(cnpj) < 14):
         return False
@@ -2101,10 +1683,14 @@ async def generate_report_id():
     return code
 
 
-def generate_pdf_report_from_html_template(context: dict, template_relative_path: str, extra_stylesheet_path: Optional[Path | str] = None):
+def generate_pdf_report_from_html_template(
+    context: dict,
+    template_relative_path: str,
+    extra_stylesheet_path: Path | str | None = None,
+):
     """
     Generate a PDF report from an HTML template using the Jinja2 template engine.
-    
+
     Args:
         context: Dictionary with data to replace Jinja2 placeholders in the HTML template
                (e.g., {{ variable_name }})
@@ -2116,38 +1702,39 @@ def generate_pdf_report_from_html_template(context: dict, template_relative_path
         template_relative_path: Relative path to the HTML template file
                Example: 'pdf/teste.html'
         extra_stylesheet_path: Optional path to additional CSS stylesheet
-        
+
     Returns:
         Path to the generated PDF file
     """
     logger.info("Generating PDF report from HTML template.")
     outputs_dir = Path("/tmp/pdf")
-    
+
     # Add paths to context
     # You can use ./templates/pdf/template_base.html as a base template and extend it with your own styles and HTML content
-    context['styles_base_path'] = config.STYLES_BASE_PATH
-    context['logo_prefeitura_path'] = config.ASSETS_DIR / 'logo_prefeitura.png'
-    context['logo_civitas_path'] = config.ASSETS_DIR / 'logo_civitas.png'
-    
+    context["styles_base_path"] = config.STYLES_BASE_PATH
+    context["logo_prefeitura_path"] = config.ASSETS_DIR / "logo_prefeitura.png"
+    context["logo_civitas_path"] = config.ASSETS_DIR / "logo_civitas.png"
+
     if not outputs_dir.exists():
         outputs_dir.mkdir(parents=True)
-    
+
     output_filename = f"{uuid.uuid4()}.pdf"
     output_path = outputs_dir / output_filename
-    
+
     env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(config.HTML_TEMPLATES_DIR),
-        autoescape=True
+        loader=jinja2.FileSystemLoader(config.HTML_TEMPLATES_DIR), autoescape=True
     )
-    
+
     logger.info(f"Rendering template: {template_relative_path}")
     template = env.get_template(template_relative_path)
     html_content = template.render(**context)
     logger.info(f"Template rendered.")
-    
+
     # Set base_url to project root
     logger.info(f"Writing PDF to: {output_path}")
-    HTML(string=html_content, base_url=Path.cwd().as_posix()).write_pdf(str(output_path))
-        
+    HTML(string=html_content, base_url=Path.cwd().as_posix()).write_pdf(
+        str(output_path)
+    )
+
     logger.info(f"✅ PDF report created: {output_path}")
     return output_path
