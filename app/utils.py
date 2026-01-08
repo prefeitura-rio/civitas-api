@@ -1,14 +1,14 @@
-# -*- coding: utf-8 -*-
 import asyncio
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import re
 import traceback
 from contextlib import AbstractAsyncContextManager
 from enum import Enum
 from types import ModuleType
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any
+from collections.abc import Iterable
 import uuid
 
 import aiohttp
@@ -20,7 +20,7 @@ import requests
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi_cache.decorator import cache as cache_decorator
-from google.cloud import bigquery
+from google.cloud import bigquery, storage
 from google.cloud.bigquery.table import Row
 from google.oauth2 import service_account
 from httpx import AsyncClient
@@ -36,6 +36,8 @@ from app.pydantic_models import (
     CortexCompanyOut,
     CortexPersonOut,
     CortexPlacaOut,
+    GCSFileInfoOut,
+    GCSFileOrderBy,
     NPlatesBeforeAfterOut,
     RadarOut,
     ReportFilters,
@@ -45,6 +47,8 @@ from app.pydantic_models import (
 from app.rate_limiter_cpf import cpf_limiter
 from app.redis_cache import cache
 from weasyprint import HTML
+from google.cloud.exceptions import NotFound, Forbidden
+from google.api_core import exceptions as google_exceptions
 
 
 class ReportsOrderBy(str, Enum):
@@ -69,7 +73,7 @@ def build_get_car_by_radar_query(
     max_datetime: pendulum.DateTime,
     codcet: str,
     plate_hint: str | None = None,
-) -> Tuple[str, List[bigquery.ScalarQueryParameter]]:
+) -> tuple[str, list[bigquery.ScalarQueryParameter]]:
     """
     Build a SQL query to fetch cars by radar within a time range.
 
@@ -184,7 +188,7 @@ def build_n_plates_query(
     max_datetime: pendulum.DateTime,
     n_minutes: int,
     n_plates: int,
-) -> Tuple[str, List[bigquery.ScalarQueryParameter]]:
+) -> tuple[str, list[bigquery.ScalarQueryParameter]]:
     """
     Build a SQL query to fetch N plates before and after a plate within a time range.
 
@@ -234,7 +238,7 @@ def build_n_plates_query(
             TRIM(
             REGEXP_REPLACE(
                 REGEXP_REPLACE(t1.locequip, r'^(.*?) -.*', r'\\1'), -- Remove the part after " -"
-                r'\s+', ' ') -- Remove extra spaces
+                r'\\s+', ' ') -- Remove extra spaces
             ) AS locequip,
             COALESCE(CONCAT(' - SENTIDO ', sentido), '') AS sentido,
             TO_BASE64(
@@ -287,11 +291,11 @@ def build_n_plates_query(
             a.datahora_captura,
             DATETIME_SUB(a.datahora_local, INTERVAL @N_minutes MINUTE) AS datahora_inicio,
             DATETIME_ADD(a.datahora_local, INTERVAL @N_minutes MINUTE) AS datahora_fim
-        FROM 
+        FROM
             all_readings a
-        JOIN 
-            radar_group b 
-        ON 
+        JOIN
+            radar_group b
+        ON
             a.codcet = b.codcet
         WHERE
             a.placa = @plate
@@ -299,7 +303,7 @@ def build_n_plates_query(
             BETWEEN DATETIME(@start_datetime, "America/Sao_Paulo")
             AND DATETIME(@end_datetime, "America/Sao_Paulo")
     ),
-    
+
     ordered_readings AS (
         SELECT
             *,
@@ -482,14 +486,12 @@ def build_n_plates_query(
         bigquery.ScalarQueryParameter("N_plates", "INT64", n_plates),
     ]
 
-    logger.info(f"Query: {query}") # TODO: remove this later
+    logger.info(f"Query: {query}")  # TODO: remove this later
     return query, query_params
 
 
 def build_positions_query(
-    placa: str,
-    min_datetime: pendulum.DateTime,
-    max_datetime: pendulum.DateTime
+    placa: str, min_datetime: pendulum.DateTime, max_datetime: pendulum.DateTime
 ) -> str:
     """
     Build a SQL query to fetch the positions of a vehicle within a time range.
@@ -551,11 +553,15 @@ def build_positions_query(
         LEFT JOIN loc l ON p.codcet = l.codcet
         ORDER BY p.datahora ASC
         """
-    
+
     query_params = [
         bigquery.ScalarQueryParameter("plate", "STRING", placa),
-        bigquery.ScalarQueryParameter("min_datetime", "DATETIME", min_datetime.to_datetime_string()),
-        bigquery.ScalarQueryParameter("max_datetime", "DATETIME", max_datetime.to_datetime_string()),
+        bigquery.ScalarQueryParameter(
+            "min_datetime", "DATETIME", min_datetime.to_datetime_string()
+        ),
+        bigquery.ScalarQueryParameter(
+            "max_datetime", "DATETIME", max_datetime.to_datetime_string()
+        ),
         # bigquery.ScalarQueryParameter("min_distance", "FLOAT64", min_distance),
     ]
 
@@ -568,7 +574,7 @@ async def cortex_request(
     cpf: str,
     raise_for_status: bool = True,
     **kwargs: Any,
-) -> Tuple[bool, Any]:
+) -> tuple[bool, Any]:
     """
     Make a request to the Cortex API.
 
@@ -755,6 +761,7 @@ async def get_plate_details(
     )
 
 
+# teste
 def get_bigquery_client() -> bigquery.Client:
     """Get the BigQuery client.
 
@@ -765,7 +772,17 @@ def get_bigquery_client() -> bigquery.Client:
     return bigquery.Client(credentials=credentials, project=credentials.project_id)
 
 
-def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials:
+def get_storage_client() -> storage.Client:
+    """Get the Storage client.
+
+    Returns:
+        storage.Client: The Storage client.
+    """
+    credentials = get_gcp_credentials()
+    return storage.Client(credentials=credentials, project=credentials.project_id)
+
+
+def get_gcp_credentials(scopes: list[str] = None) -> service_account.Credentials:
     """Get the GCP credentials.
 
     Args:
@@ -832,7 +849,7 @@ def get_car_by_radar(
     max_datetime: pendulum.DateTime,
     codcet: str,
     plate_hint: str | None = None,
-) -> List[CarPassageOut]:
+) -> list[CarPassageOut]:
     """
     Fetch cars by radar within a time range.
 
@@ -876,7 +893,7 @@ def get_car_by_radar(
 
 
 @cache_decorator(expire=config.CACHE_FOGOCRUZADO_TTL)
-async def get_fogocruzado_reports() -> List[dict]:
+async def get_fogocruzado_reports() -> list[dict]:
     """
     Fetch reports from Fogo Cruzado API.
 
@@ -966,12 +983,10 @@ async def get_path(
     max_datetime: pendulum.DateTime,
     max_time_interval: int = 60 * 60,
     polyline: bool = False,
-) -> List[Dict[str, Union[str, List]]]:
-    locations_interval = (
-        await get_positions(
-            placa, min_datetime, max_datetime
-        )
-    )["locations"]
+) -> list[dict[str, str | list]]:
+    locations_interval = (await get_positions(placa, min_datetime, max_datetime))[
+        "locations"
+    ]
     locations_trips_original = get_trips_chunks(
         locations=locations_interval, max_time_interval=max_time_interval
     )
@@ -1007,7 +1022,7 @@ async def get_hints(
     latitude_max: float = None,
     longitude_min: float = None,
     longitude_max: float = None,
-) -> List[str]:
+) -> list[str]:
     """
     Fetch plate hints within a time range.
 
@@ -1035,7 +1050,7 @@ async def get_hints(
     bq_client = get_bigquery_client()
     query_job = bq_client.query(query)
     data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
-    hints = sorted(list(set([row["placa"] for row in data])))
+    hints = sorted(list({row["placa"] for row in data}))
     return hints
 
 
@@ -1045,7 +1060,7 @@ def get_n_plates_before_and_after(
     max_datetime: pendulum.DateTime,
     n_minutes: int,
     n_plates: int,
-) -> List[NPlatesBeforeAfterOut]:
+) -> list[NPlatesBeforeAfterOut]:
     """
     Fetch N plates before and after a plate within a time range.
 
@@ -1084,7 +1099,7 @@ async def get_positions(
     placa: str,
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-) -> Dict[str, list]:
+) -> dict[str, list]:
     """
     Fetch the positions of a vehicle within a time range.
 
@@ -1125,9 +1140,7 @@ async def get_positions(
     # return {"placa": placa, "locations": cached_locations}
 
     # Query database for missing data and cache it
-    query, query_params = build_positions_query(
-        placa, min_datetime, max_datetime
-    )
+    query, query_params = build_positions_query(placa, min_datetime, max_datetime)
     bq_client = get_bigquery_client()
     job_config = bigquery.QueryJobConfig(query_parameters=query_params)
     query_job = bq_client.query(query, job_config=job_config)
@@ -1178,7 +1191,7 @@ def get_reports_metadata_no_cache() -> ReportsMetadata:
     sources = [row["id_source"] for row in query_job_sources]
     categories = [row["categoria"] for row in query_job_categories]
     types_subtypes = [(row["tipo"], row["subtipo"]) for row in query_job_types_subtypes]
-    distinct_types = list(set([t[0] for t in types_subtypes]))
+    distinct_types = list({t[0] for t in types_subtypes})
     types_subtypes_dict = {t: [] for t in distinct_types}
     for t, st in types_subtypes:
         types_subtypes_dict[t].append(st)
@@ -1198,14 +1211,14 @@ async def get_cameras_cor() -> list:
     try:
         # todo: remove this after SSL certificate is ok
         connector = aiohttp.TCPConnector(ssl=False)
-        
+
         async with aiohttp.ClientSession(connector=connector) as session:
             async with session.get(
                 config.TIXXI_CAMERAS_LIST_URL,
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
-                
+
                 # use dev stream url for now
                 data_replaced_stream_url = [
                     {
@@ -1221,7 +1234,7 @@ async def get_cameras_cor() -> list:
 
 
 @cache_decorator(expire=config.CACHE_RADAR_POSITIONS_TTL)
-def get_radar_positions() -> List[RadarOut]:
+def get_radar_positions() -> list[RadarOut]:
     """
     Fetch the radar positions.
 
@@ -1257,9 +1270,9 @@ def get_radar_positions() -> List[RadarOut]:
 
         -- some radars has different lat/long in readings tables and it causes duplicated values on previous CTE
         used_radars_deduplicated AS (
-            SELECT 
-                *, 
-                ROW_NUMBER() OVER(PARTITION BY codcet ORDER BY last_detection_time DESC) rn 
+            SELECT
+                *,
+                ROW_NUMBER() OVER(PARTITION BY codcet ORDER BY last_detection_time DESC) rn
             FROM
                 used_radars
             QUALIFY rn = 1
@@ -1305,8 +1318,8 @@ def get_radar_positions() -> List[RadarOut]:
 
 
 async def get_route_path(
-    locations: List[Dict[str, float | pendulum.DateTime]],
-) -> Dict[str, Union[int, List]]:
+    locations: list[dict[str, float | pendulum.DateTime]],
+) -> dict[str, int | list]:
     """
     Get the route path between locations.
 
@@ -1530,7 +1543,7 @@ async def get_waze_alerts(filter_type: str = None) -> list:
     return alerts
 
 
-def normalize_waze_alerts(alerts: List[Dict[str, Any]]) -> List[WazeAlertOut]:
+def normalize_waze_alerts(alerts: list[dict[str, Any]]) -> list[WazeAlertOut]:
     return [
         WazeAlertOut(
             timestamp=DateTime.fromtimestamp(
@@ -1551,10 +1564,10 @@ def normalize_waze_alerts(alerts: List[Dict[str, Any]]) -> List[WazeAlertOut]:
 
 def register_tortoise(
     app: FastAPI,
-    config: Optional[dict] = None,
-    config_file: Optional[str] = None,
-    db_url: Optional[str] = None,
-    modules: Optional[Dict[str, Iterable[Union[str, ModuleType]]]] = None,
+    config: dict | None = None,
+    config_file: str | None = None,
+    db_url: str | None = None,
+    modules: dict[str, Iterable[str | ModuleType]] | None = None,
     generate_schemas: bool = False,
     add_exception_handlers: bool = False,
 ) -> AbstractAsyncContextManager:
@@ -1642,7 +1655,7 @@ def validate_cpf(cpf: str) -> bool:
 
 def validate_cnpj(cnpj: str) -> bool:
     # Adapted from: https://wiki.python.org.br/VerificadorDeCpfCnpjSimples
-    cnpj = "".join(re.findall("\d", str(cnpj)))
+    cnpj = "".join(re.findall(r"\d", str(cnpj)))
 
     if (not cnpj) or (len(cnpj) < 14):
         return False
@@ -1685,10 +1698,14 @@ async def generate_report_id():
     return code
 
 
-def generate_pdf_report_from_html_template(context: dict, template_relative_path: str, extra_stylesheet_path: Optional[Path | str] = None):
+def generate_pdf_report_from_html_template(
+    context: dict,
+    template_relative_path: str,
+    extra_stylesheet_path: Path | str | None = None,
+):
     """
     Generate a PDF report from an HTML template using the Jinja2 template engine.
-    
+
     Args:
         context: Dictionary with data to replace Jinja2 placeholders in the HTML template
                (e.g., {{ variable_name }})
@@ -1700,38 +1717,413 @@ def generate_pdf_report_from_html_template(context: dict, template_relative_path
         template_relative_path: Relative path to the HTML template file
                Example: 'pdf/teste.html'
         extra_stylesheet_path: Optional path to additional CSS stylesheet
-        
+
     Returns:
         Path to the generated PDF file
     """
     logger.info("Generating PDF report from HTML template.")
     outputs_dir = Path("/tmp/pdf")
-    
+
     # Add paths to context
     # You can use ./templates/pdf/template_base.html as a base template and extend it with your own styles and HTML content
-    context['styles_base_path'] = config.STYLES_BASE_PATH
-    context['logo_prefeitura_path'] = config.ASSETS_DIR / 'logo_prefeitura.png'
-    context['logo_civitas_path'] = config.ASSETS_DIR / 'logo_civitas.png'
-    
+    context["styles_base_path"] = config.STYLES_BASE_PATH
+    context["logo_prefeitura_path"] = config.ASSETS_DIR / "logo_prefeitura.png"
+    context["logo_civitas_path"] = config.ASSETS_DIR / "logo_civitas.png"
+
     if not outputs_dir.exists():
         outputs_dir.mkdir(parents=True)
-    
+
     output_filename = f"{uuid.uuid4()}.pdf"
     output_path = outputs_dir / output_filename
-    
+
     env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(config.HTML_TEMPLATES_DIR),
-        autoescape=True
+        loader=jinja2.FileSystemLoader(config.HTML_TEMPLATES_DIR), autoescape=True
     )
-    
+
     logger.info(f"Rendering template: {template_relative_path}")
     template = env.get_template(template_relative_path)
     html_content = template.render(**context)
-    logger.info(f"Template rendered.")
-    
+    logger.info("Template rendered.")
+
     # Set base_url to project root
     logger.info(f"Writing PDF to: {output_path}")
-    HTML(string=html_content, base_url=Path.cwd().as_posix()).write_pdf(str(output_path))
-        
+    HTML(string=html_content, base_url=Path.cwd().as_posix()).write_pdf(
+        str(output_path)
+    )
+
     logger.info(f"✅ PDF report created: {output_path}")
     return output_path
+
+
+async def generate_upload_signed_url(
+    file_name: str,
+    content_type: str,
+    bucket_name: str,
+    file_size: int,
+    expiration_minutes: int = 60,
+    resumable: bool = False,
+    origin: str | None = None,
+    file_path: str | None = None,
+) -> str:
+    """
+    Generates a v4 signed URL for uploading a file to Google Cloud Storage.
+
+    Args:
+        file_name: Name of the file to upload.
+        content_type: MIME type of the file.
+        bucket_name: Name of the GCS bucket.
+        file_size: Size of the file in bytes.
+        expiration_minutes: Expiration time for the signed URL in minutes (default: 60).
+        resumable: Whether to use resumable upload (default: False).
+        origin: Origin header from the client request for CORS validation.
+        file_path: If provided, the file will be uploaded to the specified path in the bucket.
+
+    Returns:
+        str: Signed URL for uploading the file.
+
+    Raises:
+        HTTPException: If URL generation fails.
+    """
+    # Validate expiration_minutes (GCS limit is 7 days = 10080 minutes)
+    if expiration_minutes < 1 or expiration_minutes > 10080:
+        raise HTTPException(
+            status_code=400,
+            detail="expiration_minutes must be between 1 and 10080 (7 days)",
+        )
+
+    def _generate():
+        try:
+            storage_client = get_storage_client()
+            bucket = storage_client.bucket(bucket_name)
+            blob_name = (
+                f"{file_path.rstrip('/')}/{file_name}" if file_path else file_name
+            )
+            blob = bucket.blob(blob_name)
+
+            if resumable:
+                # Create the resumable upload session
+                return blob.create_resumable_upload_session(
+                    content_type=content_type,
+                    size=file_size,
+                    timeout=60,  # 60 seconds timeout for the session creation request
+                    checksum="crc32c",
+                    origin=origin,
+                )
+            else:
+                # Simple upload via PUT
+                return blob.generate_signed_url(
+                    version="v4",
+                    expiration=timedelta(minutes=expiration_minutes),
+                    method="PUT",
+                    content_type=content_type,
+                )
+        except NotFound:
+            logger.warning(f"Bucket '{bucket_name}' not found or access denied")
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied to this resource. Check your permissions.",
+            )
+        except Forbidden:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied to bucket '{bucket_name}'. Check your permissions.",
+            )
+        except google_exceptions.GoogleAPIError as e:
+            logger.exception(
+                f"Google Cloud Storage API error generating upload URL: {e}"
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate upload URL. Please try again later.",
+            )
+        except Exception as e:
+            logger.exception(f"Unexpected error generating upload URL: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="An unexpected error occurred while generating the upload URL",
+            )
+
+    return await asyncio.to_thread(_generate)
+
+
+async def generate_download_signed_url(
+    file_name: str, bucket_name: str, expiration_minutes: int = 15
+) -> str:
+    """
+    Generates a v4 signed URL for downloading a file from Google Cloud Storage.
+
+    Raises:
+        HTTPException: If bucket or file is not found, access is forbidden, or URL generation fails.
+    """
+    # Validate expiration_minutes (GCS limit is 7 days = 10080 minutes)
+    if expiration_minutes < 1 or expiration_minutes > 10080:
+        raise HTTPException(
+            status_code=400,
+            detail="expiration_minutes must be between 1 and 10080 (7 days)",
+        )
+
+    def _generate():
+        try:
+            storage_client = get_storage_client()
+            bucket = storage_client.bucket(bucket_name)
+            blob = bucket.blob(file_name)
+
+            if not blob.exists():
+                raise HTTPException(
+                    status_code=403,
+                    detail="Access denied to this resource. Check your permissions.",
+                )
+
+            signed_url = blob.generate_signed_url(
+                version="v4",
+                expiration=timedelta(minutes=expiration_minutes),
+                method="GET",
+            )
+            return signed_url
+        except HTTPException:
+            raise
+        except NotFound:
+            logger.warning(
+                f"Bucket '{bucket_name}' or file '{file_name}' not found or access denied"
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied to this resource. Check your permissions.",
+            )
+        except Forbidden:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied to bucket '{bucket_name}' or file '{file_name}'. Check your permissions.",
+            )
+        except google_exceptions.GoogleAPIError as e:
+            logger.exception(
+                f"Google Cloud Storage API error generating download URL: {e}"
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate download URL. Please try again later.",
+            )
+        except Exception as e:
+            logger.exception(f"Unexpected error generating download URL: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="An unexpected error occurred while generating the download URL",
+            )
+
+    return await asyncio.to_thread(_generate)
+
+
+async def check_file_exists(
+    file_name: str,
+    bucket_name: str,
+    file_path: str | None = None,
+    expected_crc32c: str | None = None,
+) -> bool:
+    """
+    Checks if a file exists in the bucket.
+    If expected_crc32c is provided, also checks if the file's CRC32C matches.
+
+    Raises:
+        HTTPException: If bucket is not found or access is forbidden.
+    """
+
+    def _check():
+        try:
+            storage_client = get_storage_client()
+            bucket = storage_client.bucket(bucket_name)
+
+            blob_name = (
+                f"{file_path.rstrip('/')}/{file_name}" if file_path else file_name
+            )
+            blob = bucket.blob(blob_name)
+
+            if not blob.exists():
+                return False
+
+            if expected_crc32c:
+                blob.reload()
+                if blob.crc32c != expected_crc32c:
+                    return False
+
+            return True
+        except HTTPException:
+            raise
+        except NotFound:
+            logger.warning(f"Bucket '{bucket_name}' not found or access denied")
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied to this resource. Check your permissions.",
+            )
+        except Forbidden:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied to bucket '{bucket_name}'. Check your permissions.",
+            )
+        except google_exceptions.GoogleAPIError as e:
+            logger.exception(
+                f"Google Cloud Storage API error checking file existence: {e}"
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to check if file exists. Please try again later.",
+            )
+        except Exception as e:
+            logger.exception(f"Unexpected error checking file existence: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="An unexpected error occurred while checking file existence",
+            )
+
+    return await asyncio.to_thread(_check)
+
+
+async def list_blobs(
+    bucket_name: str,
+    order_by: GCSFileOrderBy = GCSFileOrderBy.TIME_CREATED_DESC,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[GCSFileInfoOut], int]:
+    """
+    Lists all blobs in a bucket with pagination and sorting.
+
+    Raises:
+        HTTPException: If bucket is not found, access is forbidden, or listing fails.
+    """
+
+    def _list():
+        try:
+            storage_client = get_storage_client()
+            bucket = storage_client.bucket(bucket_name)
+
+            fields = (
+                "items(name,size,contentType,timeCreated,updated,etag),nextPageToken"
+            )
+            blobs_iter = bucket.list_blobs(fields=fields)
+            all_blobs: list[storage.Blob] = list(blobs_iter)
+            total = len(all_blobs)
+
+            # Convert to GCSFileInfoOut
+            files = [
+                GCSFileInfoOut(
+                    name=blob.name,
+                    size=blob.size or 0,
+                    content_type=blob.content_type,
+                    time_created=blob.time_created,
+                    updated=blob.updated,
+                    etag=blob.etag,
+                )
+                for blob in all_blobs
+            ]
+
+            # Sort based on order_by
+            if order_by == GCSFileOrderBy.NAME_ASC:
+                files.sort(key=lambda x: x.name.lower())
+            elif order_by == GCSFileOrderBy.NAME_DESC:
+                files.sort(key=lambda x: x.name.lower(), reverse=True)
+            elif order_by == GCSFileOrderBy.TIME_CREATED_ASC:
+                files.sort(
+                    key=lambda x: x.time_created
+                    if x.time_created is not None
+                    else datetime.datetime(1970, 1, 1)
+                )
+            elif order_by == GCSFileOrderBy.TIME_CREATED_DESC:
+                files.sort(
+                    key=lambda x: x.time_created
+                    if x.time_created is not None
+                    else datetime.datetime(1970, 1, 1),
+                    reverse=True,
+                )
+            elif order_by == GCSFileOrderBy.SIZE_ASC:
+                files.sort(key=lambda x: x.size)
+            elif order_by == GCSFileOrderBy.SIZE_DESC:
+                files.sort(key=lambda x: x.size, reverse=True)
+
+            # Apply pagination
+            paginated_files = files[offset : offset + limit]
+
+            return paginated_files, total
+
+        except HTTPException:
+            raise
+        except NotFound:
+            logger.warning(f"Bucket '{bucket_name}' not found or access denied")
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied to this resource. Check your permissions.",
+            )
+        except Forbidden:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied to bucket '{bucket_name}'. Check your permissions.",
+            )
+        except google_exceptions.GoogleAPIError as e:
+            logger.exception(f"Google Cloud Storage API error listing blobs: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to list files in bucket. Please try again later.",
+            )
+        except Exception as e:
+            logger.exception(f"Unexpected error listing blobs: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="An unexpected error occurred while listing files",
+            )
+
+    return await asyncio.to_thread(_list)
+
+
+async def gcs_delete_file(file_name: str, bucket_name: str) -> dict:
+    """
+    Deletes a file from the bucket.
+
+    Raises:
+        HTTPException: If bucket is not found, access is forbidden, or deletion fails.
+    """
+
+    def _delete():
+        try:
+            storage_client = get_storage_client()
+            bucket = storage_client.bucket(bucket_name)
+            blob = bucket.blob(file_name)
+
+            if not blob.exists():
+                logger.warning(
+                    f"File '{file_name}' not found in bucket '{bucket_name}'"
+                )
+                raise HTTPException(
+                    status_code=403,
+                    detail="Access denied to this resource or file not found.",
+                )
+
+            blob.delete()
+            return {
+                "message": f"File '{file_name}' deleted successfully from bucket '{bucket_name}'"
+            }
+        except HTTPException:
+            raise
+        except NotFound:
+            logger.warning(
+                f"Bucket '{bucket_name}' or file '{file_name}' not found or access denied"
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied to this resource. Check your permissions.",
+            )
+        except Forbidden:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied to bucket '{bucket_name}' or file '{file_name}'. Check your permissions.",
+            )
+        except google_exceptions.GoogleAPIError as e:
+            logger.exception(f"Google Cloud Storage API error deleting file: {e}")
+            raise HTTPException(
+                status_code=500, detail="Failed to delete file. Please try again later."
+            )
+        except Exception as e:
+            logger.exception(f"Unexpected error deleting file: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="An unexpected error occurred while deleting the file",
+            )
+
+    return await asyncio.to_thread(_delete)

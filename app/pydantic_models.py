@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Dict, List, Literal, Optional
 from uuid import UUID
 from enum import Enum
+from zlib import crc32
 
 from fastapi import Query
 from pydantic import BaseModel, Field, root_validator, validator
@@ -830,7 +831,73 @@ class GetCarsByRadarIn:
         self.end_time = end_time
         self.plate_hint = plate_hint
 
-      
+class GCSUploadIn(BaseModel):
+    file_name: str = Field(..., description="The name of the file to upload.")
+    content_type: str = Field(..., description="The MIME type of the file.")
+    bucket_name: str = Field(..., description="The name of the bucket to upload the file to.")
+    file_size: int = Field(..., description="The size of the file in bytes.")
+    resumable: bool = Field(False, description="Whether to use resumable upload.")
+    file_path: Optional[str] = Field(None, description="The path of the file to upload.")
+    crc32c: Optional[str] = Field(None, description="The CRC32C checksum of the file.")
+    
+    
+class GCSUploadOut(BaseModel):
+    signed_url: str
+    file_exists: bool = Field(..., description="Whether a file with this name already exists in the bucket.")
 
+
+class GCSFileInfoOut(BaseModel):
+    name: str = Field(..., description="The name of the file.")
+    size: int = Field(..., description="The size of the file in bytes.")
+    content_type: Optional[str] = Field(None, description="The MIME type of the file.")
+    time_created: Optional[datetime] = Field(None, description="The time the file was created.")
+    updated: Optional[datetime] = Field(None, description="The time the file was last updated.")
+    etag: Optional[str] = Field(None, description="The ETag of the file.")
+
+
+class GCSFileExistsOut(BaseModel):
+    exists: bool = Field(..., description="Whether the file exists in the bucket.")
+    file_name: str = Field(..., description="The name of the file checked.")
+    bucket_name: str = Field(..., description="The name of the bucket.")
+
+
+class GCSDownloadOut(BaseModel):
+    download_url: str = Field(..., description="The signed URL for downloading the file.")
+    expires_in_seconds: int = Field(..., description="Number of seconds until the URL expires.")
+
+
+class GCSDownloadIn(BaseModel):
+    file_name: str = Field(..., description="The full path to the file in the bucket (can include folders).")
+    bucket_name: str = Field(..., description="The name of the bucket.")
+    expiration_minutes: int = Field(15, ge=1, le=10080, description="URL expiration time in minutes (1-10080, max 7 days).")
+
+
+class GCSFileOrderBy(str, Enum):
+    NAME_ASC = "name_asc"
+    NAME_DESC = "name_desc"
+    TIME_CREATED_ASC = "time_created_asc"
+    TIME_CREATED_DESC = "time_created_desc"
+    SIZE_ASC = "size_asc"
+    SIZE_DESC = "size_desc"
+    
+
+class ListFilesIn(BaseModel):
+    bucket_name: str = Query(..., description="The name of the bucket.")
+    order_by: GCSFileOrderBy = Query(
+        GCSFileOrderBy.TIME_CREATED_DESC,
+        description="Order by field and direction.",
+    )
+    
+
+class GCSFileExistsIn(BaseModel):
+    file_name: str = Field(..., description="The full path to the file in the bucket (can include folders).")
+    bucket_name: str = Field(..., description="The name of the bucket.")
+    
+    
+class GCSDeleteFileIn(BaseModel):
+    file_name: str = Field(..., description="The full path to the file in the bucket (can include folders).")
+    bucket_name: str = Field(..., description="The name of the bucket.")
+    
+    
 MonitoredPlateOut.update_forward_refs()
 MonitoredPlateHistory.update_forward_refs()
