@@ -116,3 +116,6 @@ VEHICLE_TYPES_MAPPING = {
 # PDF report paths
 HTML_TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 STYLES_BASE_PATH = HTML_TEMPLATES_DIR / "styles_base.css"
+
+# New cameras service configuration
+USE_NEW_CAMERAS_SERVICE = getenv_or_action("USE_NEW_CAMERAS_SERVICE", default="true").lower() == "true"
