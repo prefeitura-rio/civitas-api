@@ -6,11 +6,13 @@ from fastapi import APIRouter, Depends, Request
 from app.decorators import router_request
 from app.dependencies import is_user
 from app.models import User
-from app.utils import get_cameras_cor
+from app.utils import get_cameras
+from app import config
+
 
 router = APIRouter(
-    prefix="/cameras-cor",
-    tags=["COR Cameras"],
+    prefix="/cameras",
+    tags=["Cameras"],
     responses={
         401: {"description": "You don't have permission to do this."},
         429: {"error": "Rate limit exceeded"},
@@ -23,4 +25,4 @@ async def get_cameras_list(
     user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
-    return await get_cameras_cor()
+    return await get_cameras()

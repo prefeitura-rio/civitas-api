@@ -1191,34 +1191,37 @@ def get_reports_metadata_no_cache() -> ReportsMetadata:
 
 
 @cache_decorator(expire=config.CACHE_CAMERAS_COR_TTL)
-async def get_cameras_cor() -> list:
+async def get_cameras() -> list:
     """
     Fetch the cameras list.
     """
+    bq_client = get_bigquery_client()
+    query = """
+        SELECT
+            codigo_camera AS CameraCode,
+            nome_camera AS CameraName,
+            zona_camera AS CameraZone,
+            latitude AS Latitude,
+            longitude AS Longitude,
+            streaming_url AS Streamming,
+            sistema_origem,
+            responsavel
+        FROM `rj-civitas.cerco_digital.cameras`
+    """
+    query_job = bq_client.query(query)
     try:
-        # todo: remove this after SSL certificate is ok
-        connector = aiohttp.TCPConnector(ssl=False)
-        
-        async with aiohttp.ClientSession(connector=connector) as session:
-            async with session.get(
-                config.TIXXI_CAMERAS_LIST_URL,
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-                
-                # use dev stream url for now
-                data_replaced_stream_url = [
-                    {
-                        **item,
-                        "Streamming": item["Streamming"].replace("app", "dev"),
-                    }
-                    for item in data
-                ]
-                return data_replaced_stream_url
+        data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
     except Exception:
-        logger.error(traceback.format_exc())
+        logger.exception("Failed to fetch cameras list")
         raise HTTPException(status_code=500, detail="Failed to fetch cameras list")
-
+    cameras = []
+    for page in data.pages:
+        for row in page:
+            row: Row
+            row_data = dict(row.items())
+            cameras.append(row_data)
+    return cameras
+    
 
 @cache_decorator(expire=config.CACHE_RADAR_POSITIONS_TTL)
 def get_radar_positions() -> List[RadarOut]:
