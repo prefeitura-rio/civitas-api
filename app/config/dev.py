@@ -31,3 +31,6 @@ RATE_LIMIT_DEFAULT = getenv_or_action("RATE_LIMIT_DEFAULT", default="1000/second
 GCP_SERVICE_ACCOUNT_CREDENTIALS = getenv_or_action(
     "GCP_SERVICE_ACCOUNT_CREDENTIALS", action="raise"
 )
+
+# New cameras service configuration
+USE_NEW_CAMERAS_SERVICE = getenv_or_action("USE_NEW_CAMERAS_SERVICE", default="true").lower() == "true"
