@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from app.decorators import router_request
 from app.dependencies import is_user
 from app.models import User
-from app.utils import get_cameras_cor, get_cameras
+from app.utils import get_cameras
 from app import config
 
 
@@ -25,9 +25,4 @@ async def get_cameras_list(
     user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
-    # feature flag to use new cameras service
-    # author: Nicolas Evilasio
-    # date: 2026-02-11
-    # description: This feature flag is used to control the use of the new cameras service.
-    # The new cameras service is used to get the cameras list from the BigQuery database merging the cameras from the DC3 and Tixxi systems.
     return await get_cameras()
