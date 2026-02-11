@@ -30,7 +30,4 @@ async def get_cameras_list(
     # date: 2026-02-11
     # description: This feature flag is used to control the use of the new cameras service.
     # The new cameras service is used to get the cameras list from the BigQuery database merging the cameras from the DC3 and Tixxi systems.
-    if config.USE_NEW_CAMERAS_SERVICE:
-        return await get_cameras()
-    else:
-        return await get_cameras_cor()
+    return await get_cameras()
