@@ -28,6 +28,7 @@ from app.routers import (
     cameras_cor,
     cars,
     companies,
+    gcs,
     layers,
     notification_channels,
     operations,
@@ -107,6 +108,14 @@ app.include_router(radars.router)
 app.include_router(reports.router)
 app.include_router(users.router)
 app.include_router(waze.router)
+
+# feature flag to enable GCS endpoints
+# author: Nicolas Evilasio
+# date: 2026-02-12
+# description: This feature flag is used to control the use of the GCS endpoints.
+# The GCS endpoints are used to store and retrieve files from the Google Cloud Storage.
+if config.ENABLE_GCS_ENDPOINTS:
+    app.include_router(gcs.router)
 
 
 add_pagination(app)

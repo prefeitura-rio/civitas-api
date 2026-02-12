@@ -31,3 +31,7 @@ RATE_LIMIT_DEFAULT = getenv_or_action("RATE_LIMIT_DEFAULT", default="1000/second
 GCP_SERVICE_ACCOUNT_CREDENTIALS = getenv_or_action(
     "GCP_SERVICE_ACCOUNT_CREDENTIALS", action="raise"
 )
+
+# feature flags
+ENABLE_GCS_ENDPOINTS = getenv_or_action("ENABLE_GCS_ENDPOINTS", default="false").lower() == "true"
+ENABLE_CLONING_REPORT_ENDPOINT = getenv_or_action("ENABLE_CLONING_REPORT_ENDPOINT", default="false").lower() == "true"
