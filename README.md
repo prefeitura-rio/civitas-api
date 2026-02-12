@@ -2,6 +2,13 @@
 
 API para o APP CIVITAS.
 
+## Estrutura do projeto
+
+- **app/** – Código da aplicação (routers, models, config, serviços).
+- **migrations/** – Arquivos de migration do Aerich (Tortoise ORM).
+- **dev/** – Docker Compose e recursos para desenvolvimento local.
+- **k8s/** – Manifests Kubernetes (staging e prod) para deploy no GKE.
+
 ## Arquitetura e Ambientes
 
 ### Produção (GKE)
@@ -57,10 +64,74 @@ O carregamento das configurações no código segue o ambiente:
    - **API com Limite de Recursos:** [http://localhost:8081](http://localhost:8081)
    - **Documentação (Swagger):** [http://localhost:8080/docs](http://localhost:8080/docs)
 
+## Migrations
+
+As migrations do banco de dados são feitas com **Aerich** (Tortoise ORM). A configuração fica em `pyproject.toml` (`[tool.aerich]`) e os arquivos em `migrations/`.
+
+São dois passos distintos: **criar** o arquivo de migration e **aplicar** as migrations no banco. O `aerich upgrade` (no Docker ou manual) **só aplica** migrations que já existem em `migrations/`; ele **não cria** novos arquivos.
+
+**1. Criar uma nova migration (após alterar `app/models.py`)**
+
+Você precisa rodar manualmente. Se estiver usando o banco do Docker, use um run pontual no container para que o Aerich use o mesmo ambiente (Postgres do compose):
+
+```bash
+docker compose -f dev/docker-compose.yml run --rm civitas-api-dev poetry run aerich migrate --name "descrição_da_alteração"
+```
+
+Se rodar a API fora do container (com o banco já acessível), use na sua máquina:
+
+```bash
+poetry run aerich migrate --name "descrição_da_alteração"
+```
+
+Isso gera um novo arquivo em `migrations/app/`. Revise o arquivo e faça o commit. Só depois disso a migration poderá ser aplicada.
+
+**2. Aplicar as migrations no banco**
+
+- **Com Docker:** O comando do serviço no `dev/docker-compose.yml` já executa `aerich upgrade` antes do uvicorn. Na subida dos containers, todas as migrations existentes em `migrations/` são aplicadas no banco. Nenhuma migration nova é criada nesse momento.
+- **Sem Docker:** Rode `poetry run aerich upgrade` para aplicar as migrations pendentes.
+
+Resumo: criar tabela ou alterar model → rodar `aerich migrate` → commitar o arquivo gerado → na próxima subida (ou ao rodar `aerich upgrade`), a migration será aplicada.
+
 ## URLs dos Ambientes
 
 - **Staging:** `https://staging.api.civitas.rio`
 - **Produção:** `https://api.civitas.rio`
+
+## Autenticação (Authentik)
+
+A API utiliza **Authentik** como provedor de identidade (OIDC). A conexão é configurada via variáveis no Infisical (`OIDC_BASE_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_ISSUER_URL`, `OIDC_TOKEN_URL`, etc.). O health check da aplicação verifica a disponibilidade do Authentik.
+
+Rotas protegidas exigem o token JWT no header `Authorization: Bearer <token>`. O token é obtido em `POST /auth/token` (credenciais do Authentik). No handler, use as dependências do FastAPI para injetar o usuário e checar permissões: `is_user`, `is_agent`, `is_admin` (e `has_cpf` quando aplicável), definidas em `app/dependencies.py`.
+
+## Definição de rotas (router_request)
+
+Novas rotas que exigem autenticação e auditoria devem usar o decorator **`router_request`** (`app/decorators.py`) em vez de registrar o endpoint diretamente no router. Esse decorator:
+
+- Registra a rota no router (GET, POST, etc.) com path, `response_model` e `responses`.
+- Aplica **rate limit** (configurável em `config.RATE_LIMIT_DEFAULT`).
+- Garante que o handler receba **`user`** e **`request`** por injeção de dependência (obrigatórios).
+- Registra a requisição em **UserHistory** (auditoria) e, para rotas em `/pdf/`, em **ReportHistory**.
+
+Exemplo:
+
+```python
+from app.decorators import router_request
+from app.dependencies import is_user
+from app.models import User
+from fastapi import Request
+from typing import Annotated
+from fastapi import Depends
+
+@router_request(method="GET", router=router, path="", response_model=None)
+async def get_cameras_list(
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+):
+    return await get_cameras()
+```
+
+O handler deve declarar explicitamente `user` e `request` (por exemplo com `Depends(is_user)` e `Request`) para que o decorator funcione corretamente.
 
 ## Fluxo de Desenvolvimento e Contribuição
 
