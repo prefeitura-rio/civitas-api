@@ -15,6 +15,7 @@ from app.modules.cloning_report.data.query_builder import (
     QueryParameters,
 )
 from app.modules.cloning_report.utils import get_logger
+from app.utils import get_bigquery_client
 
 
 logger = get_logger()
@@ -32,7 +33,7 @@ class BigQueryDetectionRepository(DetectionRepository):
         )
         self.client = None
         logger.info(f"BigQuery repository initialized for project: {self.project_id}")
-        self._initialize_client()
+        self.client = get_bigquery_client()
 
     def find_by_plate_and_period(
         self, plate: str, start_date: datetime, end_date: datetime
@@ -70,24 +71,4 @@ class BigQueryDetectionRepository(DetectionRepository):
         except Exception:
             logger.exception("BigQuery connection test failed")
             return False
-
-    def _initialize_client(self):
-        """Initialize BigQuery client"""
-        try:
-            from google.auth import default
-
-            if self.credentials_path:
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.credentials_path
-
-            credentials, project = default()
-            self.client = bigquery.Client(
-                project=self.project_id or project, credentials=credentials
-            )
-            logger.info("BigQuery client initialized successfully")
-
-        except ImportError:
-            logger.exception("google-cloud-bigquery not installed")
-            raise ImportError("BigQuery client library not available")
-        except Exception:
-            logger.exception("Failed to initialize BigQuery client")
-            raise
+        
