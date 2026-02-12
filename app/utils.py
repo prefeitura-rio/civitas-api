@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import asyncio
 import base64
 from datetime import datetime, timedelta
@@ -7,8 +8,7 @@ import traceback
 from contextlib import AbstractAsyncContextManager
 from enum import Enum
 from types import ModuleType
-from typing import Any
-from collections.abc import Iterable
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import uuid
 
 import aiohttp
@@ -73,7 +73,7 @@ def build_get_car_by_radar_query(
     max_datetime: pendulum.DateTime,
     codcet: str,
     plate_hint: str | None = None,
-) -> tuple[str, list[bigquery.ScalarQueryParameter]]:
+) -> Tuple[str, List[bigquery.ScalarQueryParameter]]:
     """
     Build a SQL query to fetch cars by radar within a time range.
 
@@ -188,7 +188,7 @@ def build_n_plates_query(
     max_datetime: pendulum.DateTime,
     n_minutes: int,
     n_plates: int,
-) -> tuple[str, list[bigquery.ScalarQueryParameter]]:
+) -> Tuple[str, List[bigquery.ScalarQueryParameter]]:
     """
     Build a SQL query to fetch N plates before and after a plate within a time range.
 
@@ -238,7 +238,7 @@ def build_n_plates_query(
             TRIM(
             REGEXP_REPLACE(
                 REGEXP_REPLACE(t1.locequip, r'^(.*?) -.*', r'\\1'), -- Remove the part after " -"
-                r'\\s+', ' ') -- Remove extra spaces
+                r'\s+', ' ') -- Remove extra spaces
             ) AS locequip,
             COALESCE(CONCAT(' - SENTIDO ', sentido), '') AS sentido,
             TO_BASE64(
@@ -291,11 +291,11 @@ def build_n_plates_query(
             a.datahora_captura,
             DATETIME_SUB(a.datahora_local, INTERVAL @N_minutes MINUTE) AS datahora_inicio,
             DATETIME_ADD(a.datahora_local, INTERVAL @N_minutes MINUTE) AS datahora_fim
-        FROM
+        FROM 
             all_readings a
-        JOIN
-            radar_group b
-        ON
+        JOIN 
+            radar_group b 
+        ON 
             a.codcet = b.codcet
         WHERE
             a.placa = @plate
@@ -303,7 +303,7 @@ def build_n_plates_query(
             BETWEEN DATETIME(@start_datetime, "America/Sao_Paulo")
             AND DATETIME(@end_datetime, "America/Sao_Paulo")
     ),
-
+    
     ordered_readings AS (
         SELECT
             *,
@@ -486,12 +486,14 @@ def build_n_plates_query(
         bigquery.ScalarQueryParameter("N_plates", "INT64", n_plates),
     ]
 
-    logger.info(f"Query: {query}")  # TODO: remove this later
+    logger.info(f"Query: {query}") # TODO: remove this later
     return query, query_params
 
 
 def build_positions_query(
-    placa: str, min_datetime: pendulum.DateTime, max_datetime: pendulum.DateTime
+    placa: str,
+    min_datetime: pendulum.DateTime,
+    max_datetime: pendulum.DateTime
 ) -> str:
     """
     Build a SQL query to fetch the positions of a vehicle within a time range.
@@ -553,15 +555,11 @@ def build_positions_query(
         LEFT JOIN loc l ON p.codcet = l.codcet
         ORDER BY p.datahora ASC
         """
-
+    
     query_params = [
         bigquery.ScalarQueryParameter("plate", "STRING", placa),
-        bigquery.ScalarQueryParameter(
-            "min_datetime", "DATETIME", min_datetime.to_datetime_string()
-        ),
-        bigquery.ScalarQueryParameter(
-            "max_datetime", "DATETIME", max_datetime.to_datetime_string()
-        ),
+        bigquery.ScalarQueryParameter("min_datetime", "DATETIME", min_datetime.to_datetime_string()),
+        bigquery.ScalarQueryParameter("max_datetime", "DATETIME", max_datetime.to_datetime_string()),
         # bigquery.ScalarQueryParameter("min_distance", "FLOAT64", min_distance),
     ]
 
@@ -574,7 +572,7 @@ async def cortex_request(
     cpf: str,
     raise_for_status: bool = True,
     **kwargs: Any,
-) -> tuple[bool, Any]:
+) -> Tuple[bool, Any]:
     """
     Make a request to the Cortex API.
 
@@ -761,7 +759,6 @@ async def get_plate_details(
     )
 
 
-# teste
 def get_bigquery_client() -> bigquery.Client:
     """Get the BigQuery client.
 
@@ -782,7 +779,7 @@ def get_storage_client() -> storage.Client:
     return storage.Client(credentials=credentials, project=credentials.project_id)
 
 
-def get_gcp_credentials(scopes: list[str] = None) -> service_account.Credentials:
+def get_gcp_credentials(scopes: List[str] = None) -> service_account.Credentials:
     """Get the GCP credentials.
 
     Args:
@@ -849,7 +846,7 @@ def get_car_by_radar(
     max_datetime: pendulum.DateTime,
     codcet: str,
     plate_hint: str | None = None,
-) -> list[CarPassageOut]:
+) -> List[CarPassageOut]:
     """
     Fetch cars by radar within a time range.
 
@@ -893,7 +890,7 @@ def get_car_by_radar(
 
 
 @cache_decorator(expire=config.CACHE_FOGOCRUZADO_TTL)
-async def get_fogocruzado_reports() -> list[dict]:
+async def get_fogocruzado_reports() -> List[dict]:
     """
     Fetch reports from Fogo Cruzado API.
 
@@ -983,10 +980,12 @@ async def get_path(
     max_datetime: pendulum.DateTime,
     max_time_interval: int = 60 * 60,
     polyline: bool = False,
-) -> list[dict[str, str | list]]:
-    locations_interval = (await get_positions(placa, min_datetime, max_datetime))[
-        "locations"
-    ]
+) -> List[Dict[str, Union[str, List]]]:
+    locations_interval = (
+        await get_positions(
+            placa, min_datetime, max_datetime
+        )
+    )["locations"]
     locations_trips_original = get_trips_chunks(
         locations=locations_interval, max_time_interval=max_time_interval
     )
@@ -1022,7 +1021,7 @@ async def get_hints(
     latitude_max: float = None,
     longitude_min: float = None,
     longitude_max: float = None,
-) -> list[str]:
+) -> List[str]:
     """
     Fetch plate hints within a time range.
 
@@ -1050,7 +1049,7 @@ async def get_hints(
     bq_client = get_bigquery_client()
     query_job = bq_client.query(query)
     data = query_job.result(page_size=config.GOOGLE_BIGQUERY_PAGE_SIZE)
-    hints = sorted(list({row["placa"] for row in data}))
+    hints = sorted(list(set([row["placa"] for row in data])))
     return hints
 
 
@@ -1060,7 +1059,7 @@ def get_n_plates_before_and_after(
     max_datetime: pendulum.DateTime,
     n_minutes: int,
     n_plates: int,
-) -> list[NPlatesBeforeAfterOut]:
+) -> List[NPlatesBeforeAfterOut]:
     """
     Fetch N plates before and after a plate within a time range.
 
@@ -1099,7 +1098,7 @@ async def get_positions(
     placa: str,
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-) -> dict[str, list]:
+) -> Dict[str, list]:
     """
     Fetch the positions of a vehicle within a time range.
 
@@ -1140,7 +1139,9 @@ async def get_positions(
     # return {"placa": placa, "locations": cached_locations}
 
     # Query database for missing data and cache it
-    query, query_params = build_positions_query(placa, min_datetime, max_datetime)
+    query, query_params = build_positions_query(
+        placa, min_datetime, max_datetime
+    )
     bq_client = get_bigquery_client()
     job_config = bigquery.QueryJobConfig(query_parameters=query_params)
     query_job = bq_client.query(query, job_config=job_config)
@@ -1191,7 +1192,7 @@ def get_reports_metadata_no_cache() -> ReportsMetadata:
     sources = [row["id_source"] for row in query_job_sources]
     categories = [row["categoria"] for row in query_job_categories]
     types_subtypes = [(row["tipo"], row["subtipo"]) for row in query_job_types_subtypes]
-    distinct_types = list({t[0] for t in types_subtypes})
+    distinct_types = list(set([t[0] for t in types_subtypes]))
     types_subtypes_dict = {t: [] for t in distinct_types}
     for t, st in types_subtypes:
         types_subtypes_dict[t].append(st)
@@ -1237,7 +1238,7 @@ async def get_cameras() -> list:
     
 
 @cache_decorator(expire=config.CACHE_RADAR_POSITIONS_TTL)
-def get_radar_positions() -> list[RadarOut]:
+def get_radar_positions() -> List[RadarOut]:
     """
     Fetch the radar positions.
 
@@ -1273,9 +1274,9 @@ def get_radar_positions() -> list[RadarOut]:
 
         -- some radars has different lat/long in readings tables and it causes duplicated values on previous CTE
         used_radars_deduplicated AS (
-            SELECT
-                *,
-                ROW_NUMBER() OVER(PARTITION BY codcet ORDER BY last_detection_time DESC) rn
+            SELECT 
+                *, 
+                ROW_NUMBER() OVER(PARTITION BY codcet ORDER BY last_detection_time DESC) rn 
             FROM
                 used_radars
             QUALIFY rn = 1
@@ -1321,8 +1322,8 @@ def get_radar_positions() -> list[RadarOut]:
 
 
 async def get_route_path(
-    locations: list[dict[str, float | pendulum.DateTime]],
-) -> dict[str, int | list]:
+    locations: List[Dict[str, float | pendulum.DateTime]],
+) -> Dict[str, Union[int, List]]:
     """
     Get the route path between locations.
 
@@ -1546,7 +1547,7 @@ async def get_waze_alerts(filter_type: str = None) -> list:
     return alerts
 
 
-def normalize_waze_alerts(alerts: list[dict[str, Any]]) -> list[WazeAlertOut]:
+def normalize_waze_alerts(alerts: List[Dict[str, Any]]) -> List[WazeAlertOut]:
     return [
         WazeAlertOut(
             timestamp=DateTime.fromtimestamp(
@@ -1567,10 +1568,10 @@ def normalize_waze_alerts(alerts: list[dict[str, Any]]) -> list[WazeAlertOut]:
 
 def register_tortoise(
     app: FastAPI,
-    config: dict | None = None,
-    config_file: str | None = None,
-    db_url: str | None = None,
-    modules: dict[str, Iterable[str | ModuleType]] | None = None,
+    config: Optional[dict] = None,
+    config_file: Optional[str] = None,
+    db_url: Optional[str] = None,
+    modules: Optional[Dict[str, Iterable[Union[str, ModuleType]]]] = None,
     generate_schemas: bool = False,
     add_exception_handlers: bool = False,
 ) -> AbstractAsyncContextManager:
@@ -1658,7 +1659,7 @@ def validate_cpf(cpf: str) -> bool:
 
 def validate_cnpj(cnpj: str) -> bool:
     # Adapted from: https://wiki.python.org.br/VerificadorDeCpfCnpjSimples
-    cnpj = "".join(re.findall(r"\d", str(cnpj)))
+    cnpj = "".join(re.findall("\d", str(cnpj)))
 
     if (not cnpj) or (len(cnpj) < 14):
         return False
@@ -1701,14 +1702,10 @@ async def generate_report_id():
     return code
 
 
-def generate_pdf_report_from_html_template(
-    context: dict,
-    template_relative_path: str,
-    extra_stylesheet_path: Path | str | None = None,
-):
+def generate_pdf_report_from_html_template(context: dict, template_relative_path: str, extra_stylesheet_path: Optional[Path | str] = None):
     """
     Generate a PDF report from an HTML template using the Jinja2 template engine.
-
+    
     Args:
         context: Dictionary with data to replace Jinja2 placeholders in the HTML template
                (e.g., {{ variable_name }})
@@ -1720,40 +1717,39 @@ def generate_pdf_report_from_html_template(
         template_relative_path: Relative path to the HTML template file
                Example: 'pdf/teste.html'
         extra_stylesheet_path: Optional path to additional CSS stylesheet
-
+        
     Returns:
         Path to the generated PDF file
     """
     logger.info("Generating PDF report from HTML template.")
     outputs_dir = Path("/tmp/pdf")
-
+    
     # Add paths to context
     # You can use ./templates/pdf/template_base.html as a base template and extend it with your own styles and HTML content
-    context["styles_base_path"] = config.STYLES_BASE_PATH
-    context["logo_prefeitura_path"] = config.ASSETS_DIR / "logo_prefeitura.png"
-    context["logo_civitas_path"] = config.ASSETS_DIR / "logo_civitas.png"
-
+    context['styles_base_path'] = config.STYLES_BASE_PATH
+    context['logo_prefeitura_path'] = config.ASSETS_DIR / 'logo_prefeitura.png'
+    context['logo_civitas_path'] = config.ASSETS_DIR / 'logo_civitas.png'
+    
     if not outputs_dir.exists():
         outputs_dir.mkdir(parents=True)
-
+    
     output_filename = f"{uuid.uuid4()}.pdf"
     output_path = outputs_dir / output_filename
-
+    
     env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(config.HTML_TEMPLATES_DIR), autoescape=True
+        loader=jinja2.FileSystemLoader(config.HTML_TEMPLATES_DIR),
+        autoescape=True
     )
-
+    
     logger.info(f"Rendering template: {template_relative_path}")
     template = env.get_template(template_relative_path)
     html_content = template.render(**context)
-    logger.info("Template rendered.")
-
+    logger.info(f"Template rendered.")
+    
     # Set base_url to project root
     logger.info(f"Writing PDF to: {output_path}")
-    HTML(string=html_content, base_url=Path.cwd().as_posix()).write_pdf(
-        str(output_path)
-    )
-
+    HTML(string=html_content, base_url=Path.cwd().as_posix()).write_pdf(str(output_path))
+        
     logger.info(f"✅ PDF report created: {output_path}")
     return output_path
 
