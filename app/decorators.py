@@ -18,13 +18,14 @@ def router_request(
     path: str,
     response_model: Optional[Any] = None,
     responses: Optional[Dict[Union[int, str], Dict[str, Any]]] = None,
+    include_in_schema: bool = True,
 ):
     def decorator(f):
         router_method = getattr(router, method.lower())
         if not router_method:
             raise AttributeError(f"Method {method} is not valid.")
 
-        @router_method(path=path, response_model=response_model, responses=responses)
+        @router_method(path=path, response_model=response_model, responses=responses, include_in_schema=include_in_schema)
         @limiter.limit(config.RATE_LIMIT_DEFAULT)
         @wraps(f)
         async def wrapper(*args, **kwargs):
