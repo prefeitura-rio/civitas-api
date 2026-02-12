@@ -152,8 +152,12 @@ class PdfReportCloningIn(BaseModel):
                 return v.astimezone(timezone.utc)
         return v
 
-
-@router_request(method="POST", router=router, path="/cloning-report")
+# feature flag to enable cloning report endpoint
+# author: Nicolas Evilasio
+# date: 2026-02-12
+# description: This feature flag is used to control the use of the cloning report endpoint.
+# The cloning report endpoint is used to generate a cloning report for a specific vehicle plate.
+@router_request(method="POST", router=router, path="/cloning-report", include_in_schema=config.ENABLE_CLONING_REPORT_ENDPOINT)
 async def generate_cloning_report(
     request: Request,
     user: Annotated[User, Depends(is_user)],
