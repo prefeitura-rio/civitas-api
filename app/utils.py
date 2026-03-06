@@ -94,7 +94,7 @@ def build_get_car_by_radar_query(
             placa,
             DATETIME(datahora, "America/Sao_Paulo") AS datahora,
             velocidade
-        FROM `rj-civitas.cerco_digital.vw_readings`
+        FROM `rj-civitas.cerco_digital.vw_all_readings`
         WHERE
             datahora >= TIMESTAMP(@min_datetime, "America/Sao_Paulo")
             AND datahora <= TIMESTAMP(@max_datetime, "America/Sao_Paulo")
@@ -515,45 +515,24 @@ def build_positions_query(
         raise ValueError("Invalid datetime range")
 
     query = """
-        WITH ordered_positions AS (
-            SELECT
-                DISTINCT
-                    DATETIME(datahora, "America/Sao_Paulo") AS datahora,
-                    placa,
-                    codcet,
-                    camera_latitude,
-                    camera_longitude,
-                    velocidade
-            FROM `rj-civitas.cerco_digital.vw_readings`
-            WHERE
-                placa = @plate
-                AND (camera_latitude != 0 AND camera_longitude != 0)
-                AND datahora >= TIMESTAMP(@min_datetime, "America/Sao_Paulo")
-                AND datahora <= TIMESTAMP(@max_datetime, "America/Sao_Paulo")
-            ORDER BY datahora ASC, placa ASC
-        ),
-
-        loc AS (
-            SELECT
-                t1.codcet,
-                t1.bairro,
-                t1.locequip AS localidade,
-                t1.latitude,
-                t1.longitude,
-            FROM `rj-cetrio.ocr_radar.equipamento` t1
-        )
-
-        SELECT DISTINCT
-            p.datahora,
-            p.codcet,
-            COALESCE(l.latitude, p.camera_latitude) AS latitude,
-            COALESCE(l.longitude, p.camera_longitude) AS longitude,
-            COALESCE(l.bairro, '') AS bairro,
-            COALESCE(l.localidade, '') AS localidade,
-            p.velocidade
-        FROM ordered_positions p
-        LEFT JOIN loc l ON p.codcet = l.codcet
-        ORDER BY p.datahora ASC
+        SELECT
+            DISTINCT
+                DATETIME(datahora, "America/Sao_Paulo") AS datahora,
+                placa,
+                codcet,
+                camera_latitude AS latitude,
+                camera_longitude AS longitude,
+                localidade,
+                bairro,
+                sentido,
+                velocidade
+        FROM `rj-civitas.cerco_digital.vw_all_readings`
+        WHERE
+            placa = @plate
+            AND (camera_latitude != 0 AND camera_longitude != 0)
+            AND datahora >= TIMESTAMP(@min_datetime, "America/Sao_Paulo")
+            AND datahora <= TIMESTAMP(@max_datetime, "America/Sao_Paulo")
+        ORDER BY datahora ASC
         """
     
     query_params = [
@@ -1302,11 +1281,74 @@ def get_radar_positions() -> List[RadarOut]:
         FROM radars t1
         FULL OUTER JOIN used_radars_deduplicated t2
             ON t1.codcet = t2.codcet
-        )
+        ),
+
+        sentry_lpr_cameras AS (
+            SELECT
+                a.id_camera,
+                a.codigo_ponto_coleta AS codcet,
+                a.latitude,
+                a.longitude,
+                a.local_ponto_coleta AS locequip,
+                b.nome AS bairro,
+                a.local_ponto_coleta AS logradouro,
+                a.direcao AS sentido
+            FROM `rj-civitas.lpr.cameras` a
+            LEFT JOIN `datario.dados_mestres.bairro` b
+            ON ST_WITHIN(ST_GEOGPOINT(a.longitude, a.latitude), b.geometry)
+        ),
+
+        used_sentry_lpr_cameras AS (
+            SELECT
+            camera_numero AS id_camera,
+            empresa,
+            MAX(DATETIME(datahora, "America/Sao_Paulo")) AS last_detection_time,
+            'yes' AS has_data
+            FROM `rj-civitas.lpr.readings*`
+            GROUP BY id_camera, empresa
+        ),
+        
+        sentry_selected_lpr_cameras AS (
+            SELECT
+            t1.codcet,
+            t2.empresa,
+            t1.latitude,
+            t1.longitude,
+            t1.locequip,
+            t1.bairro,
+            t1.logradouro,
+            t1.sentido,
+            COALESCE(t2.has_data, 'no') AS has_data,
+            COALESCE(t2.last_detection_time, NULL) AS last_detection_time,
+            CASE
+                WHEN t2.last_detection_time IS NULL THEN NULL
+                WHEN
+                TIMESTAMP(t2.last_detection_time)
+                >= TIMESTAMP_SUB(
+                    TIMESTAMP(CURRENT_DATETIME("America/Sao_Paulo")), INTERVAL 24 HOUR)
+                THEN 'yes'
+                ELSE 'no'
+                END AS active_in_last_24_hours
+            FROM sentry_lpr_cameras t1
+            FULL OUTER JOIN used_sentry_lpr_cameras t2
+            ON t1.id_camera = t2.id_camera
+        ),
+
+        all_equips AS (
 
         SELECT
             *
         FROM selected_radar
+
+        UNION ALL
+
+        SELECT
+            *
+        FROM
+            sentry_selected_lpr_cameras
+        )
+
+        SELECT * FROM all_equips
         ORDER BY last_detection_time
     """
     bq_client = get_bigquery_client()
