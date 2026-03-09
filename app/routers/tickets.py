@@ -42,9 +42,9 @@ async def list_tickets_endpoint(
     user: Annotated[User, Depends(is_user)],
     request: Request,
     page: int = 1,
-    page_size: int = 20,
+    size: int = 20,
 ):
-    return await list_tickets(user=user, page=page, page_size=page_size)
+    return await list_tickets(user=user, page=page, page_size=size)
 
 @router_request(
     method="GET",

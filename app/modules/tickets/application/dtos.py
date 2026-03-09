@@ -51,15 +51,11 @@ class TicketTypeListItemOut(BaseModel):
 
 class TicketNaturePageOut(BaseModel):
     items: List[TicketNatureListItemOut]
-    page: int
-    page_size: int
     total: int
 
 
 class TicketTypePageOut(BaseModel):
     items: List[TicketTypeListItemOut]
-    page: int
-    page_size: int
     total: int
 
 

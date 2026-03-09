@@ -47,16 +47,12 @@ async def create_ticket_nature_endpoint(
 async def list_ticket_natures_endpoint(
     user: Annotated[User, Depends(is_user)],
     request: Request,
-    page: int = 1,
-    page_size: int = 20,
     search: Optional[str] = Query(default=None),
-    is_active: Optional[bool] = Query(default=None),
+    isActive: Optional[bool] = Query(default=None),
 ):
     return await list_ticket_natures(
-        page=page,
-        page_size=page_size,
         search=search,
-        is_active=is_active,
+        is_active=isActive,
     )
 
 

@@ -49,14 +49,9 @@ async def create_ticket_type(*, data: TicketCatalogCreateIn) -> TicketTypeOut:
 
 async def list_ticket_types(
     *,
-    page: int = 1,
-    page_size: int = 20,
     search: str | None = None,
     is_active: bool | None = None,
 ) -> TicketTypePageOut:
-    page = max(page, 1)
-    page_size = min(max(page_size, 1), 100)
-    offset = (page - 1) * page_size
 
     query = TicketType.all()
 
@@ -70,7 +65,7 @@ async def list_ticket_types(
         query = query.filter(is_active=is_active)
 
     total = await query.count()
-    rows = await query.order_by("name").offset(offset).limit(page_size)
+    rows = await query.order_by("name")
 
     items = [
         TicketTypeListItemOut(
@@ -84,8 +79,6 @@ async def list_ticket_types(
 
     return TicketTypePageOut(
         items=items,
-        page=page,
-        page_size=page_size,
         total=total,
     )
 

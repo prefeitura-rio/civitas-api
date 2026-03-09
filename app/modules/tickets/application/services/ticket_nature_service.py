@@ -49,14 +49,9 @@ async def create_ticket_nature(*, data: TicketCatalogCreateIn) -> TicketNatureOu
 
 async def list_ticket_natures(
     *,
-    page: int = 1,
-    page_size: int = 20,
     search: str | None = None,
     is_active: bool | None = None,
 ) -> TicketNaturePageOut:
-    page = max(page, 1)
-    page_size = min(max(page_size, 1), 100)
-    offset = (page - 1) * page_size
 
     query = TicketNature.all()
 
@@ -70,7 +65,7 @@ async def list_ticket_natures(
         query = query.filter(is_active=is_active)
 
     total = await query.count()
-    rows = await query.order_by("name").offset(offset).limit(page_size)
+    rows = await query.order_by("name")
 
     items = [
         TicketNatureListItemOut(
@@ -84,8 +79,6 @@ async def list_ticket_natures(
 
     return TicketNaturePageOut(
         items=items,
-        page=page,
-        page_size=page_size,
         total=total,
     )
 
