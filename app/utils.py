@@ -522,9 +522,9 @@ def build_positions_query(
                 codcet,
                 camera_latitude AS latitude,
                 camera_longitude AS longitude,
-                localidade,
-                bairro,
-                sentido,
+                COALESCE(localidade, '') AS localidade,
+                COALESCE(bairro, '') AS bairro,
+                COALESCE(sentido, '') AS sentido,
                 velocidade
         FROM `rj-civitas.cerco_digital.vw_all_readings`
         WHERE
