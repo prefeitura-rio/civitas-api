@@ -1,0 +1,723 @@
+# -*- coding: utf-8 -*-
+import json
+import uuid
+from typing import List, Optional, Tuple
+
+from app.config import GCS_BUCKET_NAME
+from app.modules.tickets.infrastructure.gcs_upload import (
+    build_ticket_object_name,
+    gcs_delete_objects,
+    gcs_upload_file_bytes,
+)
+from tortoise.transactions import in_transaction
+from fastapi import HTTPException, UploadFile
+from loguru import logger
+from pydantic import ValidationError
+from tortoise.expressions import Q
+
+from app.models import Operation, User
+from app.modules.tickets.application.dtos import (
+    PageOut,
+    ServiceAnaliseDeImagemOut,
+    ServiceBuscaPorImagemOut,
+    ServiceBuscaPorPlacaOut,
+    ServiceBuscaPorRadarOut,
+    ServiceCercoEletronicoOut,
+    ServiceOutrosOut,
+    ServicePlacasConjuntasItemOut,
+    ServicePlacasConjuntasOut,
+    ServicePlacasCorrelatasItemOut,
+    ServicePlacasCorrelatasOut,
+    ServiceReservaDeImagemOut,
+    TicketAttachmentOut,
+    TicketCommentOut,
+    TicketCreateFocalPoint,
+    TicketCreateIn,
+    TicketCreateRequester,
+    TicketCreateResultOut,
+    TicketDetection,
+    TicketListItemOut,
+    TicketOut,
+    TicketPriority,
+    TicketSearchOut,
+)
+from app.modules.tickets.domain.entities import (
+    Ticket,
+    TicketAttachment,
+    TicketComment,
+    TicketCorrelatedPlatesService,
+    TicketCorrelatedPlatesServiceItem,
+    TicketElectronicFenceService,
+    TicketFocalPoint,
+    TicketImageAnalysisService,
+    TicketImageReservationService,
+    TicketImageSearchService,
+    TicketJointPlatesService,
+    TicketJointPlatesServiceItem,
+    TicketNature,
+    TicketOtherService,
+    TicketPlateSearchService,
+    TicketRadarSearchService,
+    TicketType,
+)
+
+
+MAX_FILE_BYTES = 10 * 1024 * 1024
+ALLOWED_CONTENT_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+
+def parse_ticket_payload(payload: str) -> TicketCreateIn:
+    try:
+        raw = json.loads(payload)
+        return TicketCreateIn.parse_obj(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="payload deve ser um JSON válido.")
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors())
+
+
+async def _read_file_and_validate(file: UploadFile) -> Tuple[bytes, int]:
+    content = await file.read()
+    size = len(content)
+
+    if size > MAX_FILE_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Arquivo '{file.filename}' excede 10MB.",
+        )
+
+    if file.content_type and file.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipo inválido '{file.content_type}' em '{file.filename}'.",
+        )
+
+    return content, size
+
+
+async def _prepare_and_upload_files(
+    *,
+    ticket_id: str,
+    files: List[UploadFile],
+) -> List[dict]:
+    """
+    Valida, lê e sobe arquivos antes da transação do banco.
+    Se qualquer upload falhar, remove os já enviados.
+    """
+    bucket_name = GCS_BUCKET_NAME
+    uploaded_files: List[dict] = []
+
+    try:
+        for f in files:
+            content, size = await _read_file_and_validate(f)
+            object_name = build_ticket_object_name(ticket_id, f.filename)
+
+            meta = await gcs_upload_file_bytes(
+                bucket_name=bucket_name,
+                object_name=object_name,
+                content=content,
+                content_type=f.content_type,
+            )
+
+            uploaded_files.append(
+                {
+                    "filename": f.filename,
+                    "content_type": f.content_type,
+                    "size_bytes": size,
+                    "storage_key": object_name,
+                    "storage_meta": meta,
+                }
+            )
+
+        return uploaded_files
+
+    except Exception:
+        await gcs_delete_objects(
+            bucket_name=bucket_name,
+            object_names=[item["storage_key"] for item in uploaded_files],
+        )
+        raise
+
+
+async def _create_ticket_attachments(
+    *,
+    ticket: Ticket,
+    uploaded_files: List[dict],
+    connection,
+) -> List[TicketAttachmentOut]:
+    attachments_out: List[TicketAttachmentOut] = []
+
+    for item in uploaded_files:
+        att = await TicketAttachment.create(
+            ticket=ticket,
+            filename=item["filename"],
+            content_type=item["content_type"],
+            size_bytes=item["size_bytes"],
+            storage_key=item["storage_key"],
+            using_db=connection,
+        )
+
+        attachments_out.append(
+            TicketAttachmentOut(
+                id=str(att.id),
+                filename=att.filename,
+                content_type=att.content_type,
+                size_bytes=att.size_bytes,
+                created_at=att.created_at,
+            )
+        )
+
+    return attachments_out
+
+
+async def create_ticket(
+    *,
+    ticket_in: TicketCreateIn,
+    author: Optional[User],
+    files: Optional[List[UploadFile]] = None,
+) -> TicketCreateResultOut:
+
+    parent_ticket = None
+    if ticket_in.associar_chamado_id:
+        parent_ticket = await Ticket.get_or_none(id=ticket_in.associar_chamado_id)
+        if not parent_ticket:
+            raise HTTPException(400, "associar_chamado_id inválido.")
+
+    ticket_type_obj = await TicketType.get_or_none(id=ticket_in.tipo_chamado_id)
+    if not ticket_type_obj:
+        raise HTTPException(
+            status_code=400,
+            detail="tipo_chamado_id inválido (TicketType não encontrado).",
+        )
+
+    nature_obj = None
+    if ticket_in.natureza_id:
+        nature_obj = await TicketNature.get_or_none(id=ticket_in.natureza_id)
+        if not nature_obj:
+            raise HTTPException(
+                status_code=400,
+                detail="natureza_id inválido (TicketNature não encontrada).",
+            )
+
+    operation_obj = None
+    if ticket_in.operation_id:
+        operation_obj = await Operation.get_or_none(id=ticket_in.operation_id)
+        if not operation_obj:
+            raise HTTPException(
+                status_code=400,
+                detail="operation_id inválido (Operation não encontrada).",
+            )
+
+    if not ticket_in.possui_apelido_imprensa:
+        press_nickname = None
+        press_link = None
+    else:
+        if not ticket_in.apelido_imprensa and not ticket_in.link_materia:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Se 'possui_apelido_imprensa' for true, "
+                    "informe 'apelido_imprensa' e/ou 'link_materia'."
+                ),
+            )
+        press_nickname = ticket_in.apelido_imprensa
+        press_link = str(ticket_in.link_materia) if ticket_in.link_materia else None
+
+    ticket_id = str(uuid.uuid4())
+    uploaded_files: List[dict] = []
+
+    if files:
+        uploaded_files = await _prepare_and_upload_files(
+            ticket_id=ticket_id,
+            files=files,
+        )
+
+    try:
+        async with in_transaction() as connection:
+            ticket = await Ticket.create(
+                id=ticket_id,
+                parent_ticket_id=ticket_in.associar_chamado_id,
+                operation=operation_obj,
+                ticket_type=ticket_type_obj,
+                procedure_number=ticket_in.numero_procedimento,
+                official_letter_number=ticket_in.numero_oficio,
+                base_date=ticket_in.data_base,
+                nature=nature_obj,
+                has_press_nickname=ticket_in.possui_apelido_imprensa,
+                press_nickname=press_nickname,
+                press_link=press_link,
+                requester_name=ticket_in.requisitante.requisitante_nome,
+                requester_phone=ticket_in.requisitante.requisitante_telefone,
+                requester_email=str(ticket_in.requisitante.requisitante_email)
+                if ticket_in.requisitante.requisitante_email
+                else None,
+                team_id=ticket_in.equipe_id,
+                priority=ticket_in.prioridade.value,
+                using_db=connection,
+            )
+
+            if ticket_in.pontos_focais:
+                await TicketFocalPoint.bulk_create(
+                    [
+                        TicketFocalPoint(
+                            ticket=ticket,
+                            name=fp.nome,
+                            phone=fp.telefone,
+                            email=str(fp.email) if fp.email else None,
+                        )
+                        for fp in ticket_in.pontos_focais
+                    ],
+                    using_db=connection,
+                )
+
+            if ticket_in.comentario_inicial and ticket_in.comentario_inicial.strip():
+                await TicketComment.create(
+                    ticket=ticket,
+                    author=author,
+                    body=ticket_in.comentario_inicial.strip(),
+                    using_db=connection,
+                )
+
+            if ticket_in.busca_por_placa:
+                await TicketPlateSearchService.bulk_create(
+                    [
+                        TicketPlateSearchService(
+                            ticket=ticket,
+                            period_start=service.period_start,
+                            period_end=service.period_end,
+                            plate=service.plate,
+                        )
+                        for service in ticket_in.busca_por_placa
+                    ],
+                    using_db=connection,
+                )
+
+            if ticket_in.busca_por_radar:
+                await TicketRadarSearchService.bulk_create(
+                    [
+                        TicketRadarSearchService(
+                            ticket=ticket,
+                            period_start=service.period_start,
+                            period_end=service.period_end,
+                            plate=service.plate,
+                            radar_address=service.radar_address,
+                        )
+                        for service in ticket_in.busca_por_radar
+                    ],
+                    using_db=connection,
+                )
+
+            if ticket_in.cerco_eletronico:
+                await TicketElectronicFenceService.bulk_create(
+                    [
+                        TicketElectronicFenceService(
+                            ticket=ticket,
+                            plate=service.plate,
+                            vehicle_observations=service.vehicle_observations,
+                        )
+                        for service in ticket_in.cerco_eletronico
+                    ],
+                    using_db=connection,
+                )
+
+            if ticket_in.busca_por_imagem:
+                await TicketImageSearchService.bulk_create(
+                    [
+                        TicketImageSearchService(
+                            ticket=ticket,
+                            period_start=service.period_start,
+                            period_end=service.period_end,
+                            plate=service.plate,
+                            address=service.address,
+                            description=service.description,
+                        )
+                        for service in ticket_in.busca_por_imagem
+                    ],
+                    using_db=connection,
+                )
+
+            if ticket_in.placas_correlatas:
+                for service_in in ticket_in.placas_correlatas:
+                    service = await TicketCorrelatedPlatesService.create(
+                        ticket=ticket,
+                        interest_interval_minutes=service_in.interest_interval_minutes,
+                        detection_count=service_in.detection_count,
+                        detection=service_in.detection.value if service_in.detection else None,
+                        using_db=connection,
+                    )
+
+                    if service_in.items:
+                        await TicketCorrelatedPlatesServiceItem.bulk_create(
+                            [
+                                TicketCorrelatedPlatesServiceItem(
+                                    service=service,
+                                    period_start=item.period_start,
+                                    period_end=item.period_end,
+                                    plate=item.plate,
+                                )
+                                for item in service_in.items
+                            ],
+                            using_db=connection,
+                        )
+
+            if ticket_in.placas_conjuntas:
+                for service_in in ticket_in.placas_conjuntas:
+                    service = await TicketJointPlatesService.create(
+                        ticket=ticket,
+                        interest_interval_minutes=service_in.interest_interval_minutes,
+                        detection_count=service_in.detection_count,
+                        detection=service_in.detection.value if service_in.detection else None,
+                        using_db=connection,
+                    )
+
+                    if service_in.items:
+                        await TicketJointPlatesServiceItem.bulk_create(
+                            [
+                                TicketJointPlatesServiceItem(
+                                    service=service,
+                                    period_start=item.period_start,
+                                    period_end=item.period_end,
+                                    plate=item.plate,
+                                )
+                                for item in service_in.items
+                            ],
+                            using_db=connection,
+                        )
+
+            if ticket_in.reserva_de_imagem:
+                await TicketImageReservationService.bulk_create(
+                    [
+                        TicketImageReservationService(
+                            ticket=ticket,
+                            period_start=service.period_start,
+                            period_end=service.period_end,
+                            orientation=service.orientation,
+                        )
+                        for service in ticket_in.reserva_de_imagem
+                    ],
+                    using_db=connection,
+                )
+
+            if ticket_in.analise_de_imagem:
+                await TicketImageAnalysisService.bulk_create(
+                    [
+                        TicketImageAnalysisService(
+                            ticket=ticket,
+                            period_start=service.period_start,
+                            period_end=service.period_end,
+                            orientation=service.orientation,
+                        )
+                        for service in ticket_in.analise_de_imagem
+                    ],
+                    using_db=connection,
+                )
+
+            if ticket_in.outros:
+                await TicketOtherService.bulk_create(
+                    [
+                        TicketOtherService(
+                            ticket=ticket,
+                            orientation=service.orientation,
+                        )
+                        for service in ticket_in.outros
+                    ],
+                    using_db=connection,
+                )
+
+            await _create_ticket_attachments(
+                ticket=ticket,
+                uploaded_files=uploaded_files,
+                connection=connection,
+            )
+
+    except Exception as exc:
+        if uploaded_files:
+            logger.warning(
+                f"Falha após upload para GCS. Iniciando compensação manual. "
+                f"ticket_id='{ticket_id}', error='{exc}'"
+            )
+            await gcs_delete_objects(
+                bucket_name=GCS_BUCKET_NAME,
+                object_names=[item["storage_key"] for item in uploaded_files],
+            )
+        raise
+
+    return TicketCreateResultOut(id=ticket_id)
+
+
+async def list_tickets(*, user: User, page: int = 1, page_size: int = 20) -> PageOut:
+    page = max(page, 1)
+    page_size = min(max(page_size, 1), 100)
+    offset = (page - 1) * page_size
+
+    query = Ticket.all()
+
+    total = await query.count()
+    rows = await query.order_by("-created_at").offset(offset).limit(page_size)
+
+    items: List[TicketListItemOut] = []
+    for t in rows:
+        items.append(
+            TicketListItemOut(
+                id=str(t.id),
+                criado_em=t.created_at,
+                tipo_chamado_id=str(t.ticket_type_id),
+                prioridade=t.priority,
+                natureza_id=str(t.nature_id) if t.nature_id else None,
+                numero_procedimento=t.procedure_number,
+                numero_oficio=t.official_letter_number,
+            )
+        )
+
+    return PageOut(items=items, page=page, page_size=page_size, total=total)
+
+
+async def get_ticket_by_id(*, ticket_id: str) -> TicketOut:
+    ticket = (
+        await Ticket.filter(id=ticket_id)
+        .prefetch_related(
+            "operation",
+            "ticket_type",
+            "nature",
+            "parent_ticket",
+            "focal_points",
+            "comments__author",
+            "attachments",
+            "plate_search_services",
+            "radar_search_services",
+            "electronic_fence_services",
+            "image_search_services",
+            "correlated_plate_services__items",
+            "joint_plate_services__items",
+            "image_reservation_services",
+            "image_analysis_services",
+            "other_services",
+        )
+        .first()
+    )
+
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket não encontrado.")
+
+    focal_points = sorted(ticket.focal_points, key=lambda x: x.created_at)
+    comments = sorted(ticket.comments, key=lambda x: x.created_at)
+    attachments = sorted(ticket.attachments, key=lambda x: x.created_at)
+
+    busca_por_placa = sorted(ticket.plate_search_services, key=lambda x: x.created_at)
+    busca_por_radar = sorted(ticket.radar_search_services, key=lambda x: x.created_at)
+    cerco_eletronico = sorted(ticket.electronic_fence_services, key=lambda x: x.created_at)
+    busca_por_imagem = sorted(ticket.image_search_services, key=lambda x: x.created_at)
+
+    placas_correlatas = sorted(ticket.correlated_plate_services, key=lambda x: x.created_at)
+    placas_conjuntas = sorted(ticket.joint_plate_services, key=lambda x: x.created_at)
+
+    reserva_de_imagem = sorted(ticket.image_reservation_services, key=lambda x: x.created_at)
+    analise_de_imagem = sorted(ticket.image_analysis_services, key=lambda x: x.created_at)
+    outros = sorted(ticket.other_services, key=lambda x: x.created_at)
+
+    return TicketOut(
+        id=str(ticket.id),
+        criado_em=ticket.created_at,
+        associar_chamado_id=str(ticket.parent_ticket_id) if ticket.parent_ticket_id else None,
+        tipo_chamado_id=str(ticket.ticket_type_id),
+        operation_id=str(ticket.operation_id) if ticket.operation_id else None,
+        numero_procedimento=ticket.procedure_number,
+        numero_oficio=ticket.official_letter_number,
+        data_base=ticket.base_date,
+        natureza_id=str(ticket.nature_id) if ticket.nature_id else None,
+        possui_apelido_imprensa=ticket.has_press_nickname,
+        apelido_imprensa=ticket.press_nickname,
+        link_materia=ticket.press_link,
+        requisitante=TicketCreateRequester(
+            requisitante_nome=ticket.requester_name,
+            requisitante_telefone=ticket.requester_phone,
+            requisitante_email=ticket.requester_email,
+        ),
+        pontos_focais=[
+            TicketCreateFocalPoint(
+                nome=fp.name,
+                telefone=fp.phone,
+                email=fp.email,
+            )
+            for fp in focal_points
+        ],
+        equipe_id=ticket.team_id,
+        prioridade=TicketPriority(ticket.priority),
+        comentarios=[
+            TicketCommentOut(
+                id=str(comment.id),
+                created_at=comment.created_at,
+                author_id=str(comment.author_id) if comment.author_id else None,
+                body=comment.body,
+            )
+            for comment in comments
+        ],
+        anexos=[
+            TicketAttachmentOut(
+                id=str(attachment.id),
+                filename=attachment.filename,
+                content_type=attachment.content_type,
+                size_bytes=attachment.size_bytes,
+                created_at=attachment.created_at,
+            )
+            for attachment in attachments
+        ],
+        busca_por_placa=[
+            ServiceBuscaPorPlacaOut(
+                id=str(service.id),
+                created_at=service.created_at,
+                period_start=service.period_start,
+                period_end=service.period_end,
+                plate=service.plate,
+            )
+            for service in busca_por_placa
+        ],
+        busca_por_radar=[
+            ServiceBuscaPorRadarOut(
+                id=str(service.id),
+                created_at=service.created_at,
+                period_start=service.period_start,
+                period_end=service.period_end,
+                plate=service.plate,
+                radar_address=service.radar_address,
+            )
+            for service in busca_por_radar
+        ],
+        cerco_eletronico=[
+            ServiceCercoEletronicoOut(
+                id=str(service.id),
+                created_at=service.created_at,
+                plate=service.plate,
+                vehicle_observations=service.vehicle_observations,
+            )
+            for service in cerco_eletronico
+        ],
+        busca_por_imagem=[
+            ServiceBuscaPorImagemOut(
+                id=str(service.id),
+                created_at=service.created_at,
+                period_start=service.period_start,
+                period_end=service.period_end,
+                plate=service.plate,
+                address=service.address,
+                description=service.description,
+            )
+            for service in busca_por_imagem
+        ],
+        placas_correlatas=[
+            ServicePlacasCorrelatasOut(
+                id=str(service.id),
+                created_at=service.created_at,
+                interest_interval_minutes=service.interest_interval_minutes,
+                detection_count=service.detection_count,
+                detection=TicketDetection(service.detection) if service.detection else None,
+                items=[
+                    ServicePlacasCorrelatasItemOut(
+                        id=str(item.id),
+                        created_at=item.created_at,
+                        period_start=item.period_start,
+                        period_end=item.period_end,
+                        plate=item.plate,
+                    )
+                    for item in sorted(service.items, key=lambda x: x.created_at)
+                ],
+            )
+            for service in placas_correlatas
+        ],
+        placas_conjuntas=[
+            ServicePlacasConjuntasOut(
+                id=str(service.id),
+                created_at=service.created_at,
+                interest_interval_minutes=service.interest_interval_minutes,
+                detection_count=service.detection_count,
+                detection=TicketDetection(service.detection) if service.detection else None,
+                items=[
+                    ServicePlacasConjuntasItemOut(
+                        id=str(item.id),
+                        created_at=item.created_at,
+                        period_start=item.period_start,
+                        period_end=item.period_end,
+                        plate=item.plate,
+                    )
+                    for item in sorted(service.items, key=lambda x: x.created_at)
+                ],
+            )
+            for service in placas_conjuntas
+        ],
+        reserva_de_imagem=[
+            ServiceReservaDeImagemOut(
+                id=str(service.id),
+                created_at=service.created_at,
+                period_start=service.period_start,
+                period_end=service.period_end,
+                orientation=service.orientation,
+            )
+            for service in reserva_de_imagem
+        ],
+        analise_de_imagem=[
+            ServiceAnaliseDeImagemOut(
+                id=str(service.id),
+                created_at=service.created_at,
+                period_start=service.period_start,
+                period_end=service.period_end,
+                orientation=service.orientation,
+            )
+            for service in analise_de_imagem
+        ],
+        outros=[
+            ServiceOutrosOut(
+                id=str(service.id),
+                created_at=service.created_at,
+                orientation=service.orientation,
+            )
+            for service in outros
+        ],
+    )
+
+
+async def search_tickets(*, search: str) -> List[TicketSearchOut]:
+    termo = (search or "").strip()
+
+    if not termo:
+        return []
+
+    tickets = (
+        await Ticket.filter(
+            Q(procedure_number__icontains=termo)
+            | Q(official_letter_number__icontains=termo)
+            | Q(requester_name__icontains=termo)
+        )
+        .order_by("-created_at")
+        .limit(20)
+    )
+
+    return [
+        TicketSearchOut(
+            id=str(ticket.id),
+            criado_em=ticket.created_at,
+            titulo=build_ticket_search_label(ticket),
+        )
+        for ticket in tickets
+    ]
+
+
+def build_ticket_search_label(ticket: "Ticket") -> str:
+    partes: list[str] = []
+
+    if ticket.base_date:
+        partes.append(f"Chamado {ticket.base_date.strftime('%d/%m/%Y')}")
+
+    if ticket.procedure_number:
+        partes.append(f"Proc. {ticket.procedure_number}")
+
+    if ticket.official_letter_number:
+        partes.append(f"Ofício {ticket.official_letter_number}")
+
+    if ticket.requester_name:
+        partes.append(f"Req. {ticket.requester_name}")
+
+    return " • ".join(partes)

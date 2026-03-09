@@ -8,7 +8,7 @@ from tortoise.models import Model
 from tortoise.signals import pre_save
 
 from app.enums import NotificationChannelTypeEnum
-
+from app.modules.tickets.domain.entities import *
 
 class CompanyData(Model):
     id = fields.UUIDField(pk=True)
