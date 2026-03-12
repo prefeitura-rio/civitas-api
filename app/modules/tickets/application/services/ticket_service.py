@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, timezone
 import json
 import uuid
 from typing import List, Optional, Tuple
@@ -782,7 +782,7 @@ async def get_tickets_dashboard(
     )
 
     if not has_explicit_data_entrada_filter:
-        now_utc = datetime.utcnow()
+        now_utc = datetime.now(timezone.utc)
         date_from = now_utc - timedelta(days=period_days)
         query = Ticket.filter(created_at__gte=date_from)
     else:
@@ -920,7 +920,7 @@ async def get_tickets_dashboard(
         current_time = (
             datetime.now(created_at.tzinfo)
             if created_at.tzinfo is not None
-            else datetime.utcnow()
+            else datetime.now(timezone.utc)
         )
 
         aging_days = max((current_time - created_at).days, 0)
