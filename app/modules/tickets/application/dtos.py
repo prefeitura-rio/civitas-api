@@ -5,6 +5,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
 
+from app.modules.tickets.domain.enum import TicketPriority, TicketStatus
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
 
 class TicketCatalogCreateIn(BaseModel):
@@ -58,11 +59,6 @@ class TicketTypePageOut(BaseModel):
     items: List[TicketTypeListItemOut]
     total: int
 
-
-class TicketPriority(str, Enum):
-    urgente = "URGENTE"
-    alta = "ALTA"
-    rotina = "ROTINA"
 
 
 class TicketDetection(str, Enum):
@@ -205,7 +201,7 @@ class ServiceOutrosOut(ServiceOutrosIn):
 class TicketCreateRequester(BaseModel):
     requisitante_nome: str = Field(min_length=2, max_length=120)
     requisitante_telefone: Optional[str] = Field(default=None, max_length=30)
-    requisitante_email: Optional[EmailStr] = None
+    requisitante_email: EmailStr
 
 
 class TicketCreateFocalPoint(BaseModel):
@@ -218,7 +214,7 @@ class TicketCreateIn(BaseModel):
     associar_chamado_id: Optional[str] = None
     tipo_chamado_id: str
 
-    operation_id: Optional[str] = Field(default=None, description="Demandante (FK para Operation)")
+    operation_id: str = Field(description="Demandante (FK para Operation)")
 
     numero_procedimento: Optional[str] = Field(default=None, max_length=60)
     numero_oficio: Optional[str] = Field(default=None, max_length=60)
@@ -232,8 +228,8 @@ class TicketCreateIn(BaseModel):
     requisitante: TicketCreateRequester
     pontos_focais: List[TicketCreateFocalPoint] = Field(default_factory=list)
 
-    equipe_id: Optional[str] = None
-    prioridade: TicketPriority = TicketPriority.rotina
+    equipe_id: str
+    prioridade: TicketPriority
 
     comentario_inicial: Optional[str] = Field(default=None, max_length=50_000)
 
@@ -326,3 +322,76 @@ class TicketSearchOut(BaseModel):
 
 class TicketCreateResultOut(BaseModel):
     id: str
+
+
+class TicketDashboardServiceTagOut(BaseModel):
+    label: str
+
+class TicketDashboardItemOut(BaseModel):
+    id: str
+    numero_interno: int
+    chamado: str
+    status: str
+    demandante: str
+    equipe: Optional[str] = None
+    responsavel: str
+    prioridade: str
+    dias_atraso: int
+    servicos: List[TicketDashboardServiceTagOut]
+
+class TicketDashboardSectionOut(BaseModel):
+    total: int
+    items: List[TicketDashboardItemOut] = []
+
+class TicketDashboardOut(BaseModel):
+    pendentes: TicketDashboardSectionOut
+    restritos: TicketDashboardSectionOut
+    aguardando_revisao: TicketDashboardSectionOut
+    bloqueados: TicketDashboardSectionOut
+    concluidos_total: int
+    urgentes: TicketDashboardSectionOut
+    em_atraso: TicketDashboardSectionOut
+    total: int
+    period_days: int
+    overdue_after_days: int
+
+
+class TicketOfficialLetterSearchOut(BaseModel):
+    numero_oficio: str
+
+class TicketInternalNumberSearchOut(BaseModel):
+    numero_interno: int
+
+class TicketProcedureNumberSearchOut(BaseModel):
+    numero_procedimento: str
+
+class TicketRequesterSearchOut(BaseModel):
+    requisitante: str
+
+class TicketFocalPointSearchOut(BaseModel):
+    ponto_focal: str
+
+class TicketDashboardFilterIn(BaseModel):
+    period_days: int = Field(default=30, ge=1, le=365)
+    overdue_after_days: int = Field(default=7, ge=1, le=365)
+    search: Optional[str] = None
+
+    tipo_chamado_id: Optional[List[str]] = None
+    numero_interno: Optional[List[int]] = None
+    numero_procedimento: Optional[List[str]] = None
+    numero_oficio: Optional[List[str]] = None
+    natureza_id: Optional[List[str]] = None
+    demandante_id: Optional[List[str]] = None
+    requisitante: Optional[List[str]] = None
+    ponto_focal: Optional[List[str]] = None
+
+    data_base_inicio: Optional[date] = None
+    data_base_fim: Optional[date] = None
+
+    data_entrada_inicio: Optional[date] = None
+    data_entrada_fim: Optional[date] = None
+
+    status: Optional[List[str]] = None
+    prioridade: Optional[List[str]] = None
+    equipe: Optional[List[str]] = None
+    servicos_realizados: Optional[List[str]] = None

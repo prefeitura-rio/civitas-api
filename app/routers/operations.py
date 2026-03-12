@@ -2,7 +2,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi_pagination import Page, Params
 from fastapi_pagination.api import create_page
 from tortoise.exceptions import ValidationError
@@ -10,7 +10,7 @@ from tortoise.exceptions import ValidationError
 from app.decorators import router_request
 from app.dependencies import is_user
 from app.models import Operation, User
-from app.pydantic_models import OperationIn, OperationOut, OperationUpdate
+from app.pydantic_models import OperationIn, OperationOut, OperationTitleSearchOut, OperationUpdate
 
 router = APIRouter(
     prefix="/operations",
@@ -58,6 +58,43 @@ async def create_operation(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return OperationOut.from_orm(operation_obj)
+
+
+@router_request(
+    method="GET",
+    router=router,
+    path="/search",
+    response_model=list[OperationTitleSearchOut],
+)
+async def search_operations_endpoint(
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+    search: str = Query(..., min_length=2, description="Texto para buscar operations por title"),
+):
+    """
+    Busca operations por título.
+    """
+    termo = (search or "").strip()
+
+    if len(termo) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="O parâmetro 'search' deve ter no mínimo 2 caracteres.",
+        )
+
+    rows = (
+        await Operation.filter(title__icontains=termo)
+        .order_by("title")
+        .limit(20)
+    )
+
+    return [
+        OperationTitleSearchOut(
+            id=str(operation.id),
+            title=operation.title,
+        )
+        for operation in rows
+    ]
 
 
 @router_request(

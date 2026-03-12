@@ -901,3 +901,9 @@ class GCSDeleteFileIn(BaseModel):
     
 MonitoredPlateOut.update_forward_refs()
 MonitoredPlateHistory.update_forward_refs()
+
+
+
+class OperationTitleSearchOut(BaseModel):
+    id: str
+    title: str

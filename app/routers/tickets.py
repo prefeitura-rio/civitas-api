@@ -1,5 +1,6 @@
 # app/routers/tickets.py
 # -*- coding: utf-8 -*-
+from datetime import date
 from typing import Annotated, List, Optional
 from uuid import UUID
 
@@ -8,11 +9,28 @@ from fastapi import APIRouter, Depends, File, Form, Request, Query, UploadFile
 from app.decorators import router_request
 from app.dependencies import is_user
 from app.models import User
-from app.modules.tickets.application.dtos import PageOut, TicketCreateResultOut, TicketListItemOut, TicketOut, TicketSearchOut
-from app.modules.tickets.application.services.ticket_service import create_ticket, get_ticket_by_id, list_tickets, parse_ticket_payload, search_tickets
+from app.modules.tickets.application.dtos import PageOut, TicketCreateResultOut, TicketDashboardFilterIn, TicketDashboardOut, TicketFocalPointSearchOut, TicketInternalNumberSearchOut, TicketListItemOut, TicketOfficialLetterSearchOut, TicketOut, TicketProcedureNumberSearchOut, TicketRequesterSearchOut, TicketSearchOut
+from app.modules.tickets.application.services.ticket_service import create_ticket, get_ticket_by_id, get_tickets_dashboard, list_tickets, parse_ticket_payload, search_focal_points, search_internal_numbers, search_official_letters, search_procedure_numbers, search_requesters, search_tickets
 
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
+
+@router_request(
+    method="POST",
+    router=router,
+    path="/dashboard",
+    response_model=TicketDashboardOut,
+)
+async def get_tickets_dashboard_endpoint(
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+    filters: TicketDashboardFilterIn,
+):
+    return await get_tickets_dashboard(
+        user=user,
+        filters=filters,
+    )
+
 
 @router.post("/", response_model=TicketCreateResultOut)
 async def create_ticket_endpoint(
@@ -59,3 +77,52 @@ async def get_ticket_endpoint(
 ):
     return await get_ticket_by_id(ticket_id=ticket_id)
 
+
+
+@router.get(
+    "/official-letters/search",
+    response_model=List[TicketOfficialLetterSearchOut],
+)
+async def search_official_letters_endpoint(
+    search: str = Query(..., min_length=2, description="Texto para buscar números de ofício"),
+):
+    return await search_official_letters(search=search)
+
+
+@router.get(
+    "/internal-numbers/search",
+    response_model=List[TicketInternalNumberSearchOut],
+)
+async def search_internal_numbers_endpoint(
+    search: str = Query(..., min_length=2, description="Texto para buscar número interno"),
+):
+    return await search_internal_numbers(search=search)
+
+
+@router.get(
+    "/procedure-numbers/search",
+    response_model=List[TicketProcedureNumberSearchOut],
+)
+async def search_procedure_numbers_endpoint(
+    search: str = Query(..., min_length=2, description="Texto para buscar número de procedimento"),
+):
+    return await search_procedure_numbers(search=search)
+
+@router.get(
+    "/requesters/search",
+    response_model=List[TicketRequesterSearchOut],
+)
+async def search_requesters_endpoint(
+    search: str = Query(..., min_length=2, description="Texto para buscar requisitante"),
+):
+    return await search_requesters(search=search)
+
+
+@router.get(
+    "/focal-points/search",
+    response_model=List[TicketFocalPointSearchOut],
+)
+async def search_focal_points_endpoint(
+    search: str = Query(..., min_length=2, description="Texto para buscar ponto focal"),
+):
+    return await search_focal_points(search=search)

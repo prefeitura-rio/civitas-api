@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
+
+from datetime import datetime, timedelta, time
 import json
 import uuid
 from typing import List, Optional, Tuple
 
 from app.config import GCS_BUCKET_NAME
+from app.modules.tickets.domain.enum import TicketPriority, TicketStatus
 from app.modules.tickets.infrastructure.gcs_upload import (
     build_ticket_object_name,
     gcs_delete_objects,
@@ -35,10 +38,19 @@ from app.modules.tickets.application.dtos import (
     TicketCreateIn,
     TicketCreateRequester,
     TicketCreateResultOut,
+    TicketDashboardFilterIn,
+    TicketDashboardItemOut,
+    TicketDashboardOut,
+    TicketDashboardSectionOut,
+    TicketDashboardServiceTagOut,
     TicketDetection,
+    TicketFocalPointSearchOut,
+    TicketInternalNumberSearchOut,
     TicketListItemOut,
+    TicketOfficialLetterSearchOut,
     TicketOut,
-    TicketPriority,
+    TicketProcedureNumberSearchOut,
+    TicketRequesterSearchOut,
     TicketSearchOut,
 )
 from app.modules.tickets.domain.entities import (
@@ -721,3 +733,464 @@ def build_ticket_search_label(ticket: "Ticket") -> str:
         partes.append(f"Req. {ticket.requester_name}")
 
     return " • ".join(partes)
+
+
+def _status_label(status: TicketStatus) -> str:
+    labels = {
+        TicketStatus.PENDENTE: "PENDENTE",
+        TicketStatus.RESTRITO: "RESTRITO",
+        TicketStatus.AGUARDANDO_REVISAO: "AGUARDANDO REVISÃO",
+        TicketStatus.BLOQUEADO: "BLOQUEADO",
+        TicketStatus.CONCLUIDO: "CONCLUÍDO",
+    }
+    return labels.get(status, str(status))
+
+
+def _build_dashboard_service_labels(ticket: Ticket) -> List[str]:
+    labels: List[str] = []
+
+    service_map = [
+        ("plate_search_services", "busca de placa"),
+        ("radar_search_services", "busca de radar"),
+        ("electronic_fence_services", "cerco"),
+        ("image_search_services", "busca de imagem"),
+        ("correlated_plate_services", "placas correlatas"),
+        ("joint_plate_services", "placas conjuntas"),
+        ("image_reservation_services", "reserva de imagem"),
+        ("image_analysis_services", "análise de imagem"),
+        ("other_services", "outros"),
+    ]
+
+    for attr_name, label in service_map:
+        rows = getattr(ticket, attr_name, []) or []
+        for _ in rows:
+            labels.append(label)
+
+    return labels
+
+async def get_tickets_dashboard(
+    *,
+    user: User,
+    filters: TicketDashboardFilterIn,
+) -> TicketDashboardOut:
+    period_days = max(filters.period_days, 1)
+    overdue_after_days = max(filters.overdue_after_days, 1)
+
+    has_explicit_data_entrada_filter = (
+        filters.data_entrada_inicio is not None
+        or filters.data_entrada_fim is not None
+    )
+
+    if not has_explicit_data_entrada_filter:
+        now_utc = datetime.utcnow()
+        date_from = now_utc - timedelta(days=period_days)
+        query = Ticket.filter(created_at__gte=date_from)
+    else:
+        query = Ticket.all()
+
+    termo = (filters.search or "").strip()
+    if termo:
+        search_q = (
+            Q(requester_name__icontains=termo)
+            | Q(operation__title__icontains=termo)
+            | Q(procedure_number__icontains=termo)
+            | Q(official_letter_number__icontains=termo)
+            | Q(focal_points__name__icontains=termo)
+        )
+
+        if termo.isdigit():
+            search_q = search_q | Q(internal_number=int(termo))
+
+        query = query.filter(search_q)
+
+    if filters.tipo_chamado_id:
+        query = query.filter(ticket_type_id__in=filters.tipo_chamado_id)
+
+    if filters.numero_interno:
+        query = query.filter(internal_number__in=filters.numero_interno)
+
+    if filters.numero_procedimento:
+        q = Q()
+        for item in filters.numero_procedimento:
+            value = (item or "").strip()
+            if value:
+                q |= Q(procedure_number__icontains=value)
+        query = query.filter(q)
+
+    if filters.numero_oficio:
+        q = Q()
+        for item in filters.numero_oficio:
+            value = (item or "").strip()
+            if value:
+                q |= Q(official_letter_number__icontains=value)
+        query = query.filter(q)
+
+    if filters.natureza_id:
+        query = query.filter(nature_id__in=filters.natureza_id)
+
+    if filters.demandante_id:
+        query = query.filter(operation_id__in=filters.demandante_id)
+
+    if filters.requisitante:
+        q = Q()
+        for item in filters.requisitante:
+            value = (item or "").strip()
+            if value:
+                q |= Q(requester_name__icontains=value)
+        query = query.filter(q)
+
+    if filters.ponto_focal:
+        q = Q()
+        for item in filters.ponto_focal:
+            value = (item or "").strip()
+            if value:
+                q |= Q(focal_points__name__icontains=value)
+        query = query.filter(q)
+
+    if filters.data_base_inicio:
+        query = query.filter(base_date__gte=filters.data_base_inicio)
+
+    if filters.data_base_fim:
+        query = query.filter(base_date__lte=filters.data_base_fim)
+
+    if filters.data_entrada_inicio:
+        dt_inicio = datetime.combine(filters.data_entrada_inicio, time.min)
+        query = query.filter(created_at__gte=dt_inicio)
+
+    if filters.data_entrada_fim:
+        dt_fim = datetime.combine(filters.data_entrada_fim, time.max)
+        query = query.filter(created_at__lte=dt_fim)
+
+    if filters.status:
+        status_validos = [item for item in filters.status if item]
+        if status_validos:
+            query = query.filter(status__in=status_validos)
+
+    if filters.prioridade:
+        prioridades_validas = [item for item in filters.prioridade if item]
+        if prioridades_validas:
+            query = query.filter(priority__in=prioridades_validas)
+
+    if filters.equipe:
+        equipes_validas = [item for item in filters.equipe if item]
+        if equipes_validas:
+            query = query.filter(team_id__in=equipes_validas)
+
+    services_q = _build_services_filter_q(filters.servicos_realizados)
+    if services_q:
+        query = query.filter(services_q)
+
+    query = query.distinct()
+
+    total = await query.count()
+
+    tickets = await (
+        query.prefetch_related(
+            "operation",
+            "ticket_type",
+            "nature",
+            "focal_points",
+            "plate_search_services",
+            "radar_search_services",
+            "electronic_fence_services",
+            "image_search_services",
+            "correlated_plate_services",
+            "joint_plate_services",
+            "image_reservation_services",
+            "image_analysis_services",
+            "other_services",
+        )
+        .order_by("-created_at")
+    )
+
+    pendentes_items = []
+    restritos_items = []
+    aguardando_revisao_items = []
+    bloqueados_items = []
+    urgentes_items = []
+    em_atraso_items = []
+
+    concluidos_total = 0
+
+    for ticket in tickets:
+        status_ticket = TicketStatus(ticket.status)
+        priority = TicketPriority(ticket.priority)
+
+        created_at = ticket.created_at
+        current_time = (
+            datetime.now(created_at.tzinfo)
+            if created_at.tzinfo is not None
+            else datetime.utcnow()
+        )
+
+        aging_days = max((current_time - created_at).days, 0)
+        service_labels = _build_dashboard_service_labels(ticket)
+
+        item = TicketDashboardItemOut(
+            id=str(ticket.id),
+            numero_interno=ticket.internal_number,
+            chamado=str(ticket.internal_number).zfill(7),
+            status=status_ticket.value,
+            demandante=ticket.operation.title if ticket.operation else "",
+            equipe=ticket.team_id,
+            responsavel=ticket.operation.title if ticket.operation else "",
+            prioridade=priority.value,
+            dias_atraso=aging_days,
+            servicos=[
+                TicketDashboardServiceTagOut(label=label)
+                for label in service_labels
+            ],
+        )
+
+        if status_ticket == TicketStatus.CONCLUIDO:
+            concluidos_total += 1
+
+        if status_ticket == TicketStatus.PENDENTE:
+            pendentes_items.append(item)
+        elif status_ticket == TicketStatus.RESTRITO:
+            restritos_items.append(item)
+        elif status_ticket == TicketStatus.AGUARDANDO_REVISAO:
+            aguardando_revisao_items.append(item)
+        elif status_ticket == TicketStatus.BLOQUEADO:
+            bloqueados_items.append(item)
+
+        if priority == TicketPriority.URGENTE:
+            urgentes_items.append(item)
+
+        if status_ticket != TicketStatus.CONCLUIDO and aging_days > overdue_after_days:
+            em_atraso_items.append(item)
+
+    return TicketDashboardOut(
+        pendentes=TicketDashboardSectionOut(
+            total=len(pendentes_items),
+            items=pendentes_items,
+        ),
+        restritos=TicketDashboardSectionOut(
+            total=len(restritos_items),
+            items=restritos_items,
+        ),
+        aguardando_revisao=TicketDashboardSectionOut(
+            total=len(aguardando_revisao_items),
+            items=aguardando_revisao_items,
+        ),
+        bloqueados=TicketDashboardSectionOut(
+            total=len(bloqueados_items),
+            items=bloqueados_items,
+        ),
+        concluidos_total=concluidos_total,
+        urgentes=TicketDashboardSectionOut(
+            total=len(urgentes_items),
+            items=urgentes_items,
+        ),
+        em_atraso=TicketDashboardSectionOut(
+            total=len(em_atraso_items),
+            items=em_atraso_items,
+        ),
+        total=total,
+        period_days=period_days,
+        overdue_after_days=overdue_after_days,
+    )
+
+
+async def search_official_letters(*, search: str) -> List[TicketOfficialLetterSearchOut]:
+    termo = (search or "").strip()
+
+    if len(termo) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="O parâmetro 'search' deve ter no mínimo 2 caracteres.",
+        )
+
+    rows = (
+        await Ticket.filter(
+            official_letter_number__isnull=False,
+            official_letter_number__icontains=termo,
+        )
+        .exclude(official_letter_number="")
+        .distinct()
+        .order_by("official_letter_number")
+        .limit(20)
+        .values_list("official_letter_number", flat=True)
+    )
+
+    return [
+        TicketOfficialLetterSearchOut(numero_oficio=numero)
+        for numero in rows
+        if numero
+    ]
+
+async def search_internal_numbers(*, search: str) -> List[TicketInternalNumberSearchOut]:
+    termo = (search or "").strip()
+
+    if len(termo) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="O parâmetro 'search' deve ter no mínimo 2 caracteres.",
+        )
+
+    rows = (
+        await Ticket.filter(
+            internal_number__icontains=termo
+        )
+        .order_by("-created_at")
+        .limit(20)
+        .values_list("internal_number", flat=True)
+    )
+
+    return [
+        TicketInternalNumberSearchOut(numero_interno=num)
+        for num in rows
+    ]
+
+async def search_procedure_numbers(*, search: str) -> List[TicketProcedureNumberSearchOut]:
+    termo = (search or "").strip()
+
+    if len(termo) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="O parâmetro 'search' deve ter no mínimo 2 caracteres.",
+        )
+
+    rows = (
+        await Ticket.filter(
+            procedure_number__isnull=False,
+            procedure_number__icontains=termo,
+        )
+        .exclude(procedure_number="")
+        .distinct()
+        .order_by("procedure_number")
+        .limit(20)
+        .values_list("procedure_number", flat=True)
+    )
+
+    return [
+        TicketProcedureNumberSearchOut(numero_procedimento=num)
+        for num in rows
+        if num
+    ]
+
+
+async def search_requesters(*, search: str) -> List[TicketRequesterSearchOut]:
+    termo = (search or "").strip()
+
+    if len(termo) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="O parâmetro 'search' deve ter no mínimo 2 caracteres.",
+        )
+
+    rows = (
+        await Ticket.filter(
+            requester_name__icontains=termo
+        )
+        .distinct()
+        .order_by("requester_name")
+        .limit(20)
+        .values_list("requester_name", flat=True)
+    )
+
+    return [
+        TicketRequesterSearchOut(requisitante=name)
+        for name in rows
+        if name
+    ]
+
+async def search_focal_points(*, search: str) -> List[TicketFocalPointSearchOut]:
+    termo = (search or "").strip()
+
+    if len(termo) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="O parâmetro 'search' deve ter no mínimo 2 caracteres.",
+        )
+
+    rows = (
+        await TicketFocalPoint.filter(
+            name__icontains=termo
+        )
+        .distinct()
+        .order_by("name")
+        .limit(20)
+        .values_list("name", flat=True)
+    )
+
+    return [
+        TicketFocalPointSearchOut(ponto_focal=name)
+        for name in rows
+        if name
+    ]
+
+
+def _normalize_dashboard_service_filter(value: str) -> Optional[str]:
+    if not value:
+        return None
+
+    normalized = (
+        value.strip()
+        .lower()
+        .replace("ç", "c")
+        .replace("á", "a")
+        .replace("à", "a")
+        .replace("ã", "a")
+        .replace("â", "a")
+        .replace("é", "e")
+        .replace("ê", "e")
+        .replace("í", "i")
+        .replace("ó", "o")
+        .replace("ô", "o")
+        .replace("õ", "o")
+        .replace("ú", "u")
+    )
+
+    mapping = {
+        "busca por placa": "plate_search_services",
+        "busca de placa": "plate_search_services",
+        "busca por radar": "radar_search_services",
+        "busca de radar": "radar_search_services",
+        "cerco eletronico": "electronic_fence_services",
+        "cerco": "electronic_fence_services",
+        "busca por imagem": "image_search_services",
+        "busca de imagem": "image_search_services",
+        "placa correlatas": "correlated_plate_services",
+        "placas correlatas": "correlated_plate_services",
+        "placas conjuntas": "joint_plate_services",
+        "reserva de imagem": "image_reservation_services",
+        "analise de imagem": "image_analysis_services",
+        "análise de imagem": "image_analysis_services",
+        "outros": "other_services",
+    }
+
+    return mapping.get(normalized)
+
+
+def _build_services_filter_q(servicos_realizados: Optional[List[str]]) -> Optional[Q]:
+    if not servicos_realizados:
+        return None
+
+    service_relation_map = {
+        "plate_search_services": Q(plate_search_services__id__not_isnull=True),
+        "radar_search_services": Q(radar_search_services__id__not_isnull=True),
+        "electronic_fence_services": Q(electronic_fence_services__id__not_isnull=True),
+        "image_search_services": Q(image_search_services__id__not_isnull=True),
+        "correlated_plate_services": Q(correlated_plate_services__id__not_isnull=True),
+        "joint_plate_services": Q(joint_plate_services__id__not_isnull=True),
+        "image_reservation_services": Q(image_reservation_services__id__not_isnull=True),
+        "image_analysis_services": Q(image_analysis_services__id__not_isnull=True),
+        "other_services": Q(other_services__id__not_isnull=True),
+    }
+
+    q_objects: List[Q] = []
+
+    for raw_value in servicos_realizados:
+        normalized_key = _normalize_dashboard_service_filter(raw_value)
+        if normalized_key and normalized_key in service_relation_map:
+            q_objects.append(service_relation_map[normalized_key])
+
+    if not q_objects:
+        return None
+
+    combined_q = q_objects[0]
+    for q_obj in q_objects[1:]:
+        combined_q = combined_q | q_obj
+
+    return combined_q

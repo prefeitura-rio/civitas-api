@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from app.modules.tickets.domain.enum import TicketPriority, TicketStatus
 from tortoise import fields
 from tortoise.models import Model
 
@@ -30,7 +31,20 @@ class TicketNature(Model):
 
 class Ticket(Model):
     id = fields.UUIDField(pk=True)
+    internal_number = fields.IntField(generated=True, unique=True)
     created_at = fields.DatetimeField(auto_now_add=True)
+
+    status = fields.CharEnumField(
+        TicketStatus,
+        max_length=30,
+        default=TicketStatus.PENDENTE
+    )
+
+    priority = fields.CharEnumField(
+        TicketPriority,
+        max_length=30,
+    )
+
 
     parent_ticket = fields.ForeignKeyField(
         "app.Ticket",
@@ -42,15 +56,15 @@ class Ticket(Model):
     operation = fields.ForeignKeyField(
         "app.Operation",
         related_name="tickets",
-        null=True,
-        on_delete=fields.SET_NULL,
+        null=False,
+        on_delete=fields.RESTRICT,
     )
 
     ticket_type = fields.ForeignKeyField(
         "app.TicketType",
         related_name="tickets",
-        null=True,
-        on_delete=fields.SET_NULL,
+        null=False,
+        on_delete=fields.RESTRICT,
     )
 
     procedure_number = fields.CharField(max_length=60, null=True)
@@ -70,10 +84,9 @@ class Ticket(Model):
 
     requester_name = fields.CharField(max_length=120)
     requester_phone = fields.CharField(max_length=30, null=True)
-    requester_email = fields.CharField(max_length=254, null=True)
+    requester_email = fields.CharField(max_length=254)
 
     team_id = fields.CharField(max_length=80, null=True)
-    priority = fields.CharField(max_length=20, default="ROTINA")
 
     class Meta:
         table = "tickets"
