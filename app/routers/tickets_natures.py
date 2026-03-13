@@ -88,13 +88,16 @@ async def update_ticket_nature_endpoint(
     )
 
 
-@router.delete(
-    "/{nature_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
+@router_request(
+    method="DELETE",
+    router=router,
+    path="/{nature_id}",
+    response_model=None,
 )
 async def delete_ticket_nature_endpoint(
     nature_id: UUID,
     user: Annotated[User, Depends(is_user)],
+    request: Request,
 ):
     await delete_ticket_nature(nature_id=str(nature_id))
     return Response(status_code=status.HTTP_204_NO_CONTENT)

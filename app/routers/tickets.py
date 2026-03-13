@@ -79,50 +79,71 @@ async def get_ticket_endpoint(
 
 
 
-@router.get(
-    "/official-letters/search",
+@router_request(
+    method="GET",
+    router=router,
+    path="/official-letters/search",
     response_model=List[TicketOfficialLetterSearchOut],
 )
 async def search_official_letters_endpoint(
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
     search: str = Query(..., min_length=2, description="Texto para buscar números de ofício"),
 ):
     return await search_official_letters(search=search)
 
 
-@router.get(
-    "/internal-numbers/search",
+@router_request(
+    method="GET",
+    router=router,
+    path="/internal-numbers/search",
     response_model=List[TicketInternalNumberSearchOut],
 )
 async def search_internal_numbers_endpoint(
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
     search: str = Query(..., min_length=2, description="Texto para buscar número interno"),
 ):
     return await search_internal_numbers(search=search)
 
 
-@router.get(
-    "/procedure-numbers/search",
+@router_request(
+    method="GET",
+    router=router,
+    path="/procedure-numbers/search",
     response_model=List[TicketProcedureNumberSearchOut],
 )
 async def search_procedure_numbers_endpoint(
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
     search: str = Query(..., min_length=2, description="Texto para buscar número de procedimento"),
 ):
     return await search_procedure_numbers(search=search)
 
-@router.get(
-    "/requesters/search",
+
+@router_request(
+    method="GET",
+    router=router,
+    path="/requesters/search",
     response_model=List[TicketRequesterSearchOut],
 )
 async def search_requesters_endpoint(
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
     search: str = Query(..., min_length=2, description="Texto para buscar requisitante"),
 ):
     return await search_requesters(search=search)
 
 
-@router.get(
-    "/focal-points/search",
+@router_request(
+    method="GET",
+    router=router,
+    path="/focal-points/search",
     response_model=List[TicketFocalPointSearchOut],
 )
 async def search_focal_points_endpoint(
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
     search: str = Query(..., min_length=2, description="Texto para buscar ponto focal"),
 ):
     return await search_focal_points(search=search)

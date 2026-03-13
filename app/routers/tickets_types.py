@@ -88,13 +88,16 @@ async def update_ticket_type_endpoint(
     )
 
 
-@router.delete(
-    "/{ticket_type_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
+@router_request(
+    method="DELETE",
+    router=router,
+    path="/{ticket_type_id}",
+    response_model=None,
 )
 async def delete_ticket_type_endpoint(
     ticket_type_id: UUID,
     user: Annotated[User, Depends(is_user)],
+    request: Request,
 ):
     await delete_ticket_type(ticket_type_id=str(ticket_type_id))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
