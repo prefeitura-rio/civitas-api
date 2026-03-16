@@ -6,7 +6,7 @@ from enum import Enum
 from typing import List, Optional
 
 from app.modules.tickets.domain.enum import TicketPriority, TicketStatus
-from pydantic import BaseModel, EmailStr, Field, HttpUrl
+from pydantic import BaseModel, EmailStr, Field, HttpUrl, root_validator
 
 class TicketCatalogCreateIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
@@ -308,12 +308,6 @@ class TicketListItemOut(BaseModel):
     numero_oficio: Optional[str]
 
 
-class PageOut(BaseModel):
-    items: List[TicketListItemOut]
-    page: int
-    page_size: int
-    total: int
-
 
 class TicketSearchOut(BaseModel):
     id: str
@@ -395,3 +389,26 @@ class TicketDashboardFilterIn(BaseModel):
     prioridade: Optional[List[str]] = None
     equipe: Optional[List[str]] = None
     servicos_realizados: Optional[List[str]] = None
+
+    @root_validator
+    def validate_date_ranges(cls, values):
+        data_base_inicio = values.get("data_base_inicio")
+        data_base_fim = values.get("data_base_fim")
+        data_entrada_inicio = values.get("data_entrada_inicio")
+        data_entrada_fim = values.get("data_entrada_fim")
+
+        if (
+            data_base_inicio is not None
+            and data_base_fim is not None
+            and data_base_inicio > data_base_fim
+        ):
+            raise ValueError("A data_base_inicio não pode ser maior que data_base_fim.")
+
+        if (
+            data_entrada_inicio is not None
+            and data_entrada_fim is not None
+            and data_entrada_inicio > data_entrada_fim
+        ):
+            raise ValueError("A data_entrada_inicio não pode ser maior que data_entrada_fim.")
+
+        return values

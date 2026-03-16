@@ -20,7 +20,6 @@ from tortoise.expressions import Q
 
 from app.models import Operation, User
 from app.modules.tickets.application.dtos import (
-    PageOut,
     ServiceAnaliseDeImagemOut,
     ServiceBuscaPorImagemOut,
     ServiceBuscaPorPlacaOut,
@@ -46,7 +45,6 @@ from app.modules.tickets.application.dtos import (
     TicketDetection,
     TicketFocalPointSearchOut,
     TicketInternalNumberSearchOut,
-    TicketListItemOut,
     TicketOfficialLetterSearchOut,
     TicketOut,
     TicketProcedureNumberSearchOut,
@@ -116,10 +114,6 @@ async def _prepare_and_upload_files(
     ticket_id: str,
     files: List[UploadFile],
 ) -> List[dict]:
-    """
-    Valida, lê e sobe arquivos antes da transação do banco.
-    Se qualquer upload falhar, remove os já enviados.
-    """
     bucket_name = GCS_BUCKET_NAME
     uploaded_files: List[dict] = []
 
@@ -148,10 +142,11 @@ async def _prepare_and_upload_files(
         return uploaded_files
 
     except Exception:
-        await gcs_delete_objects(
-            bucket_name=bucket_name,
-            object_names=[item["storage_key"] for item in uploaded_files],
-        )
+        if uploaded_files:
+            await gcs_delete_objects(
+                bucket_name=bucket_name,
+                object_names=[item["storage_key"] for item in uploaded_files],
+            )
         raise
 
 
@@ -186,58 +181,467 @@ async def _create_ticket_attachments(
     return attachments_out
 
 
+async def _get_parent_ticket_or_raise(parent_ticket_id: Optional[str]) -> Optional[Ticket]:
+    if not parent_ticket_id:
+        return None
+
+    parent_ticket = await Ticket.get_or_none(id=parent_ticket_id)
+    if not parent_ticket:
+        raise HTTPException(status_code=400, detail="associar_chamado_id inválido.")
+
+    return parent_ticket
+
+
+async def _get_ticket_type_or_raise(ticket_type_id: str) -> TicketType:
+    ticket_type_obj = await TicketType.get_or_none(id=ticket_type_id)
+    if not ticket_type_obj:
+        raise HTTPException(
+            status_code=400,
+            detail="tipo_chamado_id inválido (TicketType não encontrado).",
+        )
+    return ticket_type_obj
+
+
+async def _get_nature_or_raise(natureza_id: Optional[str]) -> Optional[TicketNature]:
+    if not natureza_id:
+        return None
+
+    nature_obj = await TicketNature.get_or_none(id=natureza_id)
+    if not nature_obj:
+        raise HTTPException(
+            status_code=400,
+            detail="natureza_id inválido (TicketNature não encontrada).",
+        )
+    return nature_obj
+
+
+async def _get_operation_or_raise(operation_id: Optional[str]) -> Optional[Operation]:
+    if not operation_id:
+        return None
+
+    operation_obj = await Operation.get_or_none(id=operation_id)
+    if not operation_obj:
+        raise HTTPException(
+            status_code=400,
+            detail="operation_id inválido (Operation não encontrada).",
+        )
+    return operation_obj
+
+
+def _resolve_press_fields(ticket_in: TicketCreateIn) -> Tuple[Optional[str], Optional[str]]:
+    if not ticket_in.possui_apelido_imprensa:
+        return None, None
+
+    if not ticket_in.apelido_imprensa and not ticket_in.link_materia:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Se 'possui_apelido_imprensa' for true, "
+                "informe 'apelido_imprensa' e/ou 'link_materia'."
+            ),
+        )
+
+    return (
+        ticket_in.apelido_imprensa,
+        str(ticket_in.link_materia) if ticket_in.link_materia else None,
+    )
+
+
+async def _create_ticket_base(
+    *,
+    ticket_id: str,
+    ticket_in: TicketCreateIn,
+    ticket_type_obj: TicketType,
+    nature_obj: Optional[TicketNature],
+    operation_obj: Optional[Operation],
+    press_nickname: Optional[str],
+    press_link: Optional[str],
+    connection,
+) -> Ticket:
+    return await Ticket.create(
+        id=ticket_id,
+        parent_ticket_id=ticket_in.associar_chamado_id,
+        operation=operation_obj,
+        ticket_type=ticket_type_obj,
+        procedure_number=ticket_in.numero_procedimento,
+        official_letter_number=ticket_in.numero_oficio,
+        base_date=ticket_in.data_base,
+        nature=nature_obj,
+        has_press_nickname=ticket_in.possui_apelido_imprensa,
+        press_nickname=press_nickname,
+        press_link=press_link,
+        requester_name=ticket_in.requisitante.requisitante_nome,
+        requester_phone=ticket_in.requisitante.requisitante_telefone,
+        requester_email=str(ticket_in.requisitante.requisitante_email)
+        if ticket_in.requisitante.requisitante_email
+        else None,
+        team_id=ticket_in.equipe_id,
+        priority=ticket_in.prioridade.value,
+        using_db=connection,
+    )
+
+
+async def _create_focal_points(
+    *,
+    ticket: Ticket,
+    pontos_focais: List[TicketCreateFocalPoint],
+    connection,
+) -> None:
+    if not pontos_focais:
+        return
+
+    await TicketFocalPoint.bulk_create(
+        [
+            TicketFocalPoint(
+                ticket=ticket,
+                name=fp.nome,
+                phone=fp.telefone,
+                email=str(fp.email) if fp.email else None,
+            )
+            for fp in pontos_focais
+        ],
+        using_db=connection,
+    )
+
+
+async def _create_initial_comment(
+    *,
+    ticket: Ticket,
+    author: Optional[User],
+    comentario_inicial: Optional[str],
+    connection,
+) -> None:
+    if not comentario_inicial or not comentario_inicial.strip():
+        return
+
+    await TicketComment.create(
+        ticket=ticket,
+        author=author,
+        body=comentario_inicial.strip(),
+        using_db=connection,
+    )
+
+
+async def _create_plate_search_services(
+    *,
+    ticket: Ticket,
+    services,
+    connection,
+) -> None:
+    if not services:
+        return
+
+    await TicketPlateSearchService.bulk_create(
+        [
+            TicketPlateSearchService(
+                ticket=ticket,
+                period_start=service.period_start,
+                period_end=service.period_end,
+                plate=service.plate,
+            )
+            for service in services
+        ],
+        using_db=connection,
+    )
+
+
+async def _create_radar_search_services(
+    *,
+    ticket: Ticket,
+    services,
+    connection,
+) -> None:
+    if not services:
+        return
+
+    await TicketRadarSearchService.bulk_create(
+        [
+            TicketRadarSearchService(
+                ticket=ticket,
+                period_start=service.period_start,
+                period_end=service.period_end,
+                plate=service.plate,
+                radar_address=service.radar_address,
+            )
+            for service in services
+        ],
+        using_db=connection,
+    )
+
+
+async def _create_electronic_fence_services(
+    *,
+    ticket: Ticket,
+    services,
+    connection,
+) -> None:
+    if not services:
+        return
+
+    await TicketElectronicFenceService.bulk_create(
+        [
+            TicketElectronicFenceService(
+                ticket=ticket,
+                plate=service.plate,
+                vehicle_observations=service.vehicle_observations,
+            )
+            for service in services
+        ],
+        using_db=connection,
+    )
+
+
+async def _create_image_search_services(
+    *,
+    ticket: Ticket,
+    services,
+    connection,
+) -> None:
+    if not services:
+        return
+
+    await TicketImageSearchService.bulk_create(
+        [
+            TicketImageSearchService(
+                ticket=ticket,
+                period_start=service.period_start,
+                period_end=service.period_end,
+                plate=service.plate,
+                address=service.address,
+                description=service.description,
+            )
+            for service in services
+        ],
+        using_db=connection,
+    )
+
+
+async def _create_correlated_plate_services(
+    *,
+    ticket: Ticket,
+    services,
+    connection,
+) -> None:
+    if not services:
+        return
+
+    for service_in in services:
+        service = await TicketCorrelatedPlatesService.create(
+            ticket=ticket,
+            interest_interval_minutes=service_in.interest_interval_minutes,
+            detection_count=service_in.detection_count,
+            detection=service_in.detection.value if service_in.detection else None,
+            using_db=connection,
+        )
+
+        if service_in.items:
+            await TicketCorrelatedPlatesServiceItem.bulk_create(
+                [
+                    TicketCorrelatedPlatesServiceItem(
+                        service=service,
+                        period_start=item.period_start,
+                        period_end=item.period_end,
+                        plate=item.plate,
+                    )
+                    for item in service_in.items
+                ],
+                using_db=connection,
+            )
+
+
+async def _create_joint_plate_services(
+    *,
+    ticket: Ticket,
+    services,
+    connection,
+) -> None:
+    if not services:
+        return
+
+    for service_in in services:
+        service = await TicketJointPlatesService.create(
+            ticket=ticket,
+            interest_interval_minutes=service_in.interest_interval_minutes,
+            detection_count=service_in.detection_count,
+            detection=service_in.detection.value if service_in.detection else None,
+            using_db=connection,
+        )
+
+        if service_in.items:
+            await TicketJointPlatesServiceItem.bulk_create(
+                [
+                    TicketJointPlatesServiceItem(
+                        service=service,
+                        period_start=item.period_start,
+                        period_end=item.period_end,
+                        plate=item.plate,
+                    )
+                    for item in service_in.items
+                ],
+                using_db=connection,
+            )
+
+
+async def _create_image_reservation_services(
+    *,
+    ticket: Ticket,
+    services,
+    connection,
+) -> None:
+    if not services:
+        return
+
+    await TicketImageReservationService.bulk_create(
+        [
+            TicketImageReservationService(
+                ticket=ticket,
+                period_start=service.period_start,
+                period_end=service.period_end,
+                orientation=service.orientation,
+            )
+            for service in services
+        ],
+        using_db=connection,
+    )
+
+
+async def _create_image_analysis_services(
+    *,
+    ticket: Ticket,
+    services,
+    connection,
+) -> None:
+    if not services:
+        return
+
+    await TicketImageAnalysisService.bulk_create(
+        [
+            TicketImageAnalysisService(
+                ticket=ticket,
+                period_start=service.period_start,
+                period_end=service.period_end,
+                orientation=service.orientation,
+            )
+            for service in services
+        ],
+        using_db=connection,
+    )
+
+
+async def _create_other_services(
+    *,
+    ticket: Ticket,
+    services,
+    connection,
+) -> None:
+    if not services:
+        return
+
+    await TicketOtherService.bulk_create(
+        [
+            TicketOtherService(
+                ticket=ticket,
+                orientation=service.orientation,
+            )
+            for service in services
+        ],
+        using_db=connection,
+    )
+
+
+async def _create_ticket_related_data(
+    *,
+    ticket: Ticket,
+    ticket_in: TicketCreateIn,
+    author: Optional[User],
+    uploaded_files: List[dict],
+    connection,
+) -> None:
+    await _create_focal_points(
+        ticket=ticket,
+        pontos_focais=ticket_in.pontos_focais,
+        connection=connection,
+    )
+
+    await _create_initial_comment(
+        ticket=ticket,
+        author=author,
+        comentario_inicial=ticket_in.comentario_inicial,
+        connection=connection,
+    )
+
+    await _create_plate_search_services(
+        ticket=ticket,
+        services=ticket_in.busca_por_placa,
+        connection=connection,
+    )
+
+    await _create_radar_search_services(
+        ticket=ticket,
+        services=ticket_in.busca_por_radar,
+        connection=connection,
+    )
+
+    await _create_electronic_fence_services(
+        ticket=ticket,
+        services=ticket_in.cerco_eletronico,
+        connection=connection,
+    )
+
+    await _create_image_search_services(
+        ticket=ticket,
+        services=ticket_in.busca_por_imagem,
+        connection=connection,
+    )
+
+    await _create_correlated_plate_services(
+        ticket=ticket,
+        services=ticket_in.placas_correlatas,
+        connection=connection,
+    )
+
+    await _create_joint_plate_services(
+        ticket=ticket,
+        services=ticket_in.placas_conjuntas,
+        connection=connection,
+    )
+
+    await _create_image_reservation_services(
+        ticket=ticket,
+        services=ticket_in.reserva_de_imagem,
+        connection=connection,
+    )
+
+    await _create_image_analysis_services(
+        ticket=ticket,
+        services=ticket_in.analise_de_imagem,
+        connection=connection,
+    )
+
+    await _create_other_services(
+        ticket=ticket,
+        services=ticket_in.outros,
+        connection=connection,
+    )
+
+    await _create_ticket_attachments(
+        ticket=ticket,
+        uploaded_files=uploaded_files,
+        connection=connection,
+    )
+
+
 async def create_ticket(
     *,
     ticket_in: TicketCreateIn,
     author: Optional[User],
     files: Optional[List[UploadFile]] = None,
 ) -> TicketCreateResultOut:
-
-    parent_ticket = None
-    if ticket_in.associar_chamado_id:
-        parent_ticket = await Ticket.get_or_none(id=ticket_in.associar_chamado_id)
-        if not parent_ticket:
-            raise HTTPException(400, "associar_chamado_id inválido.")
-
-    ticket_type_obj = await TicketType.get_or_none(id=ticket_in.tipo_chamado_id)
-    if not ticket_type_obj:
-        raise HTTPException(
-            status_code=400,
-            detail="tipo_chamado_id inválido (TicketType não encontrado).",
-        )
-
-    nature_obj = None
-    if ticket_in.natureza_id:
-        nature_obj = await TicketNature.get_or_none(id=ticket_in.natureza_id)
-        if not nature_obj:
-            raise HTTPException(
-                status_code=400,
-                detail="natureza_id inválido (TicketNature não encontrada).",
-            )
-
-    operation_obj = None
-    if ticket_in.operation_id:
-        operation_obj = await Operation.get_or_none(id=ticket_in.operation_id)
-        if not operation_obj:
-            raise HTTPException(
-                status_code=400,
-                detail="operation_id inválido (Operation não encontrada).",
-            )
-
-    if not ticket_in.possui_apelido_imprensa:
-        press_nickname = None
-        press_link = None
-    else:
-        if not ticket_in.apelido_imprensa and not ticket_in.link_materia:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Se 'possui_apelido_imprensa' for true, "
-                    "informe 'apelido_imprensa' e/ou 'link_materia'."
-                ),
-            )
-        press_nickname = ticket_in.apelido_imprensa
-        press_link = str(ticket_in.link_materia) if ticket_in.link_materia else None
+    await _get_parent_ticket_or_raise(ticket_in.associar_chamado_id)
+    ticket_type_obj = await _get_ticket_type_or_raise(ticket_in.tipo_chamado_id)
+    nature_obj = await _get_nature_or_raise(ticket_in.natureza_id)
+    operation_obj = await _get_operation_or_raise(ticket_in.operation_id)
+    press_nickname, press_link = _resolve_press_fields(ticket_in)
 
     ticket_id = str(uuid.uuid4())
     uploaded_files: List[dict] = []
@@ -250,198 +654,21 @@ async def create_ticket(
 
     try:
         async with in_transaction() as connection:
-            ticket = await Ticket.create(
-                id=ticket_id,
-                parent_ticket_id=ticket_in.associar_chamado_id,
-                operation=operation_obj,
-                ticket_type=ticket_type_obj,
-                procedure_number=ticket_in.numero_procedimento,
-                official_letter_number=ticket_in.numero_oficio,
-                base_date=ticket_in.data_base,
-                nature=nature_obj,
-                has_press_nickname=ticket_in.possui_apelido_imprensa,
+            ticket = await _create_ticket_base(
+                ticket_id=ticket_id,
+                ticket_in=ticket_in,
+                ticket_type_obj=ticket_type_obj,
+                nature_obj=nature_obj,
+                operation_obj=operation_obj,
                 press_nickname=press_nickname,
                 press_link=press_link,
-                requester_name=ticket_in.requisitante.requisitante_nome,
-                requester_phone=ticket_in.requisitante.requisitante_telefone,
-                requester_email=str(ticket_in.requisitante.requisitante_email)
-                if ticket_in.requisitante.requisitante_email
-                else None,
-                team_id=ticket_in.equipe_id,
-                priority=ticket_in.prioridade.value,
-                using_db=connection,
+                connection=connection,
             )
 
-            if ticket_in.pontos_focais:
-                await TicketFocalPoint.bulk_create(
-                    [
-                        TicketFocalPoint(
-                            ticket=ticket,
-                            name=fp.nome,
-                            phone=fp.telefone,
-                            email=str(fp.email) if fp.email else None,
-                        )
-                        for fp in ticket_in.pontos_focais
-                    ],
-                    using_db=connection,
-                )
-
-            if ticket_in.comentario_inicial and ticket_in.comentario_inicial.strip():
-                await TicketComment.create(
-                    ticket=ticket,
-                    author=author,
-                    body=ticket_in.comentario_inicial.strip(),
-                    using_db=connection,
-                )
-
-            if ticket_in.busca_por_placa:
-                await TicketPlateSearchService.bulk_create(
-                    [
-                        TicketPlateSearchService(
-                            ticket=ticket,
-                            period_start=service.period_start,
-                            period_end=service.period_end,
-                            plate=service.plate,
-                        )
-                        for service in ticket_in.busca_por_placa
-                    ],
-                    using_db=connection,
-                )
-
-            if ticket_in.busca_por_radar:
-                await TicketRadarSearchService.bulk_create(
-                    [
-                        TicketRadarSearchService(
-                            ticket=ticket,
-                            period_start=service.period_start,
-                            period_end=service.period_end,
-                            plate=service.plate,
-                            radar_address=service.radar_address,
-                        )
-                        for service in ticket_in.busca_por_radar
-                    ],
-                    using_db=connection,
-                )
-
-            if ticket_in.cerco_eletronico:
-                await TicketElectronicFenceService.bulk_create(
-                    [
-                        TicketElectronicFenceService(
-                            ticket=ticket,
-                            plate=service.plate,
-                            vehicle_observations=service.vehicle_observations,
-                        )
-                        for service in ticket_in.cerco_eletronico
-                    ],
-                    using_db=connection,
-                )
-
-            if ticket_in.busca_por_imagem:
-                await TicketImageSearchService.bulk_create(
-                    [
-                        TicketImageSearchService(
-                            ticket=ticket,
-                            period_start=service.period_start,
-                            period_end=service.period_end,
-                            plate=service.plate,
-                            address=service.address,
-                            description=service.description,
-                        )
-                        for service in ticket_in.busca_por_imagem
-                    ],
-                    using_db=connection,
-                )
-
-            if ticket_in.placas_correlatas:
-                for service_in in ticket_in.placas_correlatas:
-                    service = await TicketCorrelatedPlatesService.create(
-                        ticket=ticket,
-                        interest_interval_minutes=service_in.interest_interval_minutes,
-                        detection_count=service_in.detection_count,
-                        detection=service_in.detection.value if service_in.detection else None,
-                        using_db=connection,
-                    )
-
-                    if service_in.items:
-                        await TicketCorrelatedPlatesServiceItem.bulk_create(
-                            [
-                                TicketCorrelatedPlatesServiceItem(
-                                    service=service,
-                                    period_start=item.period_start,
-                                    period_end=item.period_end,
-                                    plate=item.plate,
-                                )
-                                for item in service_in.items
-                            ],
-                            using_db=connection,
-                        )
-
-            if ticket_in.placas_conjuntas:
-                for service_in in ticket_in.placas_conjuntas:
-                    service = await TicketJointPlatesService.create(
-                        ticket=ticket,
-                        interest_interval_minutes=service_in.interest_interval_minutes,
-                        detection_count=service_in.detection_count,
-                        detection=service_in.detection.value if service_in.detection else None,
-                        using_db=connection,
-                    )
-
-                    if service_in.items:
-                        await TicketJointPlatesServiceItem.bulk_create(
-                            [
-                                TicketJointPlatesServiceItem(
-                                    service=service,
-                                    period_start=item.period_start,
-                                    period_end=item.period_end,
-                                    plate=item.plate,
-                                )
-                                for item in service_in.items
-                            ],
-                            using_db=connection,
-                        )
-
-            if ticket_in.reserva_de_imagem:
-                await TicketImageReservationService.bulk_create(
-                    [
-                        TicketImageReservationService(
-                            ticket=ticket,
-                            period_start=service.period_start,
-                            period_end=service.period_end,
-                            orientation=service.orientation,
-                        )
-                        for service in ticket_in.reserva_de_imagem
-                    ],
-                    using_db=connection,
-                )
-
-            if ticket_in.analise_de_imagem:
-                await TicketImageAnalysisService.bulk_create(
-                    [
-                        TicketImageAnalysisService(
-                            ticket=ticket,
-                            period_start=service.period_start,
-                            period_end=service.period_end,
-                            orientation=service.orientation,
-                        )
-                        for service in ticket_in.analise_de_imagem
-                    ],
-                    using_db=connection,
-                )
-
-            if ticket_in.outros:
-                await TicketOtherService.bulk_create(
-                    [
-                        TicketOtherService(
-                            ticket=ticket,
-                            orientation=service.orientation,
-                        )
-                        for service in ticket_in.outros
-                    ],
-                    using_db=connection,
-                )
-
-            await _create_ticket_attachments(
+            await _create_ticket_related_data(
                 ticket=ticket,
+                ticket_in=ticket_in,
+                author=author,
                 uploaded_files=uploaded_files,
                 connection=connection,
             )
@@ -459,33 +686,6 @@ async def create_ticket(
         raise
 
     return TicketCreateResultOut(id=ticket_id)
-
-
-async def list_tickets(*, user: User, page: int = 1, page_size: int = 20) -> PageOut:
-    page = max(page, 1)
-    page_size = min(max(page_size, 1), 100)
-    offset = (page - 1) * page_size
-
-    query = Ticket.all()
-
-    total = await query.count()
-    rows = await query.order_by("-created_at").offset(offset).limit(page_size)
-
-    items: List[TicketListItemOut] = []
-    for t in rows:
-        items.append(
-            TicketListItemOut(
-                id=str(t.id),
-                criado_em=t.created_at,
-                tipo_chamado_id=str(t.ticket_type_id),
-                prioridade=t.priority,
-                natureza_id=str(t.nature_id) if t.nature_id else None,
-                numero_procedimento=t.procedure_number,
-                numero_oficio=t.official_letter_number,
-            )
-        )
-
-    return PageOut(items=items, page=page, page_size=page_size, total=total)
 
 
 async def get_ticket_by_id(*, ticket_id: str) -> TicketOut:
@@ -733,17 +933,6 @@ def build_ticket_search_label(ticket: "Ticket") -> str:
         partes.append(f"Req. {ticket.requester_name}")
 
     return " • ".join(partes)
-
-
-def _status_label(status: TicketStatus) -> str:
-    labels = {
-        TicketStatus.PENDENTE: "PENDENTE",
-        TicketStatus.RESTRITO: "RESTRITO",
-        TicketStatus.AGUARDANDO_REVISAO: "AGUARDANDO REVISÃO",
-        TicketStatus.BLOQUEADO: "BLOQUEADO",
-        TicketStatus.CONCLUIDO: "CONCLUÍDO",
-    }
-    return labels.get(status, str(status))
 
 
 def _build_dashboard_service_labels(ticket: Ticket) -> List[str]:

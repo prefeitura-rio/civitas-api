@@ -9,8 +9,8 @@ from fastapi import APIRouter, Depends, File, Form, Request, Query, UploadFile
 from app.decorators import router_request
 from app.dependencies import is_user
 from app.models import User
-from app.modules.tickets.application.dtos import PageOut, TicketCreateResultOut, TicketDashboardFilterIn, TicketDashboardOut, TicketFocalPointSearchOut, TicketInternalNumberSearchOut, TicketListItemOut, TicketOfficialLetterSearchOut, TicketOut, TicketProcedureNumberSearchOut, TicketRequesterSearchOut, TicketSearchOut
-from app.modules.tickets.application.services.ticket_service import create_ticket, get_ticket_by_id, get_tickets_dashboard, list_tickets, parse_ticket_payload, search_focal_points, search_internal_numbers, search_official_letters, search_procedure_numbers, search_requesters, search_tickets
+from app.modules.tickets.application.dtos import TicketCreateResultOut, TicketDashboardFilterIn, TicketDashboardOut, TicketFocalPointSearchOut, TicketInternalNumberSearchOut, TicketOfficialLetterSearchOut, TicketOut, TicketProcedureNumberSearchOut, TicketRequesterSearchOut, TicketSearchOut
+from app.modules.tickets.application.services.ticket_service import create_ticket, get_ticket_by_id, get_tickets_dashboard, parse_ticket_payload, search_focal_points, search_internal_numbers, search_official_letters, search_procedure_numbers, search_requesters, search_tickets
 
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
@@ -49,20 +49,6 @@ async def search_tickets_endpoint(
 ):
     return await search_tickets(search=search)
 
-
-@router_request(
-    method="GET",
-    router=router,
-    path="/",
-    response_model=PageOut,
-)
-async def list_tickets_endpoint(
-    user: Annotated[User, Depends(is_user)],
-    request: Request,
-    page: int = 1,
-    size: int = 20,
-):
-    return await list_tickets(user=user, page=page, page_size=size)
 
 @router_request(
     method="GET",
