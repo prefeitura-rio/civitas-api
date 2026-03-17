@@ -3,13 +3,6 @@ from tortoise import BaseDBAsyncClient
 
 async def upgrade(db: BaseDBAsyncClient) -> str:
     return """
-    CREATE TABLE IF NOT EXISTS "ticket_types" (
-    "id" UUID NOT NULL  PRIMARY KEY,
-    "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
-    "name" VARCHAR(80) NOT NULL UNIQUE,
-    "description" TEXT,
-    "is_active" BOOL NOT NULL  DEFAULT True
-);
     CREATE TABLE IF NOT EXISTS "ticket_natures" (
     "id" UUID NOT NULL  PRIMARY KEY,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
@@ -17,9 +10,17 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
     "description" TEXT,
     "is_active" BOOL NOT NULL  DEFAULT True
 );
+    CREATE TABLE IF NOT EXISTS "ticket_types" (
+    "id" UUID NOT NULL  PRIMARY KEY,
+    "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+    "name" VARCHAR(80) NOT NULL UNIQUE,
+    "description" TEXT,
+    "is_active" BOOL NOT NULL  DEFAULT True
+);
+
         CREATE TABLE IF NOT EXISTS "tickets" (
     "id" UUID NOT NULL  PRIMARY KEY,
-    "internal_number" INT GENERATED ALWAYS AS IDENTITY UNIQUE,
+    "internal_number" INT GENERATED ALWAYS AS IDENTITY UNIQUE NOT NULL,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
     "status" VARCHAR(30) NOT NULL  DEFAULT 'PENDENTE',
     "priority" VARCHAR(30) NOT NULL,
@@ -70,14 +71,14 @@ CREATE INDEX IF NOT EXISTS "idx_ticket_corr_ticket__1c88b8" ON "ticket_correlate
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
     "period_start" TIMESTAMPTZ,
     "period_end" TIMESTAMPTZ,
-    "plate" VARCHAR(20) NOT NULL,
+    "plate" VARCHAR(20),
     "service_id" UUID NOT NULL REFERENCES "ticket_correlated_plate_services" ("id") ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "idx_ticket_corr_service_cf719d" ON "ticket_correlated_plate_service_items" ("service_id", "created_at");
         CREATE TABLE IF NOT EXISTS "ticket_electronic_fence_services" (
     "id" UUID NOT NULL  PRIMARY KEY,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
-    "plate" VARCHAR(20) NOT NULL,
+    "plate" VARCHAR(20),
     "vehicle_observations" TEXT,
     "ticket_id" UUID NOT NULL REFERENCES "tickets" ("id") ON DELETE CASCADE
 );
@@ -134,7 +135,7 @@ CREATE INDEX IF NOT EXISTS "idx_ticket_join_ticket__437f59" ON "ticket_joint_pla
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
     "period_start" TIMESTAMPTZ,
     "period_end" TIMESTAMPTZ,
-    "plate" VARCHAR(20) NOT NULL,
+    "plate" VARCHAR(20),
     "service_id" UUID NOT NULL REFERENCES "ticket_joint_plate_services" ("id") ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "idx_ticket_join_service_b7535c" ON "ticket_joint_plate_service_items" ("service_id", "created_at");
@@ -151,7 +152,7 @@ CREATE INDEX IF NOT EXISTS "idx_ticket_othe_ticket__46e503" ON "ticket_other_ser
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
     "period_start" TIMESTAMPTZ,
     "period_end" TIMESTAMPTZ,
-    "plate" VARCHAR(20) NOT NULL,
+    "plate" VARCHAR(20),
     "ticket_id" UUID NOT NULL REFERENCES "tickets" ("id") ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "idx_ticket_plat_ticket__84af70" ON "ticket_plate_search_services" ("ticket_id", "created_at");
@@ -160,7 +161,7 @@ CREATE INDEX IF NOT EXISTS "idx_ticket_plat_ticket__84af70" ON "ticket_plate_sea
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
     "period_start" TIMESTAMPTZ,
     "period_end" TIMESTAMPTZ,
-    "plate" VARCHAR(20) NOT NULL,
+    "plate" VARCHAR(20),
     "radar_address" TEXT,
     "ticket_id" UUID NOT NULL REFERENCES "tickets" ("id") ON DELETE CASCADE
 );

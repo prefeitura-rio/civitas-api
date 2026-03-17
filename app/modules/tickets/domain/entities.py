@@ -165,7 +165,7 @@ class TicketPlateSearchService(Model):
 
     period_start = fields.DatetimeField(null=True)
     period_end = fields.DatetimeField(null=True)
-    plate = fields.CharField(max_length=20)
+    plate = fields.CharField(max_length=20, null=True)
 
     class Meta:
         table = "ticket_plate_search_services"
@@ -184,7 +184,7 @@ class TicketRadarSearchService(Model):
 
     period_start = fields.DatetimeField(null=True)
     period_end = fields.DatetimeField(null=True)
-    plate = fields.CharField(max_length=20)
+    plate = fields.CharField(max_length=20, null=True)
     radar_address = fields.TextField(null=True)
 
     class Meta:
@@ -202,7 +202,7 @@ class TicketElectronicFenceService(Model):
         on_delete=fields.CASCADE,
     )
 
-    plate = fields.CharField(max_length=20)
+    plate = fields.CharField(max_length=20, null=True)
     vehicle_observations = fields.TextField(null=True)
 
     class Meta:
@@ -263,7 +263,7 @@ class TicketCorrelatedPlatesServiceItem(Model):
 
     period_start = fields.DatetimeField(null=True)
     period_end = fields.DatetimeField(null=True)
-    plate = fields.CharField(max_length=20)
+    plate = fields.CharField(max_length=20, null=True)
 
     class Meta:
         table = "ticket_correlated_plate_service_items"
@@ -301,7 +301,7 @@ class TicketJointPlatesServiceItem(Model):
 
     period_start = fields.DatetimeField(null=True)
     period_end = fields.DatetimeField(null=True)
-    plate = fields.CharField(max_length=20)
+    plate = fields.CharField(max_length=20, null=True)
 
     class Meta:
         table = "ticket_joint_plate_service_items"

@@ -70,19 +70,19 @@ class TicketDetection(str, Enum):
 class ServiceBuscaPorPlacaIn(BaseModel):
     period_start: Optional[datetime] = None
     period_end: Optional[datetime] = None
-    plate: str = Field(min_length=1, max_length=20)
+    plate: Optional[str] = Field(default=None, max_length=20)
 
 
 class ServiceBuscaPorRadarIn(BaseModel):
     period_start: Optional[datetime] = None
     period_end: Optional[datetime] = None
-    plate: str = Field(min_length=1, max_length=20)
-    radar_address: Optional[str] = Field(default=None, max_length=50_000)
+    plate: Optional[str] = Field(default=None, max_length=20)
+    radar_address: Optional[str] = Field(default=None, max_length=20)
 
 
 class ServiceCercoEletronicoIn(BaseModel):
-    plate: str = Field(min_length=1, max_length=20)
-    vehicle_observations: Optional[str] = Field(default=None, max_length=50_000)
+    plate: Optional[str] = Field(default=None, max_length=20)
+    vehicle_observations: Optional[str] = Field(default=None, max_length=20)
 
 
 class ServiceBuscaPorImagemIn(BaseModel):
@@ -96,7 +96,7 @@ class ServiceBuscaPorImagemIn(BaseModel):
 class ServicePlacasCorrelatasItemIn(BaseModel):
     period_start: Optional[datetime] = None
     period_end: Optional[datetime] = None
-    plate: str = Field(min_length=1, max_length=20)
+    plate: Optional[str] = Field(default=None, max_length=20)
 
 
 class ServicePlacasCorrelatasIn(BaseModel):
@@ -109,7 +109,7 @@ class ServicePlacasCorrelatasIn(BaseModel):
 class ServicePlacasConjuntasItemIn(BaseModel):
     period_start: Optional[datetime] = None
     period_end: Optional[datetime] = None
-    plate: str = Field(min_length=1, max_length=20)
+    plate: Optional[str] = Field(default=None, max_length=20)
 
 
 class ServicePlacasConjuntasIn(BaseModel):
