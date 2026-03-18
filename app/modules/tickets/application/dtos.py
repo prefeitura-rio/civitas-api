@@ -5,7 +5,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
 
-from app.modules.tickets.domain.enum import TicketPriority, TicketStatus
+from app.modules.tickets.domain.enum import TicketPriority, TicketStatus, UserRoleEnum
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, root_validator
 
 class TicketCatalogCreateIn(BaseModel):
@@ -412,3 +412,90 @@ class TicketDashboardFilterIn(BaseModel):
             raise ValueError("A data_entrada_inicio não pode ser maior que data_entrada_fim.")
 
         return values
+
+
+class UserRoleUpdateIn(BaseModel):
+    roles: List[UserRoleEnum] = Field(default_factory=list)
+
+
+class UserRoleOut(BaseModel):
+    id: str
+    username: str
+    full_name: str | None = None
+    email: str | None = None
+    roles: list[UserRoleEnum]
+
+class UserRoleListItemOut(BaseModel):
+    id: str
+    username: str
+    full_name: str | None = None
+    email: str | None = None
+    roles: list[UserRoleEnum]
+
+
+class UserRolePageOut(BaseModel):
+    items: list[UserRoleListItemOut]
+    total: int
+
+class TeamMemberCreateIn(BaseModel):
+    user_id: str
+    team_id: str
+    island: str | None = None
+    role: UserRoleEnum = None
+    is_active: bool = True
+
+
+class TeamMemberUpdateIn(BaseModel):
+    island: str | None = None
+    role: UserRoleEnum | None = None
+    is_active: bool | None = None
+
+
+class TeamMemberRoleOut(BaseModel):
+    role: UserRoleEnum
+
+
+class TeamMemberOut(BaseModel):
+    id: str
+    created_at: datetime
+    team_id: str
+    team_name: str
+    user_id: str
+    user_name: str | None = None
+    island: str | None = None
+    is_active: bool
+    role: UserRoleEnum
+
+
+class TeamOut(BaseModel):
+    id: str
+    created_at: datetime
+    name: str
+    description: str | None = None
+    is_active: bool
+    members: list[TeamMemberOut]
+
+
+class TeamListOut(BaseModel):
+    items: list[TeamOut]
+    total: int
+
+
+class TeamCreateIn(BaseModel):
+    name: str
+    description: str | None = None
+    is_active: bool = True
+
+
+class TeamUpdateIn(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    is_active: bool | None = None
+
+
+class TeamSimpleOut(BaseModel):
+    id: str
+    created_at: datetime
+    name: str
+    description: str | None = None
+    is_active: bool
