@@ -17,7 +17,7 @@ from app.modules.tickets.application.dtos import (
     TeamSimpleOut,
     TeamUpdateIn,
 )
-from app.modules.tickets.domain.entities import Team, TeamMember
+from app.modules.tickets.domain.entities import Island, Team, TeamMember
 
 
 def _normalize_team_name(name: str) -> str:
@@ -35,7 +35,7 @@ def _to_team_simple_out(team: Team) -> TeamSimpleOut:
 
 
 async def _build_team_member_out(member: TeamMember) -> TeamMemberOut:
-    await member.fetch_related("team", "user")
+    await member.fetch_related("team", "user", "island")
 
     return TeamMemberOut(
         id=str(member.id),
@@ -44,7 +44,8 @@ async def _build_team_member_out(member: TeamMember) -> TeamMemberOut:
         team_name=member.team.name,
         user_id=str(member.user.id),
         user_name=member.user.full_name or member.user.username,
-        island=member.island,
+        island_id = str(member.island.id) if member.island else None,
+        island_name = member.island.name if member.island else None,
         is_active=member.is_active,
         role=member.role,
     )
@@ -135,7 +136,7 @@ async def list_teams_with_members() -> TeamListOut:
     members = await TeamMember.filter(team_id__in=team_ids).prefetch_related(
         "team",
         "user",
-    ).order_by("team__name", "island", "user__full_name", "user__username")
+    ).order_by("team__name", "user__full_name", "user__username")
 
     members_by_team: dict[str, list[TeamMemberOut]] = defaultdict(list)
 
@@ -170,11 +171,17 @@ async def create_team_member(*, data: TeamMemberCreateIn) -> TeamMemberOut:
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
 
+    island = None
+    if data.island_id:
+        island = await Island.get_or_none(id=data.island_id)
+        if not island:
+            raise HTTPException(status_code=404, detail="Ilha não encontrada.")
+
     try:
         member = await TeamMember.create(
             team_id=data.team_id,
             user_id=data.user_id,
-            island=data.island,
+            island_id=data.island_id,
             is_active=data.is_active,
             role=data.role,
         )
@@ -201,10 +208,12 @@ async def update_team_member(
         )
 
     has_changes = False
-
-    if data.island is not None:
-        member.island = data.island
-        has_changes = True
+    member.island_id = None
+    if data.island_id is not None:
+        island = await Island.get_or_none(id=data.island_id)
+        if not island:
+            raise HTTPException(status_code=404, detail="Ilha não encontrada.")
+        member.island_id = data.island_id
 
     if data.is_active is not None:
         member.is_active = data.is_active

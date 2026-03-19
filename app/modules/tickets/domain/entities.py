@@ -456,7 +456,13 @@ class TeamMember(Model):
         max_length=30,
     )
 
-    island = fields.CharField(max_length=10, null=True)
+    island = fields.ForeignKeyField(
+        "app.Island",
+        related_name="team_members",
+        null=True,
+        on_delete=fields.SET_NULL,
+    )
+
     is_active = fields.BooleanField(default=True)
 
     class Meta:
@@ -467,3 +473,13 @@ class TeamMember(Model):
             ("team_id", "island"),
         )
 
+class Island(Model):
+    id = fields.UUIDField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    name = fields.CharField(max_length=40, unique=True)
+    description = fields.TextField(null=True)
+    is_active = fields.BooleanField(default=True)
+
+    class Meta:
+        table = "islands"

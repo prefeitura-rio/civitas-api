@@ -440,13 +440,13 @@ class UserRolePageOut(BaseModel):
 class TeamMemberCreateIn(BaseModel):
     user_id: str
     team_id: str
-    island: str | None = None
+    island_id: Optional[str] = None
     role: UserRoleEnum = None
     is_active: bool = True
 
 
 class TeamMemberUpdateIn(BaseModel):
-    island: str | None = None
+    island_id: Optional[str] = None
     role: UserRoleEnum | None = None
     is_active: bool | None = None
 
@@ -462,7 +462,8 @@ class TeamMemberOut(BaseModel):
     team_name: str
     user_id: str
     user_name: str | None = None
-    island: str | None = None
+    island_id: Optional[str] | None = None
+    island_name: Optional[str] | None = None
     is_active: bool
     role: UserRoleEnum
 
@@ -499,3 +500,23 @@ class TeamSimpleOut(BaseModel):
     name: str
     description: str | None = None
     is_active: bool
+
+
+class IslandOut(BaseModel):
+    id: str
+    created_at: datetime
+    name: str
+    description: Optional[str] = None
+    is_active: bool
+
+
+class IslandListItemOut(BaseModel):
+    id: str
+    created_at: datetime
+    name: str
+    is_active: bool
+
+
+class IslandPageOut(BaseModel):
+    items: list[IslandListItemOut]
+    total: int
