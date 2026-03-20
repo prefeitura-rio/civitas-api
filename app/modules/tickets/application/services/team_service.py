@@ -177,6 +177,14 @@ async def create_team_member(*, data: TeamMemberCreateIn) -> TeamMemberOut:
         if not island:
             raise HTTPException(status_code=404, detail="Ilha não encontrada.")
 
+    if await TeamMember.filter(user_id=data.user_id).exclude(
+        team_id=data.team_id
+    ).exists():
+        raise HTTPException(
+            status_code=409,
+            detail="Este usuário já está vinculado a outra equipe.",
+        )
+
     try:
         member = await TeamMember.create(
             team_id=data.team_id,
@@ -188,7 +196,7 @@ async def create_team_member(*, data: TeamMemberCreateIn) -> TeamMemberOut:
     except IntegrityError:
         raise HTTPException(
             status_code=409,
-            detail="Usuário já está vinculado a esta equipe.",
+            detail="Usuário já está vinculado a uma equipe.",
         )
 
     member = await TeamMember.get(id=member.id).prefetch_related("team", "user")

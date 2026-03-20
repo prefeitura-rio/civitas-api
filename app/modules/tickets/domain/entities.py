@@ -449,6 +449,7 @@ class TeamMember(Model):
         "app.User",
         related_name="team_memberships",
         on_delete=fields.CASCADE,
+        unique=True,
     )
 
     role = fields.CharEnumField(
