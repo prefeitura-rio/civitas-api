@@ -5,7 +5,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
 
-from app.modules.tickets.domain.enum import TicketPriority, TicketStatus
+from app.modules.tickets.domain.enum import TicketPriority
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, root_validator
 
 class TicketCatalogCreateIn(BaseModel):
@@ -48,17 +48,6 @@ class TicketTypeListItemOut(BaseModel):
     created_at: datetime
     name: str
     is_active: bool
-
-
-class TicketNaturePageOut(BaseModel):
-    items: List[TicketNatureListItemOut]
-    total: int
-
-
-class TicketTypePageOut(BaseModel):
-    items: List[TicketTypeListItemOut]
-    total: int
-
 
 
 class TicketDetection(str, Enum):
@@ -350,65 +339,17 @@ class TicketDashboardOut(BaseModel):
     overdue_after_days: int
 
 
-class TicketOfficialLetterSearchOut(BaseModel):
-    numero_oficio: str
-
-class TicketInternalNumberSearchOut(BaseModel):
-    numero_interno: int
-
-class TicketProcedureNumberSearchOut(BaseModel):
-    numero_procedimento: str
-
 class TicketRequesterSearchOut(BaseModel):
     requisitante: str
 
-class TicketFocalPointSearchOut(BaseModel):
-    ponto_focal: str
 
 class TicketDashboardFilterIn(BaseModel):
     period_days: int = Field(default=30, ge=1, le=365)
     overdue_after_days: int = Field(default=7, ge=1, le=365)
     search: Optional[str] = None
 
-    tipo_chamado_id: Optional[List[str]] = None
-    numero_interno: Optional[List[int]] = None
-    numero_procedimento: Optional[List[str]] = None
-    numero_oficio: Optional[List[str]] = None
-    natureza_id: Optional[List[str]] = None
     demandante_id: Optional[List[str]] = None
     requisitante: Optional[List[str]] = None
-    ponto_focal: Optional[List[str]] = None
 
-    data_base_inicio: Optional[date] = None
-    data_base_fim: Optional[date] = None
-
-    data_entrada_inicio: Optional[date] = None
-    data_entrada_fim: Optional[date] = None
-
-    status: Optional[List[str]] = None
     prioridade: Optional[List[str]] = None
     equipe: Optional[List[str]] = None
-    servicos_realizados: Optional[List[str]] = None
-
-    @root_validator
-    def validate_date_ranges(cls, values):
-        data_base_inicio = values.get("data_base_inicio")
-        data_base_fim = values.get("data_base_fim")
-        data_entrada_inicio = values.get("data_entrada_inicio")
-        data_entrada_fim = values.get("data_entrada_fim")
-
-        if (
-            data_base_inicio is not None
-            and data_base_fim is not None
-            and data_base_inicio > data_base_fim
-        ):
-            raise ValueError("A data_base_inicio não pode ser maior que data_base_fim.")
-
-        if (
-            data_entrada_inicio is not None
-            and data_entrada_fim is not None
-            and data_entrada_inicio > data_entrada_fim
-        ):
-            raise ValueError("A data_entrada_inicio não pode ser maior que data_entrada_fim.")
-
-        return values
