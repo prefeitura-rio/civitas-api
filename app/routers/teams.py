@@ -9,6 +9,7 @@ from app.dependencies import is_user
 from app.models import User
 from app.modules.tickets.application.dtos import (
     TeamCreateIn,
+    TeamIdNameOut,
     TeamListOut,
     TeamMemberCreateIn,
     TeamMemberOut,
@@ -21,6 +22,7 @@ from app.modules.tickets.application.services.team_service import (
     create_team_member,
     delete_team,
     delete_team_member,
+    list_teams,
     list_teams_with_members,
     update_team,
     update_team_member,
@@ -29,10 +31,23 @@ from app.modules.tickets.application.services.team_service import (
 router = APIRouter(prefix="/teams", tags=["Teams"])
 
 
+
 @router_request(
     method="GET",
     router=router,
     path="/",
+    response_model=list[TeamIdNameOut],
+)
+async def list_teams_endpoint(
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+):
+    return await list_teams()
+
+@router_request(
+    method="GET",
+    router=router,
+    path="/with-members",
     response_model=TeamListOut,
 )
 async def list_teams_with_members_endpoint(

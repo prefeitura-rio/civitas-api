@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from app.models import User
 from app.modules.tickets.application.dtos import (
     TeamCreateIn,
+    TeamIdNameOut,
     TeamListOut,
     TeamMemberCreateIn,
     TeamMemberOut,
@@ -244,3 +245,14 @@ async def delete_team_member(*, member_id: str) -> None:
         raise HTTPException(status_code=404, detail="Membro da equipe não encontrado.")
 
     await member.delete()
+
+async def list_teams() -> list[TeamIdNameOut]:
+    teams = await Team.all().only("id", "name").order_by("name")
+    
+    return [
+        TeamIdNameOut(
+            id=str(team.id),
+            name=team.name,
+        )
+        for team in teams
+    ]

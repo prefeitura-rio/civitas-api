@@ -520,3 +520,8 @@ class IslandListItemOut(BaseModel):
 class IslandPageOut(BaseModel):
     items: list[IslandListItemOut]
     total: int
+
+
+class TeamIdNameOut(BaseModel):
+    id: str
+    name: str
