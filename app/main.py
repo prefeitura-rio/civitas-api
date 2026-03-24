@@ -38,6 +38,9 @@ from app.routers import (
     reports,
     users,
     waze,
+    tickets,
+    tickets_natures,
+    tickets_types,
 )
 from app.utils import (
     register_tortoise,
@@ -108,6 +111,9 @@ app.include_router(radars.router)
 app.include_router(reports.router)
 app.include_router(users.router)
 app.include_router(waze.router)
+app.include_router(tickets.router)
+app.include_router(tickets_natures.router)
+app.include_router(tickets_types.router)
 
 # feature flag to enable GCS endpoints
 # author: Nicolas Evilasio
