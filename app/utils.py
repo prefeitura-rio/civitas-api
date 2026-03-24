@@ -1285,27 +1285,24 @@ def get_radar_positions() -> List[RadarOut]:
 
         sentry_lpr_cameras AS (
             SELECT
-                a.id_camera,
-                a.codigo_ponto_coleta AS codcet,
+                a.codigo_equipamento AS codcet,
                 a.latitude,
                 a.longitude,
-                a.local_ponto_coleta AS locequip,
-                b.nome AS bairro,
-                a.local_ponto_coleta AS logradouro,
-                a.direcao AS sentido
-            FROM `rj-civitas.lpr.cameras` a
-            LEFT JOIN `datario.dados_mestres.bairro` b
-            ON ST_WITHIN(ST_GEOGPOINT(a.longitude, a.latitude), b.geometry)
+                CONCAT(a.local, ' - ', a.bairro) AS locequip,
+                a.bairro,
+                a.local AS logradouro,
+                a.sentido
+            FROM `rj-civitas.cerco_digital.equipamentos` a
         ),
 
         used_sentry_lpr_cameras AS (
             SELECT
-            camera_numero AS id_camera,
+            camera_numero AS codcet,
             empresa,
             MAX(DATETIME(datahora, "America/Sao_Paulo")) AS last_detection_time,
             'yes' AS has_data
             FROM `rj-civitas.lpr.readings*`
-            GROUP BY id_camera, empresa
+            GROUP BY codcet, empresa
         ),
         
         sentry_selected_lpr_cameras AS (
@@ -1331,7 +1328,7 @@ def get_radar_positions() -> List[RadarOut]:
                 END AS active_in_last_24_hours
             FROM sentry_lpr_cameras t1
             FULL OUTER JOIN used_sentry_lpr_cameras t2
-            ON t1.id_camera = t2.id_camera
+            ON t1.codcet = t2.codcet
         ),
 
         all_equips AS (
