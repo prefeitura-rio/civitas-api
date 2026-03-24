@@ -7,8 +7,9 @@ from tortoise.exceptions import ValidationError
 from tortoise.models import Model
 from tortoise.signals import pre_save
 
-from app.modules.tickets.domain.entities import *
+
 from app.enums import NotificationChannelTypeEnum
+
 
 class CompanyData(Model):
     id = fields.UUIDField(pk=True)

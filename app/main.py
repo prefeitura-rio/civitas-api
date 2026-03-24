@@ -29,6 +29,7 @@ from app.routers import (
     cars,
     companies,
     gcs,
+    islands,
     layers,
     notification_channels,
     operations,
@@ -36,7 +37,9 @@ from app.routers import (
     people,
     radars,
     reports,
+    teams,
     users,
+    users_roles,
     waze,
     tickets,
     tickets_natures,
@@ -114,6 +117,9 @@ app.include_router(waze.router)
 app.include_router(tickets.router)
 app.include_router(tickets_natures.router)
 app.include_router(tickets_types.router)
+app.include_router(teams.router)
+app.include_router(users_roles.router)
+app.include_router(islands.router)
 
 # feature flag to enable GCS endpoints
 # author: Nicolas Evilasio

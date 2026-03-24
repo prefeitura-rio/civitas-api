@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from app.modules.tickets.domain.enum import TicketPriority, TicketStatus
+from app.modules.tickets.domain.enum import TicketPriority, TicketStatus, UserRoleEnum
 from tortoise import fields
 from tortoise.models import Model
 
@@ -86,10 +86,48 @@ class Ticket(Model):
     requester_phone = fields.CharField(max_length=30, null=True)
     requester_email = fields.CharField(max_length=254)
 
-    team_id = fields.CharField(max_length=80, null=True)
+    team = fields.ForeignKeyField(
+        "app.Team",
+        related_name="tickets",
+        null=True,
+        on_delete=fields.SET_NULL,
+    )
+
+    responsible = fields.ForeignKeyField(
+        "app.User",
+        related_name="responsible_tickets",
+        null=True,
+        on_delete=fields.SET_NULL,
+    )
 
     class Meta:
         table = "tickets"
+
+class TicketHistory(Model):
+    id = fields.UUIDField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    ticket = fields.ForeignKeyField(
+        "app.Ticket",
+        related_name="histories",
+        on_delete=fields.CASCADE,
+    )
+
+    user = fields.ForeignKeyField(
+        "app.User",
+        related_name="ticket_histories",
+        on_delete=fields.CASCADE,
+    )
+
+    action = fields.CharField(max_length=100)
+
+    class Meta:
+        table = "ticket_histories"
+        indexes = (
+            ("ticket_id", "created_at"),
+            ("user_id", "created_at"),
+        )
+
 
 
 class TicketFocalPoint(Model):
@@ -361,3 +399,88 @@ class TicketOtherService(Model):
     class Meta:
         table = "ticket_other_services"
         indexes = (("ticket_id", "created_at"),)
+
+
+
+class Team(Model):
+    id = fields.UUIDField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    name = fields.CharField(max_length=120, unique=True)  # ex: FOX 10
+    description = fields.TextField(null=True)
+    is_active = fields.BooleanField(default=True)
+
+    class Meta:
+        table = "teams"
+
+
+
+class UserRole(Model):
+    id = fields.UUIDField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    user = fields.ForeignKeyField(
+        "app.User",
+        related_name="roles",
+        on_delete=fields.CASCADE,
+    )
+
+    role = fields.CharEnumField(
+        UserRoleEnum,
+        max_length=30,
+    )
+
+    class Meta:
+        table = "user_roles"
+        unique_together = (("user_id", "role"),)
+        indexes = (("user_id", "role"),)
+
+class TeamMember(Model):
+    id = fields.UUIDField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    team = fields.ForeignKeyField(
+        "app.Team",
+        related_name="members",
+        on_delete=fields.CASCADE,
+    )
+
+    user = fields.ForeignKeyField(
+        "app.User",
+        related_name="team_memberships",
+        on_delete=fields.CASCADE,
+        unique=True,
+    )
+
+    role = fields.CharEnumField(
+        UserRoleEnum,
+        max_length=30,
+    )
+
+    island = fields.ForeignKeyField(
+        "app.Island",
+        related_name="team_members",
+        null=True,
+        on_delete=fields.SET_NULL,
+    )
+
+    is_active = fields.BooleanField(default=True)
+
+    class Meta:
+        table = "team_members"
+        unique_together = (("team_id", "user_id"),)
+        indexes = (
+            ("team_id", "user_id"),
+            ("team_id", "island"),
+        )
+
+class Island(Model):
+    id = fields.UUIDField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    name = fields.CharField(max_length=40, unique=True)
+    description = fields.TextField(null=True)
+    is_active = fields.BooleanField(default=True)
+
+    class Meta:
+        table = "islands"

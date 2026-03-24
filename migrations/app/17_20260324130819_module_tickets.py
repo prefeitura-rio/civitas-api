@@ -3,13 +3,29 @@ from tortoise import BaseDBAsyncClient
 
 async def upgrade(db: BaseDBAsyncClient) -> str:
     return """
-    CREATE TABLE IF NOT EXISTS "ticket_natures" (
+
+CREATE TABLE IF NOT EXISTS "ticket_types" (
+    "id" UUID NOT NULL  PRIMARY KEY,
+    "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+    "name" VARCHAR(80) NOT NULL UNIQUE,
+    "description" TEXT,
+    "is_active" BOOL NOT NULL  DEFAULT True
+);
+
+     CREATE TABLE IF NOT EXISTS "ticket_natures" (
     "id" UUID NOT NULL  PRIMARY KEY,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
     "name" VARCHAR(40) NOT NULL UNIQUE,
     "description" TEXT,
     "is_active" BOOL NOT NULL  DEFAULT True
 );
+
+INSERT INTO ticket_types (id, name, description, is_active)
+VALUES
+(gen_random_uuid(), 'Convencional', NULL, TRUE),
+(gen_random_uuid(), 'Amplo', NULL, TRUE),
+(gen_random_uuid(), 'Requisição Restrita', NULL, TRUE)
+ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO ticket_natures (id, name, description, is_active)
 VALUES
@@ -32,24 +48,38 @@ VALUES
 (gen_random_uuid(), 'Não informado', NULL, TRUE)
 ON CONFLICT (name) DO NOTHING;
 
-    CREATE TABLE IF NOT EXISTS "ticket_types" (
+
+
+        CREATE TABLE IF NOT EXISTS "islands" (
     "id" UUID NOT NULL  PRIMARY KEY,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
-    "name" VARCHAR(80) NOT NULL UNIQUE,
+    "name" VARCHAR(40) NOT NULL UNIQUE,
     "description" TEXT,
     "is_active" BOOL NOT NULL  DEFAULT True
 );
-
-INSERT INTO ticket_types (id, name, description, is_active)
-VALUES
-(gen_random_uuid(), 'Convencional', NULL, TRUE),
-(gen_random_uuid(), 'Amplo', NULL, TRUE),
-(gen_random_uuid(), 'Requisição Restrita', NULL, TRUE)
-ON CONFLICT (name) DO NOTHING;
-
+        CREATE TABLE IF NOT EXISTS "teams" (
+    "id" UUID NOT NULL  PRIMARY KEY,
+    "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+    "name" VARCHAR(120) NOT NULL UNIQUE,
+    "description" TEXT,
+    "is_active" BOOL NOT NULL  DEFAULT True
+);
+        CREATE TABLE IF NOT EXISTS "team_members" (
+    "id" UUID NOT NULL  PRIMARY KEY,
+    "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+    "role" VARCHAR(30) NOT NULL,
+    "is_active" BOOL NOT NULL  DEFAULT True,
+    "island_id" UUID REFERENCES "islands" ("id") ON DELETE SET NULL,
+    "team_id" UUID NOT NULL REFERENCES "teams" ("id") ON DELETE CASCADE,
+    "user_id" UUID NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
+    CONSTRAINT "uid_team_member_team_id_a71b13" UNIQUE ("team_id", "user_id")
+);
+CREATE INDEX IF NOT EXISTS "idx_team_member_team_id_a71b13" ON "team_members" ("team_id", "user_id");
+CREATE INDEX IF NOT EXISTS "idx_team_member_team_id_a60c0c" ON "team_members" ("team_id", "island_id");
+COMMENT ON COLUMN "team_members"."role" IS 'COORDENADOR: Coordenador\nADMINISTRATIVO: Administrativo\nADJUNTO: Adjunto\nLIDER_DE_ILHA: Líder de Ilha\nOPERADOR: Operador';
         CREATE TABLE IF NOT EXISTS "tickets" (
     "id" UUID NOT NULL  PRIMARY KEY,
-    "internal_number" INT GENERATED ALWAYS AS IDENTITY UNIQUE NOT NULL,
+    "internal_number" INT GENERATED ALWAYS AS IDENTITY UNIQUE,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
     "status" VARCHAR(30) NOT NULL  DEFAULT 'PENDENTE',
     "priority" VARCHAR(30) NOT NULL,
@@ -62,10 +92,11 @@ ON CONFLICT (name) DO NOTHING;
     "requester_name" VARCHAR(120) NOT NULL,
     "requester_phone" VARCHAR(30),
     "requester_email" VARCHAR(254) NOT NULL,
-    "team_id" VARCHAR(80),
     "nature_id" UUID REFERENCES "ticket_natures" ("id") ON DELETE SET NULL,
     "operation_id" UUID NOT NULL REFERENCES "operation" ("id") ON DELETE RESTRICT,
     "parent_ticket_id" UUID REFERENCES "tickets" ("id") ON DELETE SET NULL,
+    "responsible_id" UUID REFERENCES "user" ("id") ON DELETE SET NULL,
+    "team_id" UUID REFERENCES "teams" ("id") ON DELETE SET NULL,
     "ticket_type_id" UUID NOT NULL REFERENCES "ticket_types" ("id") ON DELETE RESTRICT
 );
 COMMENT ON COLUMN "tickets"."status" IS 'PENDENTE: PENDENTE\nRESTRITO: RESTRITO\nBLOQUEADO: BLOQUEADO\nAGUARDANDO_REVISAO: AGUARDANDO_REVISAO\nCONCLUIDO: CONCLUIDO';
@@ -121,6 +152,15 @@ CREATE INDEX IF NOT EXISTS "idx_ticket_elec_ticket__085623" ON "ticket_electroni
     "ticket_id" UUID NOT NULL REFERENCES "tickets" ("id") ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "idx_ticket_foca_ticket__020dc9" ON "ticket_focal_points" ("ticket_id", "created_at");
+        CREATE TABLE IF NOT EXISTS "ticket_histories" (
+    "id" UUID NOT NULL  PRIMARY KEY,
+    "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+    "action" VARCHAR(100) NOT NULL,
+    "ticket_id" UUID NOT NULL REFERENCES "tickets" ("id") ON DELETE CASCADE,
+    "user_id" UUID NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS "idx_ticket_hist_ticket__e03b0e" ON "ticket_histories" ("ticket_id", "created_at");
+CREATE INDEX IF NOT EXISTS "idx_ticket_hist_user_id_b4c4bf" ON "ticket_histories" ("user_id", "created_at");
         CREATE TABLE IF NOT EXISTS "ticket_image_analysis_services" (
     "id" UUID NOT NULL  PRIMARY KEY,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
@@ -168,7 +208,7 @@ CREATE INDEX IF NOT EXISTS "idx_ticket_join_ticket__437f59" ON "ticket_joint_pla
     "service_id" UUID NOT NULL REFERENCES "ticket_joint_plate_services" ("id") ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "idx_ticket_join_service_b7535c" ON "ticket_joint_plate_service_items" ("service_id", "created_at");
-        
+
         CREATE TABLE IF NOT EXISTS "ticket_other_services" (
     "id" UUID NOT NULL  PRIMARY KEY,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
@@ -195,11 +235,23 @@ CREATE INDEX IF NOT EXISTS "idx_ticket_plat_ticket__84af70" ON "ticket_plate_sea
     "ticket_id" UUID NOT NULL REFERENCES "tickets" ("id") ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "idx_ticket_rada_ticket__276771" ON "ticket_radar_search_services" ("ticket_id", "created_at");
-        """
+
+        CREATE TABLE IF NOT EXISTS "user_roles" (
+    "id" UUID NOT NULL  PRIMARY KEY,
+    "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+    "role" VARCHAR(30) NOT NULL,
+    "user_id" UUID NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
+    CONSTRAINT "uid_user_roles_user_id_e2d786" UNIQUE ("user_id", "role")
+);
+CREATE INDEX IF NOT EXISTS "idx_user_roles_user_id_e2d786" ON "user_roles" ("user_id", "role");
+COMMENT ON COLUMN "user_roles"."role" IS 'COORDENADOR: Coordenador\nADMINISTRATIVO: Administrativo\nADJUNTO: Adjunto\nLIDER_DE_ILHA: Líder de Ilha\nOPERADOR: Operador';"""
 
 
 async def downgrade(db: BaseDBAsyncClient) -> str:
     return """
+        DROP TABLE IF EXISTS "islands";
+        DROP TABLE IF EXISTS "teams";
+        DROP TABLE IF EXISTS "team_members";
         DROP TABLE IF EXISTS "tickets";
         DROP TABLE IF EXISTS "ticket_attachments";
         DROP TABLE IF EXISTS "ticket_comments";
@@ -207,6 +259,7 @@ async def downgrade(db: BaseDBAsyncClient) -> str:
         DROP TABLE IF EXISTS "ticket_correlated_plate_service_items";
         DROP TABLE IF EXISTS "ticket_electronic_fence_services";
         DROP TABLE IF EXISTS "ticket_focal_points";
+        DROP TABLE IF EXISTS "ticket_histories";
         DROP TABLE IF EXISTS "ticket_image_analysis_services";
         DROP TABLE IF EXISTS "ticket_image_reservation_services";
         DROP TABLE IF EXISTS "ticket_image_search_services";
@@ -216,4 +269,5 @@ async def downgrade(db: BaseDBAsyncClient) -> str:
         DROP TABLE IF EXISTS "ticket_other_services";
         DROP TABLE IF EXISTS "ticket_plate_search_services";
         DROP TABLE IF EXISTS "ticket_radar_search_services";
-        DROP TABLE IF EXISTS "ticket_types";"""
+        DROP TABLE IF EXISTS "ticket_types";
+        DROP TABLE IF EXISTS "user_roles";"""

@@ -5,7 +5,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
 
-from app.modules.tickets.domain.enum import TicketPriority
+from app.modules.tickets.domain.enum import TicketPriority, UserRoleEnum
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, root_validator
 
 class TicketCatalogCreateIn(BaseModel):
@@ -316,7 +316,7 @@ class TicketDashboardItemOut(BaseModel):
     chamado: str
     status: str
     demandante: str
-    equipe: Optional[str] = None
+    equipe: str
     responsavel: str
     prioridade: str
     dias_atraso: int
@@ -353,3 +353,140 @@ class TicketDashboardFilterIn(BaseModel):
 
     prioridade: Optional[List[str]] = None
     equipe: Optional[List[str]] = None
+    servicos_realizados: Optional[List[str]] = None
+
+    @root_validator
+    def validate_date_ranges(cls, values):
+        data_base_inicio = values.get("data_base_inicio")
+        data_base_fim = values.get("data_base_fim")
+        data_entrada_inicio = values.get("data_entrada_inicio")
+        data_entrada_fim = values.get("data_entrada_fim")
+
+        if (
+            data_base_inicio is not None
+            and data_base_fim is not None
+            and data_base_inicio > data_base_fim
+        ):
+            raise ValueError("A data_base_inicio não pode ser maior que data_base_fim.")
+
+        if (
+            data_entrada_inicio is not None
+            and data_entrada_fim is not None
+            and data_entrada_inicio > data_entrada_fim
+        ):
+            raise ValueError("A data_entrada_inicio não pode ser maior que data_entrada_fim.")
+
+        return values
+
+
+class UserRoleUpdateIn(BaseModel):
+    roles: List[UserRoleEnum] = Field(default_factory=list)
+
+
+class UserRoleOut(BaseModel):
+    id: str
+    username: str
+    full_name: str | None = None
+    email: str | None = None
+    roles: list[UserRoleEnum]
+
+class UserRoleListItemOut(BaseModel):
+    id: str
+    username: str
+    full_name: str | None = None
+    email: str | None = None
+    roles: list[UserRoleEnum]
+
+
+class UserRolePageOut(BaseModel):
+    items: list[UserRoleListItemOut]
+    total: int
+
+class TeamMemberCreateIn(BaseModel):
+    user_id: str
+    team_id: str
+    island_id: Optional[str] = None
+    role: UserRoleEnum = None
+    is_active: bool = True
+
+
+class TeamMemberUpdateIn(BaseModel):
+    island_id: Optional[str] = None
+    role: UserRoleEnum | None = None
+    is_active: bool | None = None
+
+
+class TeamMemberRoleOut(BaseModel):
+    role: UserRoleEnum
+
+
+class TeamMemberOut(BaseModel):
+    id: str
+    created_at: datetime
+    team_id: str
+    team_name: str
+    user_id: str
+    user_name: str | None = None
+    island_id: Optional[str] | None = None
+    island_name: Optional[str] | None = None
+    is_active: bool
+    role: UserRoleEnum
+
+
+class TeamOut(BaseModel):
+    id: str
+    created_at: datetime
+    name: str
+    description: str | None = None
+    is_active: bool
+    members: list[TeamMemberOut]
+
+
+class TeamListOut(BaseModel):
+    items: list[TeamOut]
+    total: int
+
+
+class TeamCreateIn(BaseModel):
+    name: str
+    description: str | None = None
+    is_active: bool = True
+
+
+class TeamUpdateIn(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    is_active: bool | None = None
+
+
+class TeamSimpleOut(BaseModel):
+    id: str
+    created_at: datetime
+    name: str
+    description: str | None = None
+    is_active: bool
+
+
+class IslandOut(BaseModel):
+    id: str
+    created_at: datetime
+    name: str
+    description: Optional[str] = None
+    is_active: bool
+
+
+class IslandListItemOut(BaseModel):
+    id: str
+    created_at: datetime
+    name: str
+    is_active: bool
+
+
+class IslandPageOut(BaseModel):
+    items: list[IslandListItemOut]
+    total: int
+
+
+class TeamIdNameOut(BaseModel):
+    id: str
+    name: str
