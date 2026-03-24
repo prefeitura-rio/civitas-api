@@ -340,7 +340,8 @@ class Location(BaseModel):
     codcet: str
     latitude: float
     longitude: float
-    bairro: str
+    bairro: str | None = None
+    sentido: str | None = None
     localidade: str
     velocidade: float
     seconds_to_next_point: Optional[float] = None
@@ -804,8 +805,8 @@ class GetCarsByRadarIn:
         codcet: str = Query(
             ...,
             description="CODCET to get cars by",
-            min_length=10,
-            max_length=10,
+            # min_length=10,
+            # max_length=10,
         ),
         start_time: datetime = Query(
             ...,

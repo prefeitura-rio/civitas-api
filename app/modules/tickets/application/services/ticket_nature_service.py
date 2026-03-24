@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+from typing import List
 
 from fastapi import HTTPException
 from tortoise.expressions import Q
@@ -9,13 +10,9 @@ from app.modules.tickets.application.dtos import (
     TicketCatalogUpdateIn,
     TicketNatureListItemOut,
     TicketNatureOut,
-    TicketNaturePageOut,
 )
 from app.modules.tickets.domain.entities import TicketNature
 
-
-def _normalize_name(name: str) -> str:
-    return " ".join(name.strip().split())
 
 
 def _to_ticket_nature_out(row: TicketNature) -> TicketNatureOut:
@@ -29,9 +26,8 @@ def _to_ticket_nature_out(row: TicketNature) -> TicketNatureOut:
 
 
 async def create_ticket_nature(*, data: TicketCatalogCreateIn) -> TicketNatureOut:
-    normalized_name = _normalize_name(data.name)
 
-    exists = await TicketNature.filter(name__iexact=normalized_name).exists()
+    exists = await TicketNature.filter(name__iexact=data.name).exists()
     if exists:
         raise HTTPException(
             status_code=409,
@@ -39,7 +35,7 @@ async def create_ticket_nature(*, data: TicketCatalogCreateIn) -> TicketNatureOu
         )
 
     row = await TicketNature.create(
-        name=normalized_name,
+        name=data.name,
         description=data.description,
         is_active=data.is_active,
     )
@@ -51,7 +47,7 @@ async def list_ticket_natures(
     *,
     search: str | None = None,
     is_active: bool | None = None,
-) -> TicketNaturePageOut:
+) -> List[TicketNatureListItemOut]:
 
     query = TicketNature.all()
 
@@ -64,7 +60,6 @@ async def list_ticket_natures(
     if is_active is not None:
         query = query.filter(is_active=is_active)
 
-    total = await query.count()
     rows = await query.order_by("name")
 
     items = [
@@ -77,10 +72,7 @@ async def list_ticket_natures(
         for row in rows
     ]
 
-    return TicketNaturePageOut(
-        items=items,
-        total=total,
-    )
+    return items
 
 
 async def get_ticket_nature_by_id(*, nature_id: str) -> TicketNatureOut:
@@ -101,9 +93,8 @@ async def update_ticket_nature(
         raise HTTPException(status_code=404, detail="Natureza não encontrada.")
 
     if data.name is not None:
-        normalized_name = _normalize_name(data.name)
 
-        exists = await TicketNature.filter(name__iexact=normalized_name).exclude(
+        exists = await TicketNature.filter(name__iexact=data.name).exclude(
             id=row.id
         ).exists()
         if exists:
@@ -112,7 +103,7 @@ async def update_ticket_nature(
                 detail="Já existe uma natureza com esse nome.",
             )
 
-        row.name = normalized_name
+        row.name = data.name
 
     if data.description is not None:
         row.description = data.description

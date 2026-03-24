@@ -1,0 +1,2 @@
+- Create list of resources
+- Test all endpoints
