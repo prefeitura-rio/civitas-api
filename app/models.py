@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-from typing import Type
-
 from pydantic import BaseModel
 from tortoise import fields
 from tortoise.exceptions import ValidationError
@@ -40,16 +37,43 @@ async def validate_company_data(sender, instance: CompanyData, using_db, update_
         raise ValidationError(str(exc))
 
 
+class Organization(Model):
+    id = fields.UUIDField(pk=True)
+    name = fields.CharField(max_length=150)
+    organization_type = fields.CharField(max_length=255)
+    acronym = fields.CharField(max_length=255)
+    jurisdiction_level = fields.CharField(max_length=255)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "organization"
+
+
+class Demandant(Model):
+    id = fields.UUIDField(pk=True)
+    organization = fields.ForeignKeyField(
+        "app.Organization",
+        related_name="demandants",
+        source_field="organization_id",
+    )
+    name = fields.CharField(max_length=255, null=True)
+    email = fields.CharField(max_length=255, null=True)
+    phone_1 = fields.CharField(max_length=20, null=True)
+    phone_2 = fields.CharField(max_length=20, null=True)
+    phone_3 = fields.CharField(max_length=20, null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "demandant"
+
+
 class MonitoredPlate(Model):
     id = fields.UUIDField(pk=True)
-    operation = fields.ForeignKeyField(
-        "app.Operation", related_name="monitored_plates", null=True
-    )
-    plate = fields.CharField(max_length=7)
-    active = fields.BooleanField(default=True)
-    contact_info = fields.TextField(null=True)
+    plate = fields.CharField(max_length=7, unique=True)
+    numero_controle = fields.CharField(max_length=255, unique=True)
     notes = fields.TextField(null=True)
-    additional_info = fields.JSONField(null=True)
     notification_channels = fields.ManyToManyField(
         "app.NotificationChannel",
         related_name="monitored_plates",
@@ -66,6 +90,48 @@ class MonitoredPlate(Model):
         return base_dict
 
 
+class MonitoredPlateDemandant(Model):
+    id = fields.UUIDField(pk=True)
+    monitored_plate = fields.ForeignKeyField(
+        "app.MonitoredPlate",
+        related_name="demandant_links",
+        source_field="monitoredplate_id",
+    )
+    demandant = fields.ForeignKeyField(
+        "app.Demandant",
+        related_name="plate_links",
+        source_field="demandant_id",
+    )
+    reference_number = fields.CharField(max_length=50)
+    valid_until = fields.DatetimeField(null=True)
+    active = fields.BooleanField(default=True)
+    notes = fields.TextField(null=True)
+    additional_info = fields.JSONField(null=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "monitoredplate_demandant"
+
+
+class MonitoredPlateDemandantRadar(Model):
+    """Referência lógica a equipamento LPR no BigQuery (sem FK local)."""
+
+    id = fields.UUIDField(pk=True)
+    plate_demandant = fields.ForeignKeyField(
+        "app.MonitoredPlateDemandant",
+        related_name="radar_links",
+        source_field="monitoredplate_demandant_id",
+    )
+    lpr_equipment_id = fields.UUIDField()
+    active = fields.BooleanField(default=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "monitoredplate_demandant_radar"
+
+
 class NotificationChannel(Model):
     id = fields.UUIDField(pk=True)
     title = fields.CharField(max_length=100, null=True)
@@ -76,7 +142,7 @@ class NotificationChannel(Model):
     updated_at = fields.DatetimeField(auto_now=True)
 
     @classmethod
-    def get_params_model(cls, channel_type: str) -> Type[BaseModel]:
+    def get_params_model(cls, channel_type: str) -> type[BaseModel]:
         class DiscordChannelParams(BaseModel):
             webhook_url: str
 
@@ -97,14 +163,6 @@ async def validate_notification_channel(
     sender, instance: NotificationChannel, using_db, update_fields
 ):
     await instance.validate_parameters()
-
-
-class Operation(Model):
-    id = fields.UUIDField(pk=True)
-    title = fields.CharField(max_length=100)
-    description = fields.TextField(null=True)
-    created_at = fields.DatetimeField(auto_now_add=True)
-    updated_at = fields.DatetimeField(auto_now=True)
 
 
 class PersonData(Model):

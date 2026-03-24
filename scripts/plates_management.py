@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
 import concurrent.futures
 import re
 from os import getenv
 from pathlib import Path
-from typing import List
 
 import pandas as pd
 import requests
@@ -56,7 +54,7 @@ def authenticate_with_civitas_api() -> str:
     return data["access_token"]
 
 
-def load_csv(file_path: Path | str) -> List[Plate]:
+def load_csv(file_path: Path | str) -> list[Plate]:
     file_path = Path(file_path)
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
@@ -175,11 +173,6 @@ def update_single_plate(placa: str, token: str, body: dict):
 
 def set_notification_channel(plates, notification_channel_id):
     body = {
-        "plate": None,
-        "operation_id": None,
-        "active": None,
-        "notes": None,
-        "additional_info": None,
         "notification_channels": [notification_channel_id],
     }
     token = authenticate_with_civitas_api()

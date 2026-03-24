@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
 import asyncio
 from datetime import datetime
-from typing import Annotated, List
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -15,9 +14,11 @@ from app import config
 from app.decorators import router_request
 from app.dependencies import has_cpf, is_user
 from app.models import (
+    Demandant,
     MonitoredPlate,
+    MonitoredPlateDemandant,
+    MonitoredPlateDemandantRadar,
     NotificationChannel,
-    Operation,
     PlateData,
     User,
 )
@@ -128,9 +129,9 @@ async def get_monitored_plates(
     user: Annotated[User, Depends(is_user)],
     request: Request,
     params: Params = Depends(),
-    operation_id: UUID = None,
-    operation_title: str = None,
-    active: bool = None,
+    organization_id: UUID = None,
+    organization_name: str = None,
+    demandant_link_active: bool = None,
     start_time_create: datetime = None,
     end_time_create: datetime = None,
     notification_channel_id: UUID = None,
@@ -143,22 +144,21 @@ async def get_monitored_plates(
     offset = params.size * (params.page - 1)
     monitored_plates_queryset = MonitoredPlate
     filtered = False
-    if operation_id:
-        filtered = True
-        operation = await Operation.get_or_none(id=operation_id)
-        if not operation:
-            raise HTTPException(status_code=404, detail="Operation not found")
-        monitored_plates_queryset = monitored_plates_queryset.filter(
-            operation=operation
-        )
-    if operation_title:
+    if organization_id:
         filtered = True
         monitored_plates_queryset = monitored_plates_queryset.filter(
-            operation__title__icontains=operation_title
-        )
-    if active is not None:
+            demandant_links__demandant__organization_id=organization_id
+        ).distinct()
+    if organization_name:
         filtered = True
-        monitored_plates_queryset = monitored_plates_queryset.filter(active=active)
+        monitored_plates_queryset = monitored_plates_queryset.filter(
+            demandant_links__demandant__organization__name__icontains=organization_name
+        ).distinct()
+    if demandant_link_active is not None:
+        filtered = True
+        monitored_plates_queryset = monitored_plates_queryset.filter(
+            demandant_links__active=demandant_link_active
+        ).distinct()
     if notification_channel_id:
         filtered = True
         notification_channel = await NotificationChannel.get_or_none(
@@ -221,18 +221,13 @@ async def create_monitored_plate(
     # Check if plate is already monitored
     if await MonitoredPlate.filter(plate=plate_data.plate).exists():
         raise HTTPException(status_code=409, detail="Plate already monitored")
-    # Get operation
-    operation = await Operation.get_or_none(id=plate_data.operation_id)
-    if not operation:
-        raise HTTPException(status_code=404, detail="Operation not found")
+    if await MonitoredPlate.filter(numero_controle=plate_data.numero_controle).exists():
+        raise HTTPException(status_code=409, detail="numero_controle already in use")
     async with in_transaction():
         monitored_plate = await MonitoredPlate.create(
-            operation=operation,
             plate=plate_data.plate,
-            active=plate_data.active,
-            contact_info=plate_data.contact_info,
+            numero_controle=plate_data.numero_controle,
             notes=plate_data.notes,
-            additional_info=plate_data.additional_info,
         )
         if plate_data.notification_channels:
             for channel_id in plate_data.notification_channels:
@@ -242,6 +237,24 @@ async def create_monitored_plate(
                         status_code=404, detail="Notification channel not found"
                     )
                 await monitored_plate.notification_channels.add(channel)
+        if plate_data.demandant_links:
+            for link in plate_data.demandant_links:
+                demandant = await Demandant.get_or_none(id=link.demandant_id)
+                if not demandant:
+                    raise HTTPException(status_code=404, detail="Demandant not found")
+                mpd = await MonitoredPlateDemandant.create(
+                    monitored_plate=monitored_plate,
+                    demandant=demandant,
+                    reference_number=link.reference_number,
+                    valid_until=link.valid_until,
+                    notes=link.notes,
+                    additional_info=link.additional_info,
+                )
+                for eq_id in link.lpr_equipment_ids or []:
+                    await MonitoredPlateDemandantRadar.create(
+                        plate_demandant=mpd,
+                        lpr_equipment_id=eq_id,
+                    )
     return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
 
 
@@ -436,24 +449,7 @@ async def update_monitored_plate(
         for key, value in plate_data.dict().items():
             if value is None:
                 continue
-            if key == "additional_info":
-                # Additional info must be a Dict[str, str]
-                if not isinstance(value, dict):
-                    raise HTTPException(
-                        status_code=400, detail="additional_info must be a dict"
-                    )
-                for k, v in value.items():
-                    if not isinstance(k, str) or not isinstance(v, str):
-                        raise HTTPException(
-                            status_code=400,
-                            detail="additional_info keys and values must be strings",
-                        )
-            elif key == "operation_id":
-                operation = await Operation.get_or_none(id=value)
-                if not operation:
-                    raise HTTPException(status_code=404, detail="Operation not found")
-                monitored_plate.operation = operation
-            elif key == "notification_channels":
+            if key == "notification_channels":
                 # Notification channels must be a list of UUIDs
                 if not isinstance(value, list):
                     raise HTTPException(
@@ -598,7 +594,7 @@ async def get_plate_details(
     method="POST",
     router=router,
     path="/plates",
-    response_model=List[CortexPlacaOut | None],
+    response_model=list[CortexPlacaOut | None],
 )
 async def get_multiple_plates_details(
     plates: CortexPlacasIn,

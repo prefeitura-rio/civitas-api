@@ -1,301 +1,304 @@
-# -*- coding: utf-8 -*-
 from datetime import datetime
-from typing import Dict, List, Literal, Optional
+from typing import Literal, Optional
 from uuid import UUID
 from enum import Enum
-from zlib import crc32
 
 from fastapi import Query
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import BaseModel, Field, validator
 
 from app.enums import NotificationChannelTypeEnum
-from app.models import MonitoredPlate
+from app.models import (
+    Demandant,
+    MonitoredPlate,
+    MonitoredPlateDemandant,
+    MonitoredPlateDemandantRadar,
+)
 
 
 class CortexArrendatario(BaseModel):
-    enderecoArrendatario: Optional[str]
-    id: Optional[int]
-    nomeArrendatario: Optional[str]
-    numeroDocumentoArrendatario: Optional[str]
-    placa: Optional[str]
-    tipoDocumentoArrendatario: Optional[str]
+    enderecoArrendatario: str | None
+    id: int | None
+    nomeArrendatario: str | None
+    numeroDocumentoArrendatario: str | None
+    placa: str | None
+    tipoDocumentoArrendatario: str | None
 
 
 class CortexPossuidor(BaseModel):
-    enderecoPossuidor: Optional[str]
-    id: Optional[int]
-    nomePossuidor: Optional[str]
-    numeroDocumentoPossuidor: Optional[str]
-    placa: Optional[str]
-    tipoDocumentoPossuidor: Optional[str]
+    enderecoPossuidor: str | None
+    id: int | None
+    nomePossuidor: str | None
+    numeroDocumentoPossuidor: str | None
+    placa: str | None
+    tipoDocumentoPossuidor: str | None
 
 
 class CortexProprietario(BaseModel):
-    enderecoProprietario: Optional[str]
-    id: Optional[int]
-    nomeProprietario: Optional[str]
-    numeroDocumentoProprietario: Optional[str]
-    placa: Optional[str]
-    tipoDocumentoProprietario: Optional[str]
+    enderecoProprietario: str | None
+    id: int | None
+    nomeProprietario: str | None
+    numeroDocumentoProprietario: str | None
+    placa: str | None
+    tipoDocumentoProprietario: str | None
 
 
 class CortexIndiceNacionalVeiculo(BaseModel):
-    id: Optional[int]
-    metodo: Optional[str]
-    qtd: Optional[int]
+    id: int | None
+    metodo: str | None
+    qtd: int | None
 
 
 class CortexRestricao(BaseModel):
-    anoBO: Optional[str]
-    dataOcorrencia: Optional[datetime]
-    dddContato: Optional[str]
-    historico: Optional[str]
-    id: Optional[int]
-    municipioBO: Optional[str]
-    naturezaOcorrencia: Optional[str]
-    nomeDeclarante: Optional[str]
-    numeroBO: Optional[str]
-    placa: Optional[str]
-    ramalContato: Optional[str]
-    sistema: Optional[str]
-    telefoneContato: Optional[str]
-    ufBO: Optional[str]
-    unidadePolicial: Optional[str]
+    anoBO: str | None
+    dataOcorrencia: datetime | None
+    dddContato: str | None
+    historico: str | None
+    id: int | None
+    municipioBO: str | None
+    naturezaOcorrencia: str | None
+    nomeDeclarante: str | None
+    numeroBO: str | None
+    placa: str | None
+    ramalContato: str | None
+    sistema: str | None
+    telefoneContato: str | None
+    ufBO: str | None
+    unidadePolicial: str | None
 
 
 class CortexPlacaOut(BaseModel):
-    anoFabricacao: Optional[str]
-    anoModelo: Optional[str]
-    anoUltimoLicenciamnento: Optional[int]
-    arrendatario: Optional[CortexArrendatario]
-    capacidadeMaximaCarga: Optional[str]
-    capacidadeMaximaTracao: Optional[str]
-    carroceria: Optional[str]
-    categoria: Optional[str]
-    chassi: Optional[str]
-    cilindrada: Optional[int]
-    codigoCarroceira: Optional[int]
-    codigoCategoria: Optional[int]
-    codigoCor: Optional[int]
-    codigoEspecie: Optional[int]
-    codigoMarcaModelo: Optional[int]
-    codigoMunicipioEmplacamento: Optional[str]
-    codigoOrgaoSRF: Optional[str]
-    codigoSegurancaCRV: Optional[str]
-    codigoTipoVeiculo: Optional[int]
-    combustivel: Optional[str]
-    cor: Optional[str]
-    dataAtualizacaoAlarme: Optional[str]
-    dataAtualizacaoRouboFurto: Optional[str]
-    dataAtualizacaoVeiculo: Optional[str]
-    dataDeclaracaoImportacao: Optional[str]
-    dataEmissaoCRLV: Optional[datetime]
-    dataEmissaoUltimoCRV: Optional[str]
-    dataEmplacamento: Optional[datetime]
-    dataHoraAtualizacaoVeiculo: Optional[datetime]
-    dataLimiteRestricaoTributaria: Optional[str]
-    dataPreCadastro: Optional[str]
-    dataReplicacao: Optional[datetime]
-    descricaoOrgaoRegiaoFiscal: Optional[str]
-    especie: Optional[str]
-    flagAtivo: Optional[bool]
-    grupoVeiculo: Optional[str]
-    id: Optional[int]
-    identificadorUnicoVeiculo: Optional[str]
-    indicadorRemarcacaoChassi: Optional[bool]
-    indicadorVeiculoLicenciadoCirculacao: Optional[str]
-    indicadorVeiculoNacional: Optional[bool]
-    indiceNacionalVeiculos: Optional[List[CortexIndiceNacionalVeiculo]]
-    lotacao: Optional[str]
-    marcaModelo: Optional[str]
-    mesAnoValidadeLicenciamento: Optional[int]
-    mesFabricacaoVeiculo: Optional[str]
-    municipioPlaca: Optional[str]
-    nomeArrendatario: Optional[str]
-    nomePossuidor: Optional[str]
-    nomeProprietario: Optional[str]
-    numeroCRV: Optional[str]
-    numeroCaixaCambio: Optional[str]
-    numeroCarroceria: Optional[str]
-    numeroDeclaracaoImportacao: Optional[str]
-    numeroEixoAuxiliar: Optional[str]
-    numeroEixoTraseiro: Optional[str]
-    numeroIdentificacaoFaturado: Optional[str]
-    numeroIdentificacaoImportador: Optional[str]
-    numeroLicencaUsoConfiguracaoVeiculosMotor: Optional[str]
-    numeroMotor: Optional[str]
-    numeroProcessoImportacao: Optional[str]
-    numeroSequenciaCRV: Optional[str]
-    numeroTipoCRLV: Optional[str]
-    numeroViaCRLV: Optional[int]
-    numeroViaCRV: Optional[int]
-    origemPossuidor: Optional[str]
-    paisTransferenciaVeiculo: Optional[str]
-    pesoBrutoTotal: Optional[str]
-    placa: Optional[str]
-    placaPreMercosul: Optional[str]
-    possuidor: Optional[CortexPossuidor]
-    potencia: Optional[int]
-    proprietario: Optional[CortexProprietario]
-    quantidadeEixo: Optional[str]
-    quantidadeRestricoesBaseEmplacamento: Optional[str]
-    registroAduaneiro: Optional[str]
-    renavam: Optional[str]
-    restricao: Optional[List[CortexRestricao]]
-    restricaoVeiculo1: Optional[str]
-    restricaoVeiculo2: Optional[str]
-    restricaoVeiculo3: Optional[str]
-    restricaoVeiculo4: Optional[str]
-    situacaoVeiculo: Optional[str]
-    tipoDocumentoFaturado: Optional[str]
-    tipoDocumentoProprietario: Optional[str]
-    tipoMontagem: Optional[str]
-    tipoVeiculo: Optional[str]
-    ufDestinoVeiculoFaturado: Optional[str]
-    ufEmplacamento: Optional[str]
-    ufFatura: Optional[str]
-    ufJurisdicaoVeiculo: Optional[str]
-    valorIPVA: Optional[int]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    anoFabricacao: str | None
+    anoModelo: str | None
+    anoUltimoLicenciamnento: int | None
+    arrendatario: CortexArrendatario | None
+    capacidadeMaximaCarga: str | None
+    capacidadeMaximaTracao: str | None
+    carroceria: str | None
+    categoria: str | None
+    chassi: str | None
+    cilindrada: int | None
+    codigoCarroceira: int | None
+    codigoCategoria: int | None
+    codigoCor: int | None
+    codigoEspecie: int | None
+    codigoMarcaModelo: int | None
+    codigoMunicipioEmplacamento: str | None
+    codigoOrgaoSRF: str | None
+    codigoSegurancaCRV: str | None
+    codigoTipoVeiculo: int | None
+    combustivel: str | None
+    cor: str | None
+    dataAtualizacaoAlarme: str | None
+    dataAtualizacaoRouboFurto: str | None
+    dataAtualizacaoVeiculo: str | None
+    dataDeclaracaoImportacao: str | None
+    dataEmissaoCRLV: datetime | None
+    dataEmissaoUltimoCRV: str | None
+    dataEmplacamento: datetime | None
+    dataHoraAtualizacaoVeiculo: datetime | None
+    dataLimiteRestricaoTributaria: str | None
+    dataPreCadastro: str | None
+    dataReplicacao: datetime | None
+    descricaoOrgaoRegiaoFiscal: str | None
+    especie: str | None
+    flagAtivo: bool | None
+    grupoVeiculo: str | None
+    id: int | None
+    identificadorUnicoVeiculo: str | None
+    indicadorRemarcacaoChassi: bool | None
+    indicadorVeiculoLicenciadoCirculacao: str | None
+    indicadorVeiculoNacional: bool | None
+    indiceNacionalVeiculos: list[CortexIndiceNacionalVeiculo] | None
+    lotacao: str | None
+    marcaModelo: str | None
+    mesAnoValidadeLicenciamento: int | None
+    mesFabricacaoVeiculo: str | None
+    municipioPlaca: str | None
+    nomeArrendatario: str | None
+    nomePossuidor: str | None
+    nomeProprietario: str | None
+    numeroCRV: str | None
+    numeroCaixaCambio: str | None
+    numeroCarroceria: str | None
+    numeroDeclaracaoImportacao: str | None
+    numeroEixoAuxiliar: str | None
+    numeroEixoTraseiro: str | None
+    numeroIdentificacaoFaturado: str | None
+    numeroIdentificacaoImportador: str | None
+    numeroLicencaUsoConfiguracaoVeiculosMotor: str | None
+    numeroMotor: str | None
+    numeroProcessoImportacao: str | None
+    numeroSequenciaCRV: str | None
+    numeroTipoCRLV: str | None
+    numeroViaCRLV: int | None
+    numeroViaCRV: int | None
+    origemPossuidor: str | None
+    paisTransferenciaVeiculo: str | None
+    pesoBrutoTotal: str | None
+    placa: str | None
+    placaPreMercosul: str | None
+    possuidor: CortexPossuidor | None
+    potencia: int | None
+    proprietario: CortexProprietario | None
+    quantidadeEixo: str | None
+    quantidadeRestricoesBaseEmplacamento: str | None
+    registroAduaneiro: str | None
+    renavam: str | None
+    restricao: list[CortexRestricao] | None
+    restricaoVeiculo1: str | None
+    restricaoVeiculo2: str | None
+    restricaoVeiculo3: str | None
+    restricaoVeiculo4: str | None
+    situacaoVeiculo: str | None
+    tipoDocumentoFaturado: str | None
+    tipoDocumentoProprietario: str | None
+    tipoMontagem: str | None
+    tipoVeiculo: str | None
+    ufDestinoVeiculoFaturado: str | None
+    ufEmplacamento: str | None
+    ufFatura: str | None
+    ufJurisdicaoVeiculo: str | None
+    valorIPVA: int | None
+    created_at: datetime | None
+    updated_at: datetime | None
 
 
 class CortexPlacasIn(BaseModel):
-    plates: List[str]
-    raise_for_errors: Optional[bool] = True
+    plates: list[str]
+    raise_for_errors: bool | None = True
 
 
 class CortexIndiceNacionalPessoa(BaseModel):
-    id: Optional[int]
-    metodo: Optional[str]
-    qtd: Optional[int]
+    id: int | None
+    metodo: str | None
+    qtd: int | None
 
 
 class CortexPersonOut(BaseModel):
-    anoExercicioOcupacao: Optional[str]
-    anoObito: Optional[str]
-    bairro: Optional[str]
-    cep: Optional[str]
-    complementoLogradouro: Optional[str]
-    dataAtualizacao: Optional[datetime]
-    dataNascimento: Optional[str]
-    ddd: Optional[str]
-    id: Optional[int]
-    identificadorResidenteExterior: Optional[str]
-    indicadorEstrangeiro: Optional[str]
-    indicadorMoradorEstrangeiro: Optional[bool]
-    indiceNacionalPessoas: Optional[List[CortexIndiceNacionalPessoa]]
-    latitudeAproximadaLocal: Optional[float]
-    logradouro: Optional[str]
-    longitudeAproximadaLocal: Optional[float]
-    municipio: Optional[str]
-    municipioNaturalidade: Optional[str]
-    naturezaOcupacao: Optional[str]
-    nomeCompleto: Optional[str]
-    nomeMae: Optional[str]
-    nomeSocial: Optional[str]
-    numeroCPF: Optional[str]
-    numeroLogradouro: Optional[str]
-    ocupacaoPrincipal: Optional[str]
-    paisNascimento: Optional[str]
-    paisResidencia: Optional[str]
-    regiaoFiscal: Optional[str]
-    sexo: Optional[str]
-    situacaoCadastral: Optional[str]
-    telefone: Optional[str]
-    tipoLogradouro: Optional[str]
-    tituloEleitor: Optional[str]
-    uf: Optional[str]
-    ufNaturalidade: Optional[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    anoExercicioOcupacao: str | None
+    anoObito: str | None
+    bairro: str | None
+    cep: str | None
+    complementoLogradouro: str | None
+    dataAtualizacao: datetime | None
+    dataNascimento: str | None
+    ddd: str | None
+    id: int | None
+    identificadorResidenteExterior: str | None
+    indicadorEstrangeiro: str | None
+    indicadorMoradorEstrangeiro: bool | None
+    indiceNacionalPessoas: list[CortexIndiceNacionalPessoa] | None
+    latitudeAproximadaLocal: float | None
+    logradouro: str | None
+    longitudeAproximadaLocal: float | None
+    municipio: str | None
+    municipioNaturalidade: str | None
+    naturezaOcupacao: str | None
+    nomeCompleto: str | None
+    nomeMae: str | None
+    nomeSocial: str | None
+    numeroCPF: str | None
+    numeroLogradouro: str | None
+    ocupacaoPrincipal: str | None
+    paisNascimento: str | None
+    paisResidencia: str | None
+    regiaoFiscal: str | None
+    sexo: str | None
+    situacaoCadastral: str | None
+    telefone: str | None
+    tipoLogradouro: str | None
+    tituloEleitor: str | None
+    uf: str | None
+    ufNaturalidade: str | None
+    created_at: datetime | None
+    updated_at: datetime | None
 
 
 class CortexPeopleIn(BaseModel):
-    cpfs: List[str]
+    cpfs: list[str]
 
 
 class CortexCnpjContador(BaseModel):
-    classificacaoCRCContadorPF: Optional[str]
-    classificacaoCRCEmpresaContabil: Optional[str]
-    cnpjEmpresaContabil: Optional[str]
-    crcEmpresaContabil: Optional[str]
-    nomeContador: Optional[str]
-    numeroCPFContador: Optional[str]
-    numeroRegistroContadorPF: Optional[str]
-    tipoCRCContadorPF: Optional[str]
-    tipoCRCEmpresaContabil: Optional[str]
-    ufCRCContador: Optional[str]
-    ufCRCEmpresaContabil: Optional[str]
+    classificacaoCRCContadorPF: str | None
+    classificacaoCRCEmpresaContabil: str | None
+    cnpjEmpresaContabil: str | None
+    crcEmpresaContabil: str | None
+    nomeContador: str | None
+    numeroCPFContador: str | None
+    numeroRegistroContadorPF: str | None
+    tipoCRCContadorPF: str | None
+    tipoCRCEmpresaContabil: str | None
+    ufCRCContador: str | None
+    ufCRCEmpresaContabil: str | None
 
 
 class CortexCnpjSocio(BaseModel):
-    cpfRepresentanteLegal: Optional[str]
-    dataEntradaSociedade: Optional[str]
-    identificadorSocio: Optional[str]
-    nomeRepresentanteLegal: Optional[str]
-    nomeSocio: Optional[str]
-    numeroCPF: Optional[str]
-    paisSocioEstrangeiro: Optional[str]
-    percentualCapitalSocial: Optional[float]
-    qualificacaoRepresentanteLegal: Optional[str]
-    qualificacaoSocio: Optional[str]
+    cpfRepresentanteLegal: str | None
+    dataEntradaSociedade: str | None
+    identificadorSocio: str | None
+    nomeRepresentanteLegal: str | None
+    nomeSocio: str | None
+    numeroCPF: str | None
+    paisSocioEstrangeiro: str | None
+    percentualCapitalSocial: float | None
+    qualificacaoRepresentanteLegal: str | None
+    qualificacaoSocio: str | None
 
 
 class CortexSucessao(BaseModel):
-    cnpjSucedida: Optional[str]
-    cnpjSucessora: Optional[str]
-    dataOperacaoSucessora: Optional[str]
-    operacaoRealizadaSucessora: Optional[str]
-    razaoSocialSucedida: Optional[str]
-    razaoSocialSucessora: Optional[str]
+    cnpjSucedida: str | None
+    cnpjSucessora: str | None
+    dataOperacaoSucessora: str | None
+    operacaoRealizadaSucessora: str | None
+    razaoSocialSucedida: str | None
+    razaoSocialSucessora: str | None
 
 
 class CortexCompanyOut(BaseModel):
-    bairro: Optional[str]
-    capitalSocialEmpresa: Optional[str]
-    cep: Optional[str]
-    cnaeFiscal: Optional[str]
-    cnaeSecundario: Optional[str]
-    cnpj: Optional[str]
-    cnpjContador: Optional[List[CortexCnpjContador]]
-    cnpjSocio: Optional[List[CortexCnpjSocio]]
-    codigoCnaeFiscal: Optional[str]
-    codigoCnaeSecundario: Optional[str]
-    complementoLogradouro: Optional[str]
-    cpfResponsavel: Optional[str]
-    dataExclusaoSimples: Optional[str]
-    dataInicioAtividade: Optional[str]
-    dataOpcaoSimples: Optional[str]
-    dataSituacaoCadastral: Optional[str]
-    email: Optional[str]
-    fax: Optional[str]
-    indicadorMatrizFilial: Optional[str]
-    logradouro: Optional[str]
-    motivoSituacaoCadastral: Optional[str]
-    municipio: Optional[str]
-    naturezaJuridica: Optional[str]
-    nomeCidadeExterior: Optional[str]
-    nomeFantasia: Optional[str]
-    nomePais: Optional[str]
-    nomeResponsavel: Optional[str]
-    numeroLogradouro: Optional[str]
-    opcaoSimples: Optional[str]
-    porteEmpresa: Optional[str]
-    qualificacaoPessoaJuridicaResponsavelEmpresa: Optional[str]
-    razaoSocial: Optional[str]
-    situacaoCadastral: Optional[str]
-    sucessao: Optional[List[CortexSucessao]]
-    telefone1: Optional[str]
-    telefone2: Optional[str]
-    tipoLogradouro: Optional[str]
-    uf: Optional[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    bairro: str | None
+    capitalSocialEmpresa: str | None
+    cep: str | None
+    cnaeFiscal: str | None
+    cnaeSecundario: str | None
+    cnpj: str | None
+    cnpjContador: list[CortexCnpjContador] | None
+    cnpjSocio: list[CortexCnpjSocio] | None
+    codigoCnaeFiscal: str | None
+    codigoCnaeSecundario: str | None
+    complementoLogradouro: str | None
+    cpfResponsavel: str | None
+    dataExclusaoSimples: str | None
+    dataInicioAtividade: str | None
+    dataOpcaoSimples: str | None
+    dataSituacaoCadastral: str | None
+    email: str | None
+    fax: str | None
+    indicadorMatrizFilial: str | None
+    logradouro: str | None
+    motivoSituacaoCadastral: str | None
+    municipio: str | None
+    naturezaJuridica: str | None
+    nomeCidadeExterior: str | None
+    nomeFantasia: str | None
+    nomePais: str | None
+    nomeResponsavel: str | None
+    numeroLogradouro: str | None
+    opcaoSimples: str | None
+    porteEmpresa: str | None
+    qualificacaoPessoaJuridicaResponsavelEmpresa: str | None
+    razaoSocial: str | None
+    situacaoCadastral: str | None
+    sucessao: list[CortexSucessao] | None
+    telefone1: str | None
+    telefone2: str | None
+    tipoLogradouro: str | None
+    uf: str | None
+    created_at: datetime | None
+    updated_at: datetime | None
 
 
 class CortexCompaniesIn(BaseModel):
-    cnpjs: List[str]
+    cnpjs: list[str]
 
 
 class CortexCreditsOut(BaseModel):
@@ -316,17 +319,17 @@ class OIDCUser(BaseModel):
     acr: str
     azp: str
     uid: str
-    email: Optional[str] = None
+    email: str | None = None
     email_verified: bool | None
-    name: Optional[str] = None
-    given_name: Optional[str] = None
-    preferred_username: Optional[str] = None
+    name: str | None = None
+    given_name: str | None = None
+    preferred_username: str | None = None
     nickname: str
     groups: list[str]
-    matricula: Optional[str] = None
-    orgao: Optional[str] = None
-    setor: Optional[str] = None
-    cpf: Optional[str] = None
+    matricula: str | None = None
+    orgao: str | None = None
+    setor: str | None = None
+    cpf: str | None = None
 
 
 class Token(BaseModel):
@@ -344,50 +347,50 @@ class Location(BaseModel):
     sentido: str | None = None
     localidade: str
     velocidade: float
-    seconds_to_next_point: Optional[float] = None
+    seconds_to_next_point: float | None = None
 
 
 class Step(BaseModel):
-    distanceMeters: Optional[int] = None
+    distanceMeters: int | None = None
     staticDuration: str
     polyline: dict
     startLocation: dict
     endLocation: dict
-    navigationInstruction: Optional[dict] = None
+    navigationInstruction: dict | None = None
     localizedValues: dict
     travelMode: str
 
 
 class Leg(BaseModel):
-    distanceMeters: Optional[int] = None
+    distanceMeters: int | None = None
     duration: str
     staticDuration: str
     polyline: dict
     startLocation: dict
     endLocation: dict
-    steps: List[Step]
+    steps: list[Step]
     localizedValues: dict
 
 
 class Route(BaseModel):
-    legs: List[Leg]
+    legs: list[Leg]
 
 
 class Polyline(BaseModel):
-    routes: List[Route]
+    routes: list[Route]
 
 
 class LocationsItem(BaseModel):
-    locations: List[List[Location]]
+    locations: list[list[Location]]
 
 
 class PolylineItem(BaseModel):
-    polyline: List[Polyline]
+    polyline: list[Polyline]
 
 
 class Path(BaseModel):
-    locations: List[List[Location]]
-    polyline: Optional[List[Polyline]] = None
+    locations: list[list[Location]]
+    polyline: list[Polyline] | None = None
 
 
 class AgentLocationIn(BaseModel):
@@ -418,14 +421,21 @@ class DataRelayResponse(BaseModel):
     message: str
 
 
+class MonitoredPlateDemandantLinkIn(BaseModel):
+    demandant_id: UUID
+    reference_number: str = Field(..., max_length=50)
+    valid_until: datetime | None = None
+    notes: str | None = None
+    additional_info: dict | None = None
+    lpr_equipment_ids: list[UUID] | None = None
+
+
 class MonitoredPlateIn(BaseModel):
     plate: str = Field(...)
-    operation_id: UUID
-    active: Optional[bool] = True
-    contact_info: Optional[str] = None
-    notes: Optional[str] = None
-    additional_info: Optional[dict] = None
-    notification_channels: Optional[List[UUID]] = None
+    numero_controle: str = Field(..., max_length=255)
+    notes: str | None = None
+    notification_channels: list[UUID] | None = None
+    demandant_links: list[MonitoredPlateDemandantLinkIn] | None = None
 
     @validator("plate")
     def validate_plate(cls, value: str):
@@ -444,39 +454,138 @@ class MonitoredPlateIn(BaseModel):
         return value
 
 
+class OrganizationOut(BaseModel):
+    id: UUID
+    name: str
+    organization_type: str
+    acronym: str
+    jurisdiction_level: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    class Config:
+        orm_mode = True
+
+
+class DemandantOut(BaseModel):
+    id: UUID
+    organization: OrganizationOut
+    name: str | None = None
+    email: str | None = None
+    phone_1: str | None = None
+    phone_2: str | None = None
+    phone_3: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    class Config:
+        orm_mode = True
+
+    @classmethod
+    async def from_demandant(cls, demandant: Demandant) -> "DemandantOut":
+        org = await demandant.organization
+        return cls(
+            id=demandant.id,
+            organization=OrganizationOut.from_orm(org),
+            name=demandant.name,
+            email=demandant.email,
+            phone_1=demandant.phone_1,
+            phone_2=demandant.phone_2,
+            phone_3=demandant.phone_3,
+            created_at=demandant.created_at,
+            updated_at=demandant.updated_at,
+        )
+
+
+class MonitoredPlateDemandantRadarOut(BaseModel):
+    id: UUID
+    lpr_equipment_id: UUID
+    active: bool
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    class Config:
+        orm_mode = True
+
+    @classmethod
+    def from_radar_link(
+        cls, row: MonitoredPlateDemandantRadar
+    ) -> "MonitoredPlateDemandantRadarOut":
+        return cls(
+            id=row.id,
+            lpr_equipment_id=row.lpr_equipment_id,
+            active=row.active,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+
+class MonitoredPlateDemandantLinkOut(BaseModel):
+    id: UUID
+    reference_number: str
+    valid_until: datetime | None = None
+    active: bool
+    notes: str | None = None
+    additional_info: dict | None = None
+    demandant: DemandantOut
+    radars: list[MonitoredPlateDemandantRadarOut] = []
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    class Config:
+        orm_mode = True
+
+
 class MonitoredPlateOut(BaseModel):
     id: UUID
     plate: str
-    operation: Optional["OperationOut"] = None
-    active: bool
-    contact_info: Optional[str] = None
-    notes: Optional[str] = None
-    additional_info: Optional[dict] = None
-    notification_channels: Optional[List["NotificationChannelOut"]] = []
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    numero_controle: str
+    notes: str | None = None
+    notification_channels: list["NotificationChannelOut"] | None = []
+    demandant_links: list[MonitoredPlateDemandantLinkOut] = []
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     class Config:
         orm_mode = True
 
     @classmethod
     async def from_monitored_plate(cls, monitored_plate: MonitoredPlate):
+        channels = await monitored_plate.notification_channels.all()
+        links_qs = MonitoredPlateDemandant.filter(
+            monitored_plate_id=monitored_plate.id
+        ).prefetch_related("demandant__organization", "radar_links")
+        links = await links_qs
+        demandant_links_out: list[MonitoredPlateDemandantLinkOut] = []
+        for link in links:
+            demandant_obj = await link.demandant
+            radars = await link.radar_links.all()
+            demandant_links_out.append(
+                MonitoredPlateDemandantLinkOut(
+                    id=link.id,
+                    reference_number=link.reference_number,
+                    valid_until=link.valid_until,
+                    active=link.active,
+                    notes=link.notes,
+                    additional_info=link.additional_info,
+                    demandant=await DemandantOut.from_demandant(demandant_obj),
+                    radars=[
+                        MonitoredPlateDemandantRadarOut.from_radar_link(r)
+                        for r in radars
+                    ],
+                    created_at=link.created_at,
+                    updated_at=link.updated_at,
+                )
+            )
         return MonitoredPlateOut(
             id=monitored_plate.id,
             plate=monitored_plate.plate,
-            operation=(
-                OperationOut.from_orm(await monitored_plate.operation)
-                if await monitored_plate.operation
-                else None
-            ),
-            active=monitored_plate.active,
-            contact_info=monitored_plate.contact_info,
+            numero_controle=monitored_plate.numero_controle,
             notes=monitored_plate.notes,
-            additional_info=monitored_plate.additional_info,
             notification_channels=[
-                NotificationChannelOut.from_orm(channel)
-                for channel in await monitored_plate.notification_channels.all()
+                NotificationChannelOut.from_orm(ch) for ch in channels
             ],
+            demandant_links=demandant_links_out,
             created_at=monitored_plate.created_at,
             updated_at=monitored_plate.updated_at,
         )
@@ -484,33 +593,27 @@ class MonitoredPlateOut(BaseModel):
 
 class MonitoredPlateHistory(BaseModel):
     plate: str
-    contact_info: Optional[str] = None
-    notes: Optional[str] = None
-    created_timestamp: Optional[datetime] = None
+    notes: str | None = None
+    created_timestamp: datetime | None = None
     created_by: Optional["UserOut"] = None
-    deleted_timestamp: Optional[datetime] = None
+    deleted_timestamp: datetime | None = None
     deleted_by: Optional["UserOut"] = None
 
 
 class MonitoredPlateUpdate(BaseModel):
-    plate: Optional[str] = Field(default=None)
-    operation_id: Optional[UUID] = None
-    active: Optional[bool] = None
-    contact_info: Optional[str] = None
-    notes: Optional[str] = None
-    additional_info: Optional[dict] = None
-    notification_channels: Optional[List[UUID]] = None
+    plate: str | None = Field(default=None)
+    numero_controle: str | None = Field(default=None, max_length=255)
+    notes: str | None = None
+    notification_channels: list[UUID] | None = None
 
     @validator("plate")
     def validate_plate(cls, value: str):
         from app.utils import validate_plate as validate_plate_util
 
         if value is not None:
-            # Ensure the plate is upper case
             value = value.upper()
 
-        # Ensure the plate has the correct format
-        if not validate_plate_util(value):
+        if value is not None and not validate_plate_util(value):
             raise ValueError(
                 "plate must have exactly 7 characters: "
                 "first 3 letters, 4th digit, 5th letter or digit, last 2 digits"
@@ -527,99 +630,92 @@ class NotificationChannelIn(BaseModel):
 
 class NotificationChannelOut(BaseModel):
     id: UUID
-    title: Optional[str] = None
+    title: str | None = None
     channel_type: NotificationChannelTypeEnum
     parameters: dict
     active: bool
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     class Config:
         orm_mode = True
 
 
 class NotificationChannelUpdate(BaseModel):
-    title: Optional[str] = None
-    active: Optional[bool] = None
+    title: str | None = None
+    active: bool | None = None
 
 
 class NPlatesBeforeAfterDetection(BaseModel):
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
     plate: str
     codcet: str
     lane: str
-    speed: Optional[float] = None
-    count: Optional[int] = None
+    speed: float | None = None
+    count: int | None = None
 
 
 class NPlatesBeforeAfterOut(BaseModel):
-    radars: List[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    location: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    detection_time: Optional[datetime] = None
-    total_detections: Optional[int] = None
-    detections: List[NPlatesBeforeAfterDetection] = None
+    radars: list[str] = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    location: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    detection_time: datetime | None = None
+    total_detections: int | None = None
+    detections: list[NPlatesBeforeAfterDetection] = None
 
 
-class OperationIn(BaseModel):
-    title: str
-    description: Optional[str] = None
+class OrganizationIn(BaseModel):
+    name: str
+    organization_type: str
+    acronym: str
+    jurisdiction_level: str
 
 
-class OperationOut(BaseModel):
-    id: UUID
-    title: str
-    description: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-
-    class Config:
-        orm_mode = True
-
-
-class OperationUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
+class OrganizationUpdate(BaseModel):
+    name: str | None = None
+    organization_type: str | None = None
+    acronym: str | None = None
+    jurisdiction_level: str | None = None
 
 
 class RadarOut(BaseModel):
     codcet: str
     latitude: float
     longitude: float
-    locequip: Optional[str] = None
-    bairro: Optional[str] = None
-    logradouro: Optional[str] = None
+    locequip: str | None = None
+    bairro: str | None = None
+    logradouro: str | None = None
     has_data: str
-    empresa: Optional[str] = None
-    active_in_last_24_hours: Optional[str] = None
-    last_detection_time: Optional[datetime] = None
-    sentido: Optional[str] = None
+    empresa: str | None = None
+    active_in_last_24_hours: str | None = None
+    last_detection_time: datetime | None = None
+    sentido: str | None = None
 
 
 class ReportFilters(BaseModel):
     limit: int
     offset: int
-    semantically_similar: Optional[str] = None
-    id_report: Optional[str] = None
-    id_report_original: Optional[str] = None
-    id_source_contains: Optional[List[str]] = None
-    data_report_min: Optional[datetime] = None
-    data_report_max: Optional[datetime] = None
-    categoria_contains: Optional[List[str]] = None
-    descricao_contains: Optional[List[str]] = None
-    keywords: Optional[List[str]] = None
-    latitude_min: Optional[float] = None
-    latitude_max: Optional[float] = None
-    longitude_min: Optional[float] = None
-    longitude_max: Optional[float] = None
+    semantically_similar: str | None = None
+    id_report: str | None = None
+    id_report_original: str | None = None
+    id_source_contains: list[str] | None = None
+    data_report_min: datetime | None = None
+    data_report_max: datetime | None = None
+    categoria_contains: list[str] | None = None
+    descricao_contains: list[str] | None = None
+    keywords: list[str] | None = None
+    latitude_min: float | None = None
+    latitude_max: float | None = None
+    longitude_min: float | None = None
+    longitude_max: float | None = None
 
 
 class ReportTipoSubtipo(BaseModel):
     tipo: str
-    subtipo: List[str]
+    subtipo: list[str]
 
 
 class ReportAdditionalInfo(BaseModel):
@@ -631,22 +727,22 @@ class ReportOut(BaseModel):
     id_source: str
     id_report_original: str
     data_report: datetime
-    orgaos: List[str]
+    orgaos: list[str]
     categoria: str
-    tipo_subtipo: List[ReportTipoSubtipo]
-    descricao: Optional[str] = None
-    logradouro: Optional[str] = None
-    numero_logradouro: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    tipo_subtipo: list[ReportTipoSubtipo]
+    descricao: str | None = None
+    logradouro: str | None = None
+    numero_logradouro: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     updated_at: datetime
-    additional_info: Optional[ReportAdditionalInfo] = None
+    additional_info: ReportAdditionalInfo | None = None
 
 
 class ReportLatLongOut(BaseModel):
     id_report: str
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class ReportTimelineOut(BaseModel):
@@ -657,15 +753,15 @@ class ReportTimelineOut(BaseModel):
 
 class ReportTopSubtypesOut(BaseModel):
     tipo: str
-    subtipo: Optional[str] = None
+    subtipo: str | None = None
     count: int
 
 
 class ReportsMetadata(BaseModel):
-    distinct_sources: List[str]
-    distinct_categories: List[str]
-    distinct_types: List[str]
-    type_subtypes: Dict[str, List[str]]
+    distinct_sources: list[str]
+    distinct_categories: list[str]
+    distinct_types: list[str]
+    type_subtypes: dict[str, list[str]]
 
 
 class UserCortexRemainingCreditOut(BaseModel):
@@ -677,8 +773,8 @@ class UserHistoryOut(BaseModel):
     id: UUID
     method: str
     path: str
-    query_params: Optional[dict] = None
-    body: Optional[dict] = None
+    query_params: dict | None = None
+    body: dict | None = None
     status_code: int
     timestamp: datetime
 
@@ -686,12 +782,12 @@ class UserHistoryOut(BaseModel):
 class UserOut(BaseModel):
     id: UUID
     username: str
-    full_name: Optional[str] = None
-    cpf: Optional[str] = None
-    registration: Optional[str] = None
-    agency: Optional[str] = None
-    sector: Optional[str] = None
-    email: Optional[str] = None
+    full_name: str | None = None
+    cpf: str | None = None
+    registration: str | None = None
+    agency: str | None = None
+    sector: str | None = None
+    email: str | None = None
     is_admin: bool
 
     class Config:
@@ -700,12 +796,12 @@ class UserOut(BaseModel):
 
 class WazeAlertOut(BaseModel):
     timestamp: datetime
-    street: Optional[str] = None
+    street: str | None = None
     type: str
     subtype: str
     reliability: float
     confidence: float
-    number_thumbs_up: Optional[int] = None
+    number_thumbs_up: int | None = None
     latitude: float
     longitude: float
 
@@ -720,7 +816,7 @@ class PdfReportCorrelatedPlatesDataDetection(BaseModel):
 
 
 class PdfReportCorrelatedPlatesData(BaseModel):
-    radars: List[str]
+    radars: list[str]
     start_time: datetime
     end_time: datetime
     location: str
@@ -728,7 +824,7 @@ class PdfReportCorrelatedPlatesData(BaseModel):
     longitude: float
     detection_time: datetime
     total_detections: int
-    detections: List[PdfReportCorrelatedPlatesDataDetection]
+    detections: list[PdfReportCorrelatedPlatesDataDetection]
 
 
 class PdfReportCorrelatedPlatesParams(BaseModel):
@@ -745,59 +841,61 @@ class PdfReportCorrelatedPlatesRanking(BaseModel):
 
 
 class PdfReportCorrelatedPlatesIn(BaseModel):
-    report_data: List[PdfReportCorrelatedPlatesData] = []
+    report_data: list[PdfReportCorrelatedPlatesData] = []
     params: PdfReportCorrelatedPlatesParams
-    ranking: List[PdfReportCorrelatedPlatesRanking] = []
+    ranking: list[PdfReportCorrelatedPlatesRanking] = []
 
 
 class RequestedPlateData(BaseModel):
     plate: str
     start: datetime
     end: datetime
-    n_minutes: Optional[int] = None
-    n_plates: Optional[int] = None
-    target_id: Optional[int] = None
+    n_minutes: int | None = None
+    n_plates: int | None = None
+    target_id: int | None = None
 
 
 class VehicleType(str, Enum):
-    AUTOMOVEL = 'automovel'
-    CAMINHAO = 'caminhao'
-    CAMINHAO_ONIBUS = 'caminhao_onibus'
-    CICLOMOTOR = 'ciclomotor'
-    INDEFINIDO = 'indefinido'
-    MOTO = 'moto'
-    ONIBUS = 'onibus'
-    
-    
+    AUTOMOVEL = "automovel"
+    CAMINHAO = "caminhao"
+    CAMINHAO_ONIBUS = "caminhao_onibus"
+    CICLOMOTOR = "ciclomotor"
+    INDEFINIDO = "indefinido"
+    MOTO = "moto"
+    ONIBUS = "onibus"
+
+
 class PdfReportMultipleCorrelatedPlatesIn(BaseModel):
-    requested_plates_data: List[RequestedPlateData]
+    requested_plates_data: list[RequestedPlateData]
     n_minutes: int = Field(gt=0, le=20, description="Must be between 1 and 20")
-    n_plates: Optional[int] = Field(gt=0, description="Must be greater than 0")
+    n_plates: int | None = Field(gt=0, description="Must be greater than 0")
     min_different_targets: int = Field(gt=0, description="Must be greater than 0")
     # vehicle_types: List[VehicleType] = Field(
     #     default=[VehicleType.AUTOMOVEL, VehicleType.INDEFINIDO],
     #     description="Must be a list of vehicle types."
     # )
     keep_buses: bool = Field(default=False, description="Must be a boolean")
-    before_after: Optional[Literal["before", "after"]]
+    before_after: Literal["before", "after"] | None
     report_title: str = "Relatório de Identificação de Veículos"
-    
-    
+
+
 class DetectionWindow(BaseModel):
     plate: str
     codcet: str
     detection_index: int
     target_id: int
     n_minutes: int
-    n_plates: Optional[int] = None
+    n_plates: int | None = None
     start_time: datetime
     end_time: datetime
     local_detection_datetime: datetime
     start_window: datetime
     end_window: datetime
-    
+
+
 class DetectionWindowList(BaseModel):
-    detection_window_list: List[DetectionWindow]
+    detection_window_list: list[DetectionWindow]
+
 
 class GetCarsByRadarIn:
     def __init__(
@@ -822,9 +920,9 @@ class GetCarsByRadarIn:
             None,
             description="The plate hint to get cars by",
             example="ABC1234, A**1234",
-            min_length=2, # min plate_hint must be A* (2 characters)
-            max_length=7, # max plate_hint must be ABC1D34 (7 characters)
-            regex = r"^[a-zA-Z0-9*]{2,7}$" # plate_hint must be alphanumeric and can contain *
+            min_length=2,  # min plate_hint must be A* (2 characters)
+            max_length=7,  # max plate_hint must be ABC1D34 (7 characters)
+            regex=r"^[a-zA-Z0-9*]{2,7}$",  # plate_hint must be alphanumeric and can contain *
         ),
     ):
         self.codcet = codcet
@@ -832,28 +930,37 @@ class GetCarsByRadarIn:
         self.end_time = end_time
         self.plate_hint = plate_hint
 
+
 class GCSUploadIn(BaseModel):
     file_name: str = Field(..., description="The name of the file to upload.")
     content_type: str = Field(..., description="The MIME type of the file.")
-    bucket_name: str = Field(..., description="The name of the bucket to upload the file to.")
+    bucket_name: str = Field(
+        ..., description="The name of the bucket to upload the file to."
+    )
     file_size: int = Field(..., description="The size of the file in bytes.")
     resumable: bool = Field(False, description="Whether to use resumable upload.")
-    file_path: Optional[str] = Field(None, description="The path of the file to upload.")
-    crc32c: Optional[str] = Field(None, description="The CRC32C checksum of the file.")
-    
-    
+    file_path: str | None = Field(None, description="The path of the file to upload.")
+    crc32c: str | None = Field(None, description="The CRC32C checksum of the file.")
+
+
 class GCSUploadOut(BaseModel):
     signed_url: str
-    file_exists: bool = Field(..., description="Whether a file with this name already exists in the bucket.")
+    file_exists: bool = Field(
+        ..., description="Whether a file with this name already exists in the bucket."
+    )
 
 
 class GCSFileInfoOut(BaseModel):
     name: str = Field(..., description="The name of the file.")
     size: int = Field(..., description="The size of the file in bytes.")
-    content_type: Optional[str] = Field(None, description="The MIME type of the file.")
-    time_created: Optional[datetime] = Field(None, description="The time the file was created.")
-    updated: Optional[datetime] = Field(None, description="The time the file was last updated.")
-    etag: Optional[str] = Field(None, description="The ETag of the file.")
+    content_type: str | None = Field(None, description="The MIME type of the file.")
+    time_created: datetime | None = Field(
+        None, description="The time the file was created."
+    )
+    updated: datetime | None = Field(
+        None, description="The time the file was last updated."
+    )
+    etag: str | None = Field(None, description="The ETag of the file.")
 
 
 class GCSFileExistsOut(BaseModel):
@@ -863,14 +970,26 @@ class GCSFileExistsOut(BaseModel):
 
 
 class GCSDownloadOut(BaseModel):
-    download_url: str = Field(..., description="The signed URL for downloading the file.")
-    expires_in_seconds: int = Field(..., description="Number of seconds until the URL expires.")
+    download_url: str = Field(
+        ..., description="The signed URL for downloading the file."
+    )
+    expires_in_seconds: int = Field(
+        ..., description="Number of seconds until the URL expires."
+    )
 
 
 class GCSDownloadIn(BaseModel):
-    file_name: str = Field(..., description="The full path to the file in the bucket (can include folders).")
+    file_name: str = Field(
+        ...,
+        description="The full path to the file in the bucket (can include folders).",
+    )
     bucket_name: str = Field(..., description="The name of the bucket.")
-    expiration_minutes: int = Field(15, ge=1, le=10080, description="URL expiration time in minutes (1-10080, max 7 days).")
+    expiration_minutes: int = Field(
+        15,
+        ge=1,
+        le=10080,
+        description="URL expiration time in minutes (1-10080, max 7 days).",
+    )
 
 
 class GCSFileOrderBy(str, Enum):
@@ -880,7 +999,7 @@ class GCSFileOrderBy(str, Enum):
     TIME_CREATED_DESC = "time_created_desc"
     SIZE_ASC = "size_asc"
     SIZE_DESC = "size_desc"
-    
+
 
 class ListFilesIn(BaseModel):
     bucket_name: str = Query(..., description="The name of the bucket.")
@@ -888,18 +1007,24 @@ class ListFilesIn(BaseModel):
         GCSFileOrderBy.TIME_CREATED_DESC,
         description="Order by field and direction.",
     )
-    
+
 
 class GCSFileExistsIn(BaseModel):
-    file_name: str = Field(..., description="The full path to the file in the bucket (can include folders).")
+    file_name: str = Field(
+        ...,
+        description="The full path to the file in the bucket (can include folders).",
+    )
     bucket_name: str = Field(..., description="The name of the bucket.")
-    
-    
+
+
 class GCSDeleteFileIn(BaseModel):
-    file_name: str = Field(..., description="The full path to the file in the bucket (can include folders).")
+    file_name: str = Field(
+        ...,
+        description="The full path to the file in the bucket (can include folders).",
+    )
     bucket_name: str = Field(..., description="The name of the bucket.")
-    
-    
+
+
 MonitoredPlateOut.update_forward_refs()
 MonitoredPlateHistory.update_forward_refs()
 
