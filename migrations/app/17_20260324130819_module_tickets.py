@@ -3,7 +3,8 @@ from tortoise import BaseDBAsyncClient
 
 async def upgrade(db: BaseDBAsyncClient) -> str:
     return """
-   CREATE TABLE IF NOT EXISTS "ticket_types" (
+
+CREATE TABLE IF NOT EXISTS "ticket_types" (
     "id" UUID NOT NULL  PRIMARY KEY,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
     "name" VARCHAR(80) NOT NULL UNIQUE,
@@ -48,7 +49,7 @@ CREATE INDEX IF NOT EXISTS "idx_team_member_team_id_a60c0c" ON "team_members" ("
 COMMENT ON COLUMN "team_members"."role" IS 'COORDENADOR: Coordenador\nADMINISTRATIVO: Administrativo\nADJUNTO: Adjunto\nLIDER_DE_ILHA: Líder de Ilha\nOPERADOR: Operador';
         CREATE TABLE IF NOT EXISTS "tickets" (
     "id" UUID NOT NULL  PRIMARY KEY,
-    "internal_number" INT NOT NULL UNIQUE,
+    "internal_number" INT GENERATED ALWAYS AS IDENTITY UNIQUE,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
     "status" VARCHAR(30) NOT NULL  DEFAULT 'PENDENTE',
     "priority" VARCHAR(30) NOT NULL,
@@ -177,7 +178,7 @@ CREATE INDEX IF NOT EXISTS "idx_ticket_join_ticket__437f59" ON "ticket_joint_pla
     "service_id" UUID NOT NULL REFERENCES "ticket_joint_plate_services" ("id") ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "idx_ticket_join_service_b7535c" ON "ticket_joint_plate_service_items" ("service_id", "created_at");
-       
+
         CREATE TABLE IF NOT EXISTS "ticket_other_services" (
     "id" UUID NOT NULL  PRIMARY KEY,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
@@ -204,7 +205,7 @@ CREATE INDEX IF NOT EXISTS "idx_ticket_plat_ticket__84af70" ON "ticket_plate_sea
     "ticket_id" UUID NOT NULL REFERENCES "tickets" ("id") ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "idx_ticket_rada_ticket__276771" ON "ticket_radar_search_services" ("ticket_id", "created_at");
-     
+
         CREATE TABLE IF NOT EXISTS "user_roles" (
     "id" UUID NOT NULL  PRIMARY KEY,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,

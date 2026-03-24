@@ -327,7 +327,7 @@ class TicketDashboardItemOut(BaseModel):
     chamado: str
     status: str
     demandante: str
-    equipe: Optional[str] = None
+    equipe: str
     responsavel: str
     prioridade: str
     dias_atraso: int

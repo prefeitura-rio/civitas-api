@@ -1076,6 +1076,7 @@ async def get_tickets_dashboard(
     tickets = await (
         query.prefetch_related(
             "operation",
+            "team",
             "ticket_type",
             "nature",
             "focal_points",
@@ -1121,7 +1122,7 @@ async def get_tickets_dashboard(
             chamado=str(ticket.internal_number).zfill(7),
             status=status_ticket.value,
             demandante=ticket.operation.title if ticket.operation else "",
-            equipe=ticket.team_id,
+            equipe=ticket.team.name if ticket.team else "",
             responsavel=ticket.operation.title if ticket.operation else "",
             prioridade=priority.value,
             dias_atraso=aging_days,
