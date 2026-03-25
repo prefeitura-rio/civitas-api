@@ -270,13 +270,17 @@ async def _create_ticket_base(
         has_press_nickname=ticket_in.possui_apelido_imprensa,
         press_nickname=press_nickname,
         press_link=press_link,
+        has_correspondence_address=ticket_in.possui_endereco_correspondencia,
+        correspondence_neighborhood=ticket_in.bairro_correspondencia,
+        correspondence_street=ticket_in.rua_correspondencia,
+        correspondence_number=ticket_in.numero_correspondencia,
         requester_name=ticket_in.requisitante.requisitante_nome,
         requester_phone=ticket_in.requisitante.requisitante_telefone,
         requester_email=str(ticket_in.requisitante.requisitante_email)
         if ticket_in.requisitante.requisitante_email
         else None,
         team_id=ticket_in.equipe_id,
-        priority=ticket_in.prioridade.value,
+        priority=ticket_in.prioridade.value if ticket_in.prioridade else None,
         using_db=connection,
     )
 
@@ -977,6 +981,7 @@ async def get_tickets_dashboard(
     else:
         query = Ticket.all()
 
+
     termo = (filters.search or "").strip()
     if termo:
         search_q = (
@@ -985,6 +990,10 @@ async def get_tickets_dashboard(
             | Q(procedure_number__icontains=termo)
             | Q(official_letter_number__icontains=termo)
             | Q(focal_points__name__icontains=termo)
+            | Q(press_nickname__icontains=termo)
+            | Q(team__name__icontains=termo)
+            | Q(responsible__full_name__icontains=termo)
+            | Q(internal_number__icontains=termo)
         )
 
         if termo.isdigit():
@@ -992,30 +1001,6 @@ async def get_tickets_dashboard(
 
         query = query.filter(search_q)
 
-    if filters.tipo_chamado_id:
-        query = query.filter(ticket_type_id__in=filters.tipo_chamado_id)
-
-    if filters.numero_interno:
-        query = query.filter(internal_number__in=filters.numero_interno)
-
-    if filters.numero_procedimento:
-        q = Q()
-        for item in filters.numero_procedimento:
-            value = (item or "").strip()
-            if value:
-                q |= Q(procedure_number__icontains=value)
-        query = query.filter(q)
-
-    if filters.numero_oficio:
-        q = Q()
-        for item in filters.numero_oficio:
-            value = (item or "").strip()
-            if value:
-                q |= Q(official_letter_number__icontains=value)
-        query = query.filter(q)
-
-    if filters.natureza_id:
-        query = query.filter(nature_id__in=filters.natureza_id)
 
     if filters.demandante_id:
         query = query.filter(operation_id__in=filters.demandante_id)
@@ -1028,13 +1013,15 @@ async def get_tickets_dashboard(
                 q |= Q(requester_name__icontains=value)
         query = query.filter(q)
 
-    if filters.ponto_focal:
-        q = Q()
-        for item in filters.ponto_focal:
-            value = (item or "").strip()
-            if value:
-                q |= Q(focal_points__name__icontains=value)
-        query = query.filter(q)
+    if filters.prioridade:
+        prioridades_validas = [item for item in filters.prioridade if item]
+        if prioridades_validas:
+            query = query.filter(priority__in=prioridades_validas)
+
+    if filters.equipe:
+        equipes_validas = [item for item in filters.equipe if item]
+        if equipes_validas:
+            query = query.filter(team_id__in=equipes_validas)
 
     if filters.data_base_inicio:
         query = query.filter(base_date__gte=filters.data_base_inicio)
@@ -1050,24 +1037,6 @@ async def get_tickets_dashboard(
         dt_fim = datetime.combine(filters.data_entrada_fim, time.max)
         query = query.filter(created_at__lte=dt_fim)
 
-    if filters.status:
-        status_validos = [item for item in filters.status if item]
-        if status_validos:
-            query = query.filter(status__in=status_validos)
-
-    if filters.prioridade:
-        prioridades_validas = [item for item in filters.prioridade if item]
-        if prioridades_validas:
-            query = query.filter(priority__in=prioridades_validas)
-
-    if filters.equipe:
-        equipes_validas = [item for item in filters.equipe if item]
-        if equipes_validas:
-            query = query.filter(team_id__in=equipes_validas)
-
-    services_q = _build_services_filter_q(filters.servicos_realizados)
-    if services_q:
-        query = query.filter(services_q)
 
     query = query.distinct()
 
@@ -1077,6 +1046,7 @@ async def get_tickets_dashboard(
         query.prefetch_related(
             "operation",
             "team",
+            "responsible",
             "ticket_type",
             "nature",
             "focal_points",
@@ -1104,7 +1074,7 @@ async def get_tickets_dashboard(
 
     for ticket in tickets:
         status_ticket = TicketStatus(ticket.status)
-        priority = TicketPriority(ticket.priority)
+        priority = TicketPriority(ticket.priority) if ticket.priority else None
 
         created_at = ticket.created_at
         current_time = (
@@ -1123,8 +1093,8 @@ async def get_tickets_dashboard(
             status=status_ticket.value,
             demandante=ticket.operation.title if ticket.operation else "",
             equipe=ticket.team.name if ticket.team else "",
-            responsavel=ticket.operation.title if ticket.operation else "",
-            prioridade=priority.value,
+            responsavel=ticket.responsible.full_name if ticket.responsible else "",
+            prioridade=priority.value if priority else None,
             dias_atraso=aging_days,
             servicos=[
                 TicketDashboardServiceTagOut(label=label)
