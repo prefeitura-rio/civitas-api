@@ -214,11 +214,16 @@ class TicketCreateIn(BaseModel):
     apelido_imprensa: Optional[str] = Field(default=None, max_length=120)
     link_materia: Optional[HttpUrl] = None
 
+    possui_endereco_correspondencia: bool = False
+    bairro_correspondencia: Optional[str] = Field(default=None, max_length=120)
+    rua_correspondencia: Optional[str] = Field(default=None, max_length=255)
+    numero_correspondencia: Optional[str] = Field(default=None, max_length=20)
+
     requisitante: TicketCreateRequester
     pontos_focais: List[TicketCreateFocalPoint] = Field(default_factory=list)
 
     equipe_id: str
-    prioridade: TicketPriority
+    prioridade: Optional[TicketPriority] = None
 
     comentario_inicial: Optional[str] = Field(default=None, max_length=50_000)
 
@@ -318,7 +323,7 @@ class TicketDashboardItemOut(BaseModel):
     demandante: str
     equipe: str
     responsavel: str
-    prioridade: str
+    prioridade: Optional[str] = None
     dias_atraso: int
     servicos: List[TicketDashboardServiceTagOut]
 
@@ -351,9 +356,14 @@ class TicketDashboardFilterIn(BaseModel):
     demandante_id: Optional[List[str]] = None
     requisitante: Optional[List[str]] = None
 
+    data_base_inicio: Optional[date] = None
+    data_base_fim: Optional[date] = None
+
+    data_entrada_inicio: Optional[date] = None
+    data_entrada_fim: Optional[date] = None
+
     prioridade: Optional[List[str]] = None
     equipe: Optional[List[str]] = None
-    servicos_realizados: Optional[List[str]] = None
 
     @root_validator
     def validate_date_ranges(cls, values):

@@ -43,6 +43,7 @@ class Ticket(Model):
     priority = fields.CharEnumField(
         TicketPriority,
         max_length=30,
+        null=True,
     )
 
 
@@ -81,6 +82,11 @@ class Ticket(Model):
     has_press_nickname = fields.BooleanField(default=False)
     press_nickname = fields.CharField(max_length=120, null=True)
     press_link = fields.CharField(max_length=500, null=True)
+
+    has_correspondence_address = fields.BooleanField(default=False)
+    correspondence_neighborhood = fields.CharField(max_length=120, null=True)
+    correspondence_street = fields.CharField(max_length=255, null=True)
+    correspondence_number = fields.CharField(max_length=20, null=True)
 
     requester_name = fields.CharField(max_length=120)
     requester_phone = fields.CharField(max_length=30, null=True)
