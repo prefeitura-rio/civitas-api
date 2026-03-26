@@ -5,6 +5,38 @@ from tortoise import fields
 from tortoise.models import Model
 
 
+
+class Email(Model):
+
+    id = fields.UUIDField(pk=True)
+    message_id = fields.CharField(max_length=255, unique=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    thread_id = fields.CharField(max_length=255, null=True, index=True)
+
+    from_address = fields.CharField(max_length=500, null=True)
+    from_name = fields.CharField(max_length=255, null=True)
+    to_address = fields.CharField(max_length=500, null=True)
+    subject = fields.CharField(max_length=1000, null=True)
+
+    snippet = fields.TextField(null=True)
+    body_preview = fields.TextField(null=True)
+
+    date = fields.DatetimeField(null=True)
+    internal_date = fields.BigIntField(null=True)
+
+    has_attachments = fields.BooleanField(default=False)
+    is_read = fields.BooleanField(default=False)
+    label_ids = fields.TextField(null=True) 
+
+    attachments: fields.ReverseRelation["Attachment"]
+    tickets: fields.ManyToManyRelation["Ticket"]
+
+    class Meta:
+        table = "emails"
+
+
 class TicketType(Model):
     id = fields.UUIDField(pk=True)
     created_at = fields.DatetimeField(auto_now_add=True)
@@ -77,6 +109,14 @@ class Ticket(Model):
         related_name="tickets",
         null=True,
         on_delete=fields.SET_NULL,
+    )
+
+    emails: fields.ManyToManyRelation[Email] = fields.ManyToManyField(
+        "app.Email",
+        related_name="tickets",
+        through="ticket_emails",
+        forward_key="email_id",
+        backward_key="ticket_id",
     )
 
     has_press_nickname = fields.BooleanField(default=False)
@@ -490,3 +530,26 @@ class Island(Model):
 
     class Meta:
         table = "islands"
+
+
+
+
+class Attachment(Model):
+
+    id = fields.IntField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    message = fields.ForeignKeyField(
+        "app.Email",
+        related_name="attachments",
+        to_field="id",
+        on_delete=fields.CASCADE,
+    )
+    attachment_id = fields.CharField(max_length=255, null=True)
+    filename = fields.CharField(max_length=500)
+    mime_type = fields.CharField(max_length=100, default="application/pdf")
+    size = fields.IntField(default=0)
+    file_path = fields.CharField(max_length=1000)
+
+    class Meta:
+        table = "attachments"

@@ -213,6 +213,7 @@ class TicketCreateFocalPoint(BaseModel):
 class TicketCreateIn(BaseModel):
     associar_chamado_id: Optional[str] = None
     tipo_chamado_id: str
+    email_id: Optional[str] = None
 
     operation_id: str = Field(description="Demandante (FK para Operation)")
 
@@ -522,3 +523,55 @@ class IslandPageOut(BaseModel):
 class TeamIdNameOut(BaseModel):
     id: str
     name: str
+
+class EmailBase(BaseModel):
+    id: str
+    message_id: str
+    thread_id: Optional[str] = None
+    from_address: Optional[str] = None
+    from_name: Optional[str] = None
+    to_address: Optional[str] = None
+    subject: Optional[str] = None
+    snippet: Optional[str] = None
+    date: Optional[datetime] = None
+    internal_date: Optional[int] = None
+    has_attachments: bool = False
+    is_read: bool = False
+
+
+class EmailPageOut(BaseModel):
+    items: list[EmailBase]
+    total: int
+
+class AttachmentOut(BaseModel):
+    id: int
+    filename: str
+    mime_type: str
+    size: int
+    file_path: str
+
+
+
+class EmailOut(BaseModel):
+    message_id: str
+    thread_id: Optional[str]
+
+    from_address: Optional[str]
+    from_name: Optional[str]
+    to_address: Optional[str]
+    subject: Optional[str]
+
+    snippet: Optional[str]
+    body_preview: Optional[str]
+
+    date: Optional[datetime]
+    internal_date: Optional[int]
+
+    has_attachments: bool
+    is_read: bool
+    label_ids: Optional[str]
+
+    created_at: datetime
+    updated_at: datetime
+
+    attachments: List[AttachmentOut] = Field(default_factory=list)
