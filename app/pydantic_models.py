@@ -430,6 +430,17 @@ class MonitoredPlateDemandantLinkIn(BaseModel):
     lpr_equipment_ids: Optional[List[UUID]] = None
 
 
+class MonitoredPlateDemandantLinkPatch(BaseModel):
+    """Atualização parcial de um vínculo placa–demandante (só campos enviados são aplicados)."""
+
+    reference_number: str | None = Field(default=None, max_length=50)
+    valid_until: datetime | None = None
+    active: bool | None = None
+    notes: str | None = None
+    additional_info: dict | None = None
+    lpr_equipment_ids: list[UUID] | None = None
+
+
 class MonitoredPlateIn(BaseModel):
     plate: str = Field(...)
     numero_controle: str = Field(..., max_length=255)
