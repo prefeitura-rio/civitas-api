@@ -28,6 +28,8 @@ from app.pydantic_models import (
     CortexPlacaOut,
     CortexPlacasIn,
     GetCarsByRadarIn,
+    MonitoredPlateDemandantLinkIn,
+    MonitoredPlateDemandantLinkPatch,
     MonitoredPlateHistory,
     MonitoredPlateIn,
     MonitoredPlateOut,
@@ -473,6 +475,144 @@ async def update_monitored_plate(
                 continue
             setattr(monitored_plate, key, value)
         await monitored_plate.save()
+    return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
+
+
+@router_request(
+    method="POST",
+    router=router,
+    path="/monitored/{plate}/demandant-links",
+    response_model=MonitoredPlateOut,
+    responses={
+        404: {"description": "Plate or demandant not found"},
+        409: {"description": "Demandant already linked to this plate"},
+    },
+)
+async def create_monitored_plate_demandant_link(
+    plate: str,
+    link: MonitoredPlateDemandantLinkIn,
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+):
+    """
+    Adiciona um víncio placa–demandante (e opcionalmente radares LPR) a uma placa já existente.
+    """
+    plate = plate.upper()
+    monitored_plate = await MonitoredPlate.filter(plate=plate).first()
+    if not monitored_plate:
+        raise HTTPException(status_code=404, detail="Plate not found")
+    demandant = await Demandant.get_or_none(id=link.demandant_id)
+    if not demandant:
+        raise HTTPException(status_code=404, detail="Demandant not found")
+    if await MonitoredPlateDemandant.filter(
+        monitored_plate_id=monitored_plate.id, demandant_id=link.demandant_id
+    ).exists():
+        raise HTTPException(
+            status_code=409,
+            detail="Demandant already linked to this plate",
+        )
+    async with in_transaction():
+        mpd = await MonitoredPlateDemandant.create(
+            monitored_plate=monitored_plate,
+            demandant=demandant,
+            reference_number=link.reference_number,
+            valid_until=link.valid_until,
+            notes=link.notes,
+            additional_info=link.additional_info,
+        )
+        for eq_id in link.lpr_equipment_ids or []:
+            await MonitoredPlateDemandantRadar.create(
+                plate_demandant=mpd,
+                lpr_equipment_id=eq_id,
+            )
+    return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
+
+
+@router_request(
+    method="PATCH",
+    router=router,
+    path="/monitored/{plate}/demandant-links/{link_id}",
+    response_model=MonitoredPlateOut,
+    responses={404: {"description": "Plate or link not found"}},
+)
+async def patch_monitored_plate_demandant_link(
+    plate: str,
+    link_id: UUID,
+    patch: MonitoredPlateDemandantLinkPatch,
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+):
+    """
+    Atualiza parcialmente um víncio (referência, valid_until, active, notas, additional_info).
+    Se `lpr_equipment_ids` for enviado, a lista **substitui** integralmente os equipamentos
+    associados a esse víncio (remove os que saíram e cria os novos).
+    """
+    plate = plate.upper()
+    monitored_plate = await MonitoredPlate.filter(plate=plate).first()
+    if not monitored_plate:
+        raise HTTPException(status_code=404, detail="Plate not found")
+    link = await MonitoredPlateDemandant.get_or_none(
+        id=link_id,
+        monitored_plate_id=monitored_plate.id,
+    )
+    if not link:
+        raise HTTPException(status_code=404, detail="Demandant link not found")
+    patch_data = patch.dict(exclude_unset=True)
+    if "reference_number" in patch_data:
+        ref = patch_data["reference_number"]
+        if ref is not None and ref.strip() == "":
+            raise HTTPException(
+                status_code=400,
+                detail="reference_number cannot be empty",
+            )
+    async with in_transaction():
+        if "lpr_equipment_ids" in patch_data:
+            new_ids = patch_data.pop("lpr_equipment_ids") or []
+            new_set_ids = list(dict.fromkeys(new_ids))
+            existing = await MonitoredPlateDemandantRadar.filter(
+                plate_demandant=link
+            ).all()
+            existing_by_eq = {row.lpr_equipment_id: row for row in existing}
+            for eq_id, row in existing_by_eq.items():
+                if eq_id not in new_set_ids:
+                    await row.delete()
+            for eq_id in new_set_ids:
+                if eq_id not in existing_by_eq:
+                    await MonitoredPlateDemandantRadar.create(
+                        plate_demandant=link,
+                        lpr_equipment_id=eq_id,
+                    )
+        for key, value in patch_data.items():
+            setattr(link, key, value)
+        await link.save()
+    return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
+
+
+@router_request(
+    method="DELETE",
+    router=router,
+    path="/monitored/{plate}/demandant-links/{link_id}",
+    response_model=MonitoredPlateOut,
+    responses={404: {"description": "Plate or link not found"}},
+)
+async def delete_monitored_plate_demandant_link(
+    plate: str,
+    link_id: UUID,
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+):
+    """Remove um víncio placa–demandante (radares associados caem em CASCADE)."""
+    plate = plate.upper()
+    monitored_plate = await MonitoredPlate.filter(plate=plate).first()
+    if not monitored_plate:
+        raise HTTPException(status_code=404, detail="Plate not found")
+    link = await MonitoredPlateDemandant.get_or_none(
+        id=link_id,
+        monitored_plate_id=monitored_plate.id,
+    )
+    if not link:
+        raise HTTPException(status_code=404, detail="Demandant link not found")
+    await link.delete()
     return await MonitoredPlateOut.from_monitored_plate(monitored_plate)
 
 
