@@ -28,6 +28,7 @@ from app.routers import (
     cars,
     companies,
     emails,
+    demandants,
     gcs,
     islands,
     layers,
@@ -110,6 +111,7 @@ app.include_router(companies.router)
 app.include_router(layers.router)
 app.include_router(notification_channels.router)
 app.include_router(organizations.router)
+app.include_router(demandants.router)
 app.include_router(pdf.router)
 app.include_router(people.router)
 app.include_router(radars.router)
