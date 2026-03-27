@@ -1,7 +1,15 @@
-from app.modules.tickets.application.dtos import AttachmentOut, EmailBase, EmailOut, EmailPageOut
-from app.modules.tickets.domain.entities import Email
-from fastapi import HTTPException
+import uuid
 
+from starlette.responses import Response
+
+from app.modules.tickets.application.dtos import AttachmentOut, EmailBase, EmailOut, EmailPageOut
+from app.modules.tickets.domain.entities import Attachment, Email
+from app.modules.tickets.infrastructure.gcs_upload import build_email_attachment_object_name, gcs_delete_object, gcs_download_file_bytes, gcs_upload_file_bytes
+from fastapi import HTTPException
+from app.config import GCS_BUCKET_NAME
+from tortoise.transactions import in_transaction
+from fastapi import UploadFile
+from uuid import UUID
 
 
 
@@ -89,4 +97,126 @@ async def get_email_by_id(email_id: str) -> EmailOut:
             )
             for att in email.attachments
         ],
+    )
+
+MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
+
+ALLOWED_CONTENT_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/jpeg",
+    "image/png",
+}
+
+
+async def upload_email_attachment(
+    *,
+    email_id: UUID,
+    file: UploadFile,
+) -> AttachmentOut:
+    email = await Email.get_or_none(id=email_id)
+
+    if not email:
+        raise HTTPException(status_code=404, detail="Email não encontrado.")
+
+    if not file:
+        raise HTTPException(status_code=400, detail="Arquivo não enviado.")
+
+    filename = (file.filename or "").strip()
+    if not filename:
+        raise HTTPException(status_code=400, detail="Nome do arquivo inválido.")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Arquivo vazio.")
+
+    if len(content) > MAX_FILE_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"O arquivo excede o limite de {MAX_FILE_BYTES // (1024 * 1024)}MB.",
+        )
+
+    content_type = file.content_type or "application/octet-stream"
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Tipo de arquivo não permitido.",
+        )
+
+    object_name = build_email_attachment_object_name(
+        str(email.id),
+        filename,
+    )
+
+    upload_meta = await gcs_upload_file_bytes(
+        bucket_name=GCS_BUCKET_NAME,
+        object_name=object_name,
+        content=content,
+        content_type=content_type,
+    )
+
+    try:
+        async with in_transaction() as connection:
+            attachment = await Attachment.create(
+                message_id=email.id,
+                attachment_id=uuid.uuid4(),
+                filename=filename,
+                mime_type=content_type,
+                size=int(upload_meta.get("size") or len(content)),
+                file_path=object_name,
+                using_db=connection,
+            )
+
+            if not email.has_attachments:
+                email.has_attachments = True
+                await email.save(using_db=connection, update_fields=["has_attachments"])
+
+        return AttachmentOut(
+            id=attachment.id,
+            filename=attachment.filename,
+            mime_type=attachment.mime_type,
+            size=attachment.size,
+            file_path=attachment.file_path,
+        )
+
+    except Exception:
+        await gcs_delete_object(
+            bucket_name=GCS_BUCKET_NAME,
+            object_name=object_name,
+        )
+        raise
+
+
+async def download_email_attachment(
+    *,
+    email_id: UUID,
+    attachment_id: int,
+) -> Response:
+    email = await Email.get_or_none(id=email_id)
+
+    if not email:
+        raise HTTPException(status_code=404, detail="Email não encontrado.")
+
+    attachment = await Attachment.get_or_none(
+        id=attachment_id,
+        message_id=email.id,
+    )
+
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Anexo não encontrado.")
+
+    content = await gcs_download_file_bytes(
+        bucket_name=GCS_BUCKET_NAME,
+        object_name=attachment.file_path,
+    )
+
+    headers = {
+        "Content-Disposition": f'inline; filename="{attachment.filename}"'
+    }
+
+    return Response(
+        content=content,
+        media_type=attachment.mime_type or "application/octet-stream",
+        headers=headers,
     )
