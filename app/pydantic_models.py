@@ -702,6 +702,24 @@ class OrganizationUpdate(BaseModel):
     jurisdiction_level: Optional[str] = None
 
 
+class DemandantIn(BaseModel):
+    organization_id: UUID
+    name: str | None = Field(default=None, max_length=255)
+    email: str | None = Field(default=None, max_length=255)
+    phone_1: str | None = Field(default=None, max_length=20)
+    phone_2: str | None = Field(default=None, max_length=20)
+    phone_3: str | None = Field(default=None, max_length=20)
+
+
+class DemandantUpdate(BaseModel):
+    organization_id: UUID | None = None
+    name: str | None = Field(default=None, max_length=255)
+    email: str | None = Field(default=None, max_length=255)
+    phone_1: str | None = Field(default=None, max_length=20)
+    phone_2: str | None = Field(default=None, max_length=20)
+    phone_3: str | None = Field(default=None, max_length=20)
+
+
 class RadarOut(BaseModel):
     codcet: str
     latitude: float
