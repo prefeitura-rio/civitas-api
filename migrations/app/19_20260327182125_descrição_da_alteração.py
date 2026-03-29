@@ -18,21 +18,22 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
     "date" TIMESTAMPTZ,
     "internal_date" BIGINT,
     "has_attachments" BOOL NOT NULL  DEFAULT False,
-    "is_read" BOOL NOT NULL  DEFAULT False,
-    "label_ids" TEXT
+    "label_ids" TEXT,
+    "status" VARCHAR(30) NOT NULL  DEFAULT 'Não Lidos'
 );
 CREATE INDEX IF NOT EXISTS "idx_emails_thread__cd1d55" ON "emails" ("thread_id");
-        CREATE TABLE IF NOT EXISTS "attachments" (
+COMMENT ON COLUMN "emails"."status" IS 'RESPONDIDO: Respondido\nNAO_LIDO: Não Lido\nAGUARDANDO_RESPOSTA: Aguardando Resposta\nSPAM: Spam';
+        CREATE TABLE IF NOT EXISTS "email_attachments" (
     "id" SERIAL NOT NULL PRIMARY KEY,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
-    "attachment_id" VARCHAR(255),
+    "attachment_id" VARCHAR(1000),
     "filename" VARCHAR(500) NOT NULL,
     "mime_type" VARCHAR(100) NOT NULL  DEFAULT 'application/pdf',
     "size" INT NOT NULL  DEFAULT 0,
     "file_path" VARCHAR(1000) NOT NULL,
-    "message_id" UUID NOT NULL REFERENCES "emails" ("id") ON DELETE CASCADE
+    "email_id" UUID NOT NULL REFERENCES "emails" ("id") ON DELETE CASCADE
 );
-        CREATE TABLE IF NOT EXISTS "ticket_emails" (
+        CREATE TABLE "ticket_emails" (
     "ticket_id" UUID NOT NULL REFERENCES "tickets" ("id") ON DELETE CASCADE,
     "email_id" UUID NOT NULL REFERENCES "emails" ("id") ON DELETE CASCADE
 );"""
@@ -41,5 +42,5 @@ CREATE INDEX IF NOT EXISTS "idx_emails_thread__cd1d55" ON "emails" ("thread_id")
 async def downgrade(db: BaseDBAsyncClient) -> str:
     return """
         DROP TABLE IF EXISTS "ticket_emails";
-        DROP TABLE IF EXISTS "attachments";
-        DROP TABLE IF EXISTS "emails";"""
+        DROP TABLE IF EXISTS "emails";
+        DROP TABLE IF EXISTS "email_attachments";"""

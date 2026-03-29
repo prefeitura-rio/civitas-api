@@ -95,6 +95,23 @@ CORTEX_CPF_RATE_LIMIT = getenv_or_action("CORTEX_CPF_RATE_LIMIT", default="2/min
 # Tixxi
 TIXXI_CAMERAS_LIST_URL = getenv_or_action("TIXXI_CAMERAS_LIST_URL")
 
+# Gmail sync (opcional; requer credenciais OAuth quando ENABLE_EMAIL_SYNC=true)
+ENABLE_EMAIL_SYNC = (
+    getenv_or_action("ENABLE_EMAIL_SYNC", default="false").lower() == "true"
+)
+EMAIL_POLLING_INTERVAL_SECONDS = int(
+    getenv_or_action("EMAIL_POLLING_INTERVAL_SECONDS", default="300")
+)
+EMAIL_SYNC_MAX_RESULTS = int(getenv_or_action("EMAIL_SYNC_MAX_RESULTS", default="50"))
+GMAIL_REFRESH_TOKEN = getenv_or_action("GMAIL_REFRESH_TOKEN", default="", action="ignore")
+GMAIL_CLIENT_ID = getenv_or_action("GMAIL_CLIENT_ID", default="", action="ignore")
+GMAIL_CLIENT_SECRET = getenv_or_action("GMAIL_CLIENT_SECRET", default="", action="ignore")
+GMAIL_SCOPES = getenv_or_action(
+    "GMAIL_SCOPES",
+    default="https://www.googleapis.com/auth/gmail.readonly",
+    action="ignore",
+)
+
 # Assets directory
 ASSETS_DIR = Path(__file__).parent.parent / "assets"
 

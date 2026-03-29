@@ -1,9 +1,10 @@
 import uuid
 
+from app.modules.tickets.domain.enum import EmailStatus
 from starlette.responses import Response
 
-from app.modules.tickets.application.dtos import AttachmentOut, EmailBase, EmailOut, EmailPageOut
-from app.modules.tickets.domain.entities import Attachment, Email
+from app.modules.tickets.application.dtos import EmailAttachmentOut, EmailBase, EmailOut, EmailPageOut
+from app.modules.tickets.domain.entities import EmailAttachment, Email
 from app.modules.tickets.infrastructure.gcs_upload import build_email_attachment_object_name, gcs_delete_object, gcs_download_file_bytes, gcs_upload_file_bytes
 from fastapi import HTTPException
 from app.config import GCS_BUCKET_NAME
@@ -12,11 +13,11 @@ from fastapi import UploadFile
 from uuid import UUID
 
 
-
 async def list_emails(
     *,
     page: int = 1,
     page_size: int = 10,
+    statuses: list[EmailStatus] | None = None,
 ) -> EmailPageOut:
     if page < 1:
         raise HTTPException(status_code=400, detail="Página inválida.")
@@ -28,6 +29,9 @@ async def list_emails(
         )
 
     query = Email.all()
+
+    if statuses:
+        query = query.filter(status__in=statuses)
 
     total = await query.count()
 
@@ -55,7 +59,6 @@ async def list_emails(
             date=email.date,
             internal_date=email.internal_date,
             has_attachments=email.has_attachments,
-            is_read=email.is_read,
         )
         for email in emails
     ]
@@ -83,12 +86,12 @@ async def get_email_by_id(email_id: str) -> EmailOut:
         date=email.date,
         internal_date=email.internal_date,
         has_attachments=email.has_attachments,
-        is_read=email.is_read,
+        status=email.status,
         label_ids=email.label_ids,
         created_at=email.created_at,
         updated_at=email.updated_at,
         attachments=[
-            AttachmentOut(
+            EmailAttachmentOut(
                 id=att.id,
                 filename=att.filename,
                 mime_type=att.mime_type,
@@ -98,6 +101,16 @@ async def get_email_by_id(email_id: str) -> EmailOut:
             for att in email.attachments
         ],
     )
+
+
+async def mark_email_as_spam(*, email_id: UUID) -> EmailOut:
+    email = await Email.get_or_none(id=email_id)
+    if not email:
+        raise HTTPException(status_code=404, detail="Email não encontrado.")
+    email.status = EmailStatus.SPAM
+    await email.save(update_fields=["status"])
+    return await get_email_by_id(email_id)
+
 
 MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 
@@ -114,7 +127,7 @@ async def upload_email_attachment(
     *,
     email_id: UUID,
     file: UploadFile,
-) -> AttachmentOut:
+) -> EmailAttachmentOut:
     email = await Email.get_or_none(id=email_id)
 
     if not email:
@@ -158,8 +171,8 @@ async def upload_email_attachment(
 
     try:
         async with in_transaction() as connection:
-            attachment = await Attachment.create(
-                message_id=email.id,
+            attachment = await EmailAttachment.create(
+                email=email,
                 attachment_id=uuid.uuid4(),
                 filename=filename,
                 mime_type=content_type,
@@ -172,7 +185,7 @@ async def upload_email_attachment(
                 email.has_attachments = True
                 await email.save(using_db=connection, update_fields=["has_attachments"])
 
-        return AttachmentOut(
+        return EmailAttachmentOut(
             id=attachment.id,
             filename=attachment.filename,
             mime_type=attachment.mime_type,
@@ -198,9 +211,9 @@ async def download_email_attachment(
     if not email:
         raise HTTPException(status_code=404, detail="Email não encontrado.")
 
-    attachment = await Attachment.get_or_none(
+    attachment = await EmailAttachment.get_or_none(
         id=attachment_id,
-        message_id=email.id,
+        email_id=email.id,
     )
 
     if not attachment:

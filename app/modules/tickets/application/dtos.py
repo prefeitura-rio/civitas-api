@@ -5,7 +5,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
 
-from app.modules.tickets.domain.enum import TicketPriority, TicketStatus, UserRoleEnum
+from app.modules.tickets.domain.enum import EmailStatus, TicketPriority, TicketStatus, UserRoleEnum
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, root_validator
 
 class TicketCatalogCreateIn(BaseModel):
@@ -543,7 +543,16 @@ class EmailPageOut(BaseModel):
     items: list[EmailBase]
     total: int
 
-class AttachmentOut(BaseModel):
+
+class EmailSyncStatusOut(BaseModel):
+    last_sync: Optional[datetime] = None
+    polling_interval_seconds: int
+    emails_synced_total: int
+    is_running: bool
+    enabled: bool
+
+
+class EmailAttachmentOut(BaseModel):
     id: int
     filename: str
     mime_type: str
@@ -560,7 +569,7 @@ class EmailOut(BaseModel):
     from_name: Optional[str]
     to_address: Optional[str]
     subject: Optional[str]
-
+    status: EmailStatus
     snippet: Optional[str]
     body_preview: Optional[str]
 
@@ -568,10 +577,9 @@ class EmailOut(BaseModel):
     internal_date: Optional[int]
 
     has_attachments: bool
-    is_read: bool
     label_ids: Optional[str]
 
     created_at: datetime
     updated_at: datetime
 
-    attachments: List[AttachmentOut] = Field(default_factory=list)
+    attachments: List[EmailAttachmentOut] = Field(default_factory=list)

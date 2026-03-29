@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from app.modules.tickets.domain.enum import TicketPriority, TicketStatus, UserRoleEnum
+from app.modules.tickets.domain.enum import EmailStatus, TicketPriority, TicketStatus, UserRoleEnum
 from tortoise import fields
 from tortoise.models import Model
 
@@ -27,10 +27,15 @@ class Email(Model):
     internal_date = fields.BigIntField(null=True)
 
     has_attachments = fields.BooleanField(default=False)
-    is_read = fields.BooleanField(default=False)
-    label_ids = fields.TextField(null=True) 
+    label_ids = fields.TextField(null=True)
 
-    attachments: fields.ReverseRelation["Attachment"]
+    status = fields.CharEnumField(
+        EmailStatus,
+        max_length=30,
+        default=EmailStatus.NAO_LIDO
+    )
+
+    attachments: fields.ReverseRelation["EmailAttachment"]
     tickets: fields.ManyToManyRelation["Ticket"]
 
     class Meta:
@@ -534,22 +539,22 @@ class Island(Model):
 
 
 
-class Attachment(Model):
+class EmailAttachment(Model):
 
     id = fields.IntField(pk=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
-    message = fields.ForeignKeyField(
+    email = fields.ForeignKeyField(
         "app.Email",
         related_name="attachments",
         to_field="id",
         on_delete=fields.CASCADE,
     )
-    attachment_id = fields.CharField(max_length=255, null=True)
+    attachment_id = fields.CharField(max_length=1000, null=True)
     filename = fields.CharField(max_length=500)
     mime_type = fields.CharField(max_length=100, default="application/pdf")
     size = fields.IntField(default=0)
     file_path = fields.CharField(max_length=1000)
 
     class Meta:
-        table = "attachments"
+        table = "email_attachments"

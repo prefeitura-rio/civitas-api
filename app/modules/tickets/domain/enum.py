@@ -19,3 +19,9 @@ class UserRoleEnum(str, Enum):
     ADJUNTO = "Adjunto"
     LIDER_DE_ILHA = "Líder de Ilha"
     OPERADOR = "Operador"
+
+class EmailStatus(str, Enum):
+    RESPONDIDO = "Respondido"
+    NAO_LIDO = "Não Lido"
+    AGUARDANDO_RESPOSTA = "Aguardando Resposta"
+    SPAM = "Spam"
