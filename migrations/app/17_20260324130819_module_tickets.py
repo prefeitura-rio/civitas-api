@@ -48,11 +48,6 @@ VALUES
 (gen_random_uuid(), 'Não informado', NULL, TRUE)
 ON CONFLICT (name) DO NOTHING;
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> 76795473e49dd135d7e2e9e05f029e7ab6ae781c
         CREATE TABLE IF NOT EXISTS "islands" (
     "id" UUID NOT NULL  PRIMARY KEY,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,
