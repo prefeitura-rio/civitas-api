@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import Annotated, Optional
+from typing import Annotated, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -10,8 +10,8 @@ from app.models import User
 from app.modules.tickets.application.dtos import (
     TicketCatalogCreateIn,
     TicketCatalogUpdateIn,
+    TicketNatureListItemOut,
     TicketNatureOut,
-    TicketNaturePageOut,
 )
 from app.modules.tickets.application.services.ticket_nature_service import (
     create_ticket_nature,
@@ -42,7 +42,7 @@ async def create_ticket_nature_endpoint(
     method="GET",
     router=router,
     path="/",
-    response_model=TicketNaturePageOut,
+    response_model=List[TicketNatureListItemOut],
 )
 async def list_ticket_natures_endpoint(
     user: Annotated[User, Depends(is_user)],

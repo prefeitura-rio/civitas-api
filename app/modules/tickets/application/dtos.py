@@ -50,17 +50,6 @@ class TicketTypeListItemOut(BaseModel):
     is_active: bool
 
 
-class TicketNaturePageOut(BaseModel):
-    items: List[TicketNatureListItemOut]
-    total: int
-
-
-class TicketTypePageOut(BaseModel):
-    items: List[TicketTypeListItemOut]
-    total: int
-
-
-
 class TicketDetection(str, Enum):
     antes = "ANTES"
     depois = "DEPOIS"
@@ -356,20 +345,9 @@ class TicketDashboardOut(BaseModel):
     overdue_after_days: int
 
 
-class TicketOfficialLetterSearchOut(BaseModel):
-    numero_oficio: str
-
-class TicketInternalNumberSearchOut(BaseModel):
-    numero_interno: int
-
-class TicketProcedureNumberSearchOut(BaseModel):
-    numero_procedimento: str
-
 class TicketRequesterSearchOut(BaseModel):
     requisitante: str
 
-class TicketFocalPointSearchOut(BaseModel):
-    ponto_focal: str
 
 class TicketDashboardFilterIn(BaseModel):
     period_days: int = Field(default=30, ge=1, le=365)

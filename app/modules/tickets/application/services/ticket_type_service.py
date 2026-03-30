@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+from typing import List
 
 from fastapi import HTTPException
 from tortoise.expressions import Q
@@ -9,13 +10,9 @@ from app.modules.tickets.application.dtos import (
     TicketCatalogUpdateIn,
     TicketTypeListItemOut,
     TicketTypeOut,
-    TicketTypePageOut,
 )
 from app.modules.tickets.domain.entities import TicketType
 
-
-def _normalize_name(name: str) -> str:
-    return " ".join(name.strip().split())
 
 
 def _to_ticket_type_out(row: TicketType) -> TicketTypeOut:
@@ -29,9 +26,9 @@ def _to_ticket_type_out(row: TicketType) -> TicketTypeOut:
 
 
 async def create_ticket_type(*, data: TicketCatalogCreateIn) -> TicketTypeOut:
-    normalized_name = _normalize_name(data.name)
 
-    exists = await TicketType.filter(name__iexact=normalized_name).exists()
+
+    exists = await TicketType.filter(name__iexact=data.name).exists()
     if exists:
         raise HTTPException(
             status_code=409,
@@ -39,7 +36,7 @@ async def create_ticket_type(*, data: TicketCatalogCreateIn) -> TicketTypeOut:
         )
 
     row = await TicketType.create(
-        name=normalized_name,
+        name=data.name,
         description=data.description,
         is_active=data.is_active,
     )
@@ -51,7 +48,7 @@ async def list_ticket_types(
     *,
     search: str | None = None,
     is_active: bool | None = None,
-) -> TicketTypePageOut:
+) -> List[TicketTypeListItemOut]:
 
     query = TicketType.all()
 
@@ -77,10 +74,7 @@ async def list_ticket_types(
         for row in rows
     ]
 
-    return TicketTypePageOut(
-        items=items,
-        total=total,
-    )
+    return items
 
 
 async def get_ticket_type_by_id(*, ticket_type_id: str) -> TicketTypeOut:
@@ -101,9 +95,8 @@ async def update_ticket_type(
         raise HTTPException(status_code=404, detail="Tipo de chamado não encontrado.")
 
     if data.name is not None:
-        normalized_name = _normalize_name(data.name)
 
-        exists = await TicketType.filter(name__iexact=normalized_name).exclude(
+        exists = await TicketType.filter(name__iexact=data.name).exclude(
             id=row.id
         ).exists()
         if exists:
@@ -112,7 +105,7 @@ async def update_ticket_type(
                 detail="Já existe um tipo de chamado com esse nome.",
             )
 
-        row.name = normalized_name
+        row.name = data.name
 
     if data.description is not None:
         row.description = data.description
