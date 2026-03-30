@@ -33,7 +33,7 @@ COMMENT ON COLUMN "emails"."status" IS 'RESPONDIDO: Respondido\nNAO_LIDO: Não L
     "file_path" VARCHAR(1000) NOT NULL,
     "email_id" UUID NOT NULL REFERENCES "emails" ("id") ON DELETE CASCADE
 );
-        CREATE TABLE "ticket_emails" (
+        CREATE TABLE IF NOT EXISTS "ticket_emails" (
     "ticket_id" UUID NOT NULL REFERENCES "tickets" ("id") ON DELETE CASCADE,
     "email_id" UUID NOT NULL REFERENCES "emails" ("id") ON DELETE CASCADE
 );

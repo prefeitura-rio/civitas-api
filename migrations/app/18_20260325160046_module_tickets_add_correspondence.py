@@ -17,6 +17,27 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
 
         ALTER TABLE "tickets"
             ALTER COLUMN "priority" DROP NOT NULL;
+
+    ALTER TABLE "tickets"
+        DROP COLUMN IF EXISTS "team_id";
+
+    ALTER TABLE "tickets"
+        ADD COLUMN IF NOT EXISTS "team_id" UUID;
+
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_constraint
+            WHERE conname = 'fk_tickets_team_id_teams'
+        ) THEN
+            ALTER TABLE "tickets"
+                ADD CONSTRAINT "fk_tickets_team_id_teams"
+                FOREIGN KEY ("team_id")
+                REFERENCES "teams" ("id")
+                ON DELETE SET NULL;
+        END IF;
+    END $$;
     """
 
 
