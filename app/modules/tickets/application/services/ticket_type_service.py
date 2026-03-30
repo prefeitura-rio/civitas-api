@@ -48,7 +48,7 @@ async def list_ticket_types(
     *,
     search: str | None = None,
     is_active: bool | None = None,
-) -> List[TicketTypeListItemOut]:
+) -> list[TicketTypeListItemOut]:
 
     query = TicketType.all()
 
