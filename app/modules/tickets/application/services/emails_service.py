@@ -108,7 +108,7 @@ async def mark_email_as_spam(*, email_id: UUID) -> EmailOut:
     if not email:
         raise HTTPException(status_code=404, detail="Email não encontrado.")
     email.status = EmailStatus.SPAM
-    await email.save(update_fields=["status"])
+    await email.save(update_fields=["status","updated_at"])
     return await get_email_by_id(email_id)
 
 

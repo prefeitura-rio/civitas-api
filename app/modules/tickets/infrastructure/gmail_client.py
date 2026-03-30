@@ -18,6 +18,21 @@ from loguru import logger
 from app import config
 
 
+def build_inbox_search_query(
+    after_internal_date_ms: Optional[int],
+    initial_newer_than_days: int,
+) -> str:
+    """
+    Critério de busca na INBOX para users.messages.list (paginado depois).
+    - Sem marca anterior: janela relativa (primeira carga).
+    - Com marca: mensagens com internalDate após o watermark (incremental).
+    """
+    if after_internal_date_ms is None:
+        return f"newer_than:{initial_newer_than_days}d"
+    after_sec = (after_internal_date_ms + 1) // 1000
+    return f"after:{after_sec}"
+
+
 @dataclass
 class GmailEmailPayload:
     message_id: str
@@ -93,36 +108,65 @@ class GmailClient:
             logger.warning(f"Falha ao parsear data '{date_str}': {e}")
             return None
 
-    def fetch_emails(
+    def _list_all_inbox_message_ids(
         self,
-        max_results: int = 50,
-        after_timestamp: Optional[int] = None,
+        service: Any,
+        query: str,
+        list_page_size: int,
+    ) -> List[str]:
+        """Pagina users.messages.list até não haver nextPageToken."""
+        page_size = max(1, min(list_page_size, 500))
+        collected: List[str] = []
+        page_token: Optional[str] = None
+        pages = 0
+        while True:
+            kwargs: Dict[str, Any] = {
+                "userId": "me",
+                "maxResults": page_size,
+                "labelIds": ["INBOX"],
+            }
+            if query:
+                kwargs["q"] = query
+            if page_token:
+                kwargs["pageToken"] = page_token
+
+            results = service.users().messages().list(**kwargs).execute()
+            pages += 1
+            batch = results.get("messages") or []
+            for m in batch:
+                collected.append(m["id"])
+
+            page_token = results.get("nextPageToken")
+            if not page_token:
+                break
+
+        logger.info(
+            f"Gmail: list INBOX paginado — {len(collected)} id(s) em {pages} página(s), "
+            f"maxResults={page_size}, q={query!r}."
+        )
+        return collected
+
+    def fetch_inbox_emails_paginated(
+        self,
+        query: str,
+        list_page_size: int,
     ) -> List[GmailEmailPayload]:
+        """
+        Lista todas as mensagens que batem com `q` na INBOX (paginação completa)
+        e carrega o corpo de cada uma.
+        """
         try:
             service = self._get_service()
-            query = ""
-            if after_timestamp:
-                after_seconds = after_timestamp // 1000
-                query = f"after:{after_seconds}"
-
-            results = (
-                service.users()
-                .messages()
-                .list(userId="me", q=query, maxResults=max_results, labelIds=["INBOX"])
-                .execute()
-            )
-
-            messages = results.get("messages", [])
-            logger.info(f"Gmail: {len(messages)} mensagens na lista (INBOX).")
+            message_ids = self._list_all_inbox_message_ids(service, query, list_page_size)
 
             emails: List[GmailEmailPayload] = []
-            for msg in messages:
+            for msg_id in message_ids:
                 try:
-                    detail = self._fetch_email_detail(service, msg["id"])
+                    detail = self._fetch_email_detail(service, msg_id)
                     if detail:
                         emails.append(detail)
                 except Exception as e:
-                    logger.error(f"Erro ao buscar email {msg['id']}: {e}")
+                    logger.error(f"Erro ao buscar email {msg_id}: {e}")
                     continue
 
             return emails

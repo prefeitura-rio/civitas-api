@@ -102,7 +102,14 @@ ENABLE_EMAIL_SYNC = (
 EMAIL_POLLING_INTERVAL_SECONDS = int(
     getenv_or_action("EMAIL_POLLING_INTERVAL_SECONDS", default="300")
 )
-EMAIL_SYNC_MAX_RESULTS = int(getenv_or_action("EMAIL_SYNC_MAX_RESULTS", default="50"))
+# Primeira carga (banco sem emails): janela Gmail newer_than:Xd na INBOX
+EMAIL_SYNC_INITIAL_NEWER_THAN_DAYS = int(
+    getenv_or_action("EMAIL_SYNC_INITIAL_NEWER_THAN_DAYS", default="90")
+)
+# Tamanho de cada página em users.messages.list (máx. 500 na API Gmail)
+EMAIL_SYNC_LIST_PAGE_SIZE = int(
+    getenv_or_action("EMAIL_SYNC_LIST_PAGE_SIZE", default="50")
+)
 GMAIL_REFRESH_TOKEN = getenv_or_action("GMAIL_REFRESH_TOKEN", default="", action="ignore")
 GMAIL_CLIENT_ID = getenv_or_action("GMAIL_CLIENT_ID", default="", action="ignore")
 GMAIL_CLIENT_SECRET = getenv_or_action("GMAIL_CLIENT_SECRET", default="", action="ignore")

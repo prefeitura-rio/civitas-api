@@ -20,6 +20,34 @@ CREATE TABLE IF NOT EXISTS "ticket_types" (
     "is_active" BOOL NOT NULL  DEFAULT True
 );
 
+INSERT INTO ticket_types (id, name, description, is_active)
+VALUES
+(gen_random_uuid(), 'Convencional', NULL, TRUE),
+(gen_random_uuid(), 'Levantamento Prévio', NULL, TRUE),
+(gen_random_uuid(), 'Requisição Restrita', NULL, TRUE)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO ticket_natures (id, name, description, is_active)
+VALUES
+(gen_random_uuid(), 'Homicídio', NULL, TRUE),
+(gen_random_uuid(), 'Latrocínio', NULL, TRUE),
+(gen_random_uuid(), 'Tentativa de homicídio', NULL, TRUE),
+(gen_random_uuid(), 'Lesão corporal', NULL, TRUE),
+(gen_random_uuid(), 'Roubo a Transeunte', NULL, TRUE),
+(gen_random_uuid(), 'Roubo de Veículo', NULL, TRUE),
+(gen_random_uuid(), 'Roubo de Carga', NULL, TRUE),
+(gen_random_uuid(), 'Furto a Transeunte', NULL, TRUE),
+(gen_random_uuid(), 'Furto de Veículo', NULL, TRUE),
+(gen_random_uuid(), 'Furto de Carga', NULL, TRUE),
+(gen_random_uuid(), 'Sequestro', NULL, TRUE),
+(gen_random_uuid(), 'Pessoas desaparecidas', NULL, TRUE),
+(gen_random_uuid(), 'Extorsão', NULL, TRUE),
+(gen_random_uuid(), 'Estelionato', NULL, TRUE),
+(gen_random_uuid(), 'Tráfico de drogas', NULL, TRUE),
+(gen_random_uuid(), 'Outros delitos', NULL, TRUE),
+(gen_random_uuid(), 'Não informado', NULL, TRUE)
+ON CONFLICT (name) DO NOTHING;
+
         CREATE TABLE IF NOT EXISTS "islands" (
     "id" UUID NOT NULL  PRIMARY KEY,
     "created_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP,

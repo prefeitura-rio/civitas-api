@@ -36,11 +36,23 @@ COMMENT ON COLUMN "emails"."status" IS 'RESPONDIDO: Respondido\nNAO_LIDO: Não L
         CREATE TABLE "ticket_emails" (
     "ticket_id" UUID NOT NULL REFERENCES "tickets" ("id") ON DELETE CASCADE,
     "email_id" UUID NOT NULL REFERENCES "emails" ("id") ON DELETE CASCADE
-);"""
+);
+
+CREATE TABLE IF NOT EXISTS "email_sync_state" (
+    "id" INT NOT NULL  PRIMARY KEY,
+    "watermark_internal_date_ms" BIGINT,
+    "updated_at" TIMESTAMPTZ NOT NULL  DEFAULT CURRENT_TIMESTAMP
+);
+        INSERT INTO "email_sync_state" ("id", "watermark_internal_date_ms")
+        VALUES (1, NULL)
+        ON CONFLICT ("id") DO NOTHING;
+
+"""
 
 
 async def downgrade(db: BaseDBAsyncClient) -> str:
     return """
         DROP TABLE IF EXISTS "ticket_emails";
         DROP TABLE IF EXISTS "emails";
-        DROP TABLE IF EXISTS "email_attachments";"""
+        DROP TABLE IF EXISTS "email_attachments";
+        DROP TABLE IF EXISTS "email_sync_state";"""

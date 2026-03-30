@@ -126,7 +126,7 @@ async def email_sync_status_endpoint(
     user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
-    raw = get_email_sync_status()
+    raw = await get_email_sync_status()
     return EmailSyncStatusOut(**raw)
 
 

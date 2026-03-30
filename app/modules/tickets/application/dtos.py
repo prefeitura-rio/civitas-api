@@ -550,6 +550,8 @@ class EmailSyncStatusOut(BaseModel):
     emails_synced_total: int
     is_running: bool
     enabled: bool
+    watermark_internal_date_ms: Optional[int] = None
+    initial_newer_than_days: int = 90
 
 
 class EmailAttachmentOut(BaseModel):

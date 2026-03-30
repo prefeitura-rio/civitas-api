@@ -12,13 +12,14 @@ from loguru import logger
 from tortoise.transactions import in_transaction
 
 from app import config
-from app.modules.tickets.domain.entities import EmailAttachment, Email
+from app.modules.tickets.domain.entities import Email, EmailAttachment, EmailSyncState
 from app.modules.tickets.infrastructure.gcs_upload import (
     build_email_attachment_object_name,
     gcs_upload_file_bytes,
 )
 from app.modules.tickets.infrastructure.gmail_client import (
     GmailEmailPayload,
+    build_inbox_search_query,
     get_gmail_client,
 )
 
@@ -37,22 +38,36 @@ def gmail_sync_config_ok() -> bool:
     )
 
 
-def get_email_sync_status() -> Dict[str, Any]:
+async def get_email_sync_status() -> Dict[str, Any]:
+    watermark_ms: Optional[int] = None
+    try:
+        st = await EmailSyncState.get_or_none(id=1)
+        if st:
+            watermark_ms = (
+                int(st.watermark_internal_date_ms)
+                if st.watermark_internal_date_ms is not None
+                else None
+            )
+    except Exception:
+        pass
     return {
         "last_sync": _last_sync,
         "polling_interval_seconds": config.EMAIL_POLLING_INTERVAL_SECONDS,
         "emails_synced_total": _emails_synced_total,
         "is_running": _is_running,
         "enabled": config.ENABLE_EMAIL_SYNC and gmail_sync_config_ok(),
+        "watermark_internal_date_ms": watermark_ms,
+        "initial_newer_than_days": config.EMAIL_SYNC_INITIAL_NEWER_THAN_DAYS,
     }
 
 
-async def _fetch_emails_thread(
-    max_results: int,
-    after_timestamp: Optional[int],
-) -> List[GmailEmailPayload]:
+async def _fetch_inbox_emails_paginated_thread(query: str) -> List[GmailEmailPayload]:
     client = get_gmail_client()
-    return await asyncio.to_thread(client.fetch_emails, max_results, after_timestamp)
+    return await asyncio.to_thread(
+        client.fetch_inbox_emails_paginated,
+        query,
+        config.EMAIL_SYNC_LIST_PAGE_SIZE,
+    )
 
 
 async def _download_pdfs_thread(gmail_message_id: str) -> List[Dict[str, Any]]:
@@ -61,8 +76,18 @@ async def _download_pdfs_thread(gmail_message_id: str) -> List[Dict[str, Any]]:
 
 
 async def _get_latest_internal_date() -> Optional[int]:
-    latest = await Email.all().order_by("-internal_date").first()
-    return int(latest.internal_date) if latest and latest.internal_date is not None else None
+    latest = await Email.filter(internal_date__isnull=False).order_by("-internal_date").first()
+    return int(latest.internal_date) if latest else None
+
+
+async def _persist_watermark(latest_ms: Optional[int]) -> None:
+    """Espelha a maior internal_date conhecida na tabela de estado (marca d'água explícita)."""
+    state = await EmailSyncState.get_or_none(id=1)
+    if state is None:
+        state = await EmailSyncState.create(id=1, watermark_internal_date_ms=latest_ms)
+    else:
+        state.watermark_internal_date_ms = latest_ms
+        await state.save()
 
 
 async def _create_email_row(data: GmailEmailPayload) -> Email:
@@ -161,17 +186,19 @@ async def run_email_sync_once() -> None:
 
     try:
         latest = await _get_latest_internal_date()
-        after_ts = latest + 1 if latest is not None else None
-        logger.info(f"Buscando emails após internal_date (ms): {after_ts}")
-
-        emails = await _fetch_emails_thread(
-            max_results=config.EMAIL_SYNC_MAX_RESULTS,
-            after_timestamp=after_ts,
+        query = build_inbox_search_query(
+            latest,
+            config.EMAIL_SYNC_INITIAL_NEWER_THAN_DAYS,
         )
+        mode = "incremental" if latest is not None else "inicial (newer_than)"
+        logger.info(f"Gmail sync [{mode}] q={query!r}, watermark_ms={latest}")
+
+        emails = await _fetch_inbox_emails_paginated_thread(query)
 
         if not emails:
             logger.info("Nenhum email novo encontrado.")
             _last_sync = datetime.now()
+            await _persist_watermark(latest)
             return
 
         created_ids = await _persist_new_emails(emails)
@@ -191,6 +218,8 @@ async def run_email_sync_once() -> None:
                 )
 
         _last_sync = datetime.now()
+        new_latest = await _get_latest_internal_date()
+        await _persist_watermark(new_latest)
         logger.info(f"Sync de emails concluído. Novos nesta rodada: {len(created_ids)}")
     except Exception as e:
         logger.exception(f"Erro durante sync de emails: {e}")

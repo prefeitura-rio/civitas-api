@@ -42,6 +42,17 @@ class Email(Model):
         table = "emails"
 
 
+class EmailSyncState(Model):
+    """Singleton (pk=1): marca d'água explícita do sync Gmail → banco."""
+
+    id = fields.IntField(pk=True)
+    watermark_internal_date_ms = fields.BigIntField(null=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "email_sync_state"
+
+
 class TicketType(Model):
     id = fields.UUIDField(pk=True)
     created_at = fields.DatetimeField(auto_now_add=True)
