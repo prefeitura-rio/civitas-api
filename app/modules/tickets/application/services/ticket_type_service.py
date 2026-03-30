@@ -51,7 +51,7 @@ async def list_ticket_types(
     *,
     search: str | None = None,
     is_active: bool | None = None,
-) -> TicketTypePageOut:
+) -> list[TicketTypeListItemOut]:
 
     query = TicketType.all()
 
@@ -77,10 +77,7 @@ async def list_ticket_types(
         for row in rows
     ]
 
-    return TicketTypePageOut(
-        items=items,
-        total=total,
-    )
+    return items
 
 
 async def get_ticket_type_by_id(*, ticket_type_id: str) -> TicketTypeOut:

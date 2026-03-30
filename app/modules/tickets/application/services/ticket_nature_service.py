@@ -51,7 +51,7 @@ async def list_ticket_natures(
     *,
     search: str | None = None,
     is_active: bool | None = None,
-) -> TicketNaturePageOut:
+) -> list[TicketNatureListItemOut]:
 
     query = TicketNature.all()
 
@@ -77,10 +77,7 @@ async def list_ticket_natures(
         for row in rows
     ]
 
-    return TicketNaturePageOut(
-        items=items,
-        total=total,
-    )
+    return items
 
 
 async def get_ticket_nature_by_id(*, nature_id: str) -> TicketNatureOut:

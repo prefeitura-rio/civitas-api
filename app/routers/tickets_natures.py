@@ -10,6 +10,7 @@ from app.models import User
 from app.modules.tickets.application.dtos import (
     TicketCatalogCreateIn,
     TicketCatalogUpdateIn,
+    TicketNatureListItemOut,
     TicketNatureOut,
     TicketNaturePageOut,
 )
@@ -42,7 +43,7 @@ async def create_ticket_nature_endpoint(
     method="GET",
     router=router,
     path="/",
-    response_model=TicketNaturePageOut,
+    response_model=list[TicketNatureListItemOut],
 )
 async def list_ticket_natures_endpoint(
     user: Annotated[User, Depends(is_user)],

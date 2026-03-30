@@ -10,6 +10,7 @@ from app.models import User
 from app.modules.tickets.application.dtos import (
     TicketCatalogCreateIn,
     TicketCatalogUpdateIn,
+    TicketTypeListItemOut,
     TicketTypeOut,
     TicketTypePageOut,
 )
@@ -42,7 +43,7 @@ async def create_ticket_type_endpoint(
     method="GET",
     router=router,
     path="/",
-    response_model=TicketTypePageOut,
+    response_model=list[TicketTypeListItemOut],
 )
 async def list_ticket_types_endpoint(
     user: Annotated[User, Depends(is_user)],
