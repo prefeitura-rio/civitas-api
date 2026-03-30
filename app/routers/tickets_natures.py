@@ -42,7 +42,7 @@ async def create_ticket_nature_endpoint(
     method="GET",
     router=router,
     path="/",
-    response_model=List[TicketNatureListItemOut],
+    response_model=list[TicketNatureListItemOut],
 )
 async def list_ticket_natures_endpoint(
     user: Annotated[User, Depends(is_user)],

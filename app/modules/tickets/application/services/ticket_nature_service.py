@@ -47,7 +47,7 @@ async def list_ticket_natures(
     *,
     search: str | None = None,
     is_active: bool | None = None,
-) -> List[TicketNatureListItemOut]:
+) -> list[TicketNatureListItemOut]:
 
     query = TicketNature.all()
 
