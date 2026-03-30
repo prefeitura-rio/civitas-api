@@ -5,7 +5,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
 
-from app.modules.tickets.domain.enum import TicketPriority, UserRoleEnum
+from app.modules.tickets.domain.enum import EmailStatus, TicketPriority, TicketStatus, UserRoleEnum
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, root_validator
 
 class TicketCatalogCreateIn(BaseModel):
@@ -202,6 +202,7 @@ class TicketCreateFocalPoint(BaseModel):
 class TicketCreateIn(BaseModel):
     associar_chamado_id: Optional[str] = None
     tipo_chamado_id: str
+    email_id: Optional[str] = None
 
     operation_id: str = Field(description="Demandante (FK para Operation)")
 
@@ -500,3 +501,65 @@ class IslandPageOut(BaseModel):
 class TeamIdNameOut(BaseModel):
     id: str
     name: str
+
+class EmailBase(BaseModel):
+    id: str
+    message_id: str
+    thread_id: Optional[str] = None
+    from_address: Optional[str] = None
+    from_name: Optional[str] = None
+    to_address: Optional[str] = None
+    subject: Optional[str] = None
+    snippet: Optional[str] = None
+    date: Optional[datetime] = None
+    internal_date: Optional[int] = None
+    has_attachments: bool = False
+    is_read: bool = False
+
+
+class EmailPageOut(BaseModel):
+    items: list[EmailBase]
+    total: int
+
+
+class EmailSyncStatusOut(BaseModel):
+    last_sync: Optional[datetime] = None
+    polling_interval_seconds: int
+    emails_synced_total: int
+    is_running: bool
+    enabled: bool
+    watermark_internal_date_ms: Optional[int] = None
+    initial_newer_than_days: int = 90
+
+
+class EmailAttachmentOut(BaseModel):
+    id: int
+    filename: str
+    mime_type: str
+    size: int
+    file_path: str
+
+
+
+class EmailOut(BaseModel):
+    message_id: str
+    thread_id: Optional[str]
+
+    from_address: Optional[str]
+    from_name: Optional[str]
+    to_address: Optional[str]
+    subject: Optional[str]
+    status: EmailStatus
+    snippet: Optional[str]
+    body_preview: Optional[str]
+
+    date: Optional[datetime]
+    internal_date: Optional[int]
+
+    has_attachments: bool
+    label_ids: Optional[str]
+
+    created_at: datetime
+    updated_at: datetime
+
+    attachments: List[EmailAttachmentOut] = Field(default_factory=list)

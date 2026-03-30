@@ -1,8 +1,56 @@
 # -*- coding: utf-8 -*-
 
-from app.modules.tickets.domain.enum import TicketPriority, TicketStatus, UserRoleEnum
+from app.modules.tickets.domain.enum import EmailStatus, TicketPriority, TicketStatus, UserRoleEnum
 from tortoise import fields
 from tortoise.models import Model
+
+
+
+class Email(Model):
+
+    id = fields.UUIDField(pk=True)
+    message_id = fields.CharField(max_length=255, unique=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    thread_id = fields.CharField(max_length=255, null=True, index=True)
+
+    from_address = fields.CharField(max_length=500, null=True)
+    from_name = fields.CharField(max_length=255, null=True)
+    to_address = fields.CharField(max_length=500, null=True)
+    subject = fields.CharField(max_length=1000, null=True)
+
+    snippet = fields.TextField(null=True)
+    body_preview = fields.TextField(null=True)
+
+    date = fields.DatetimeField(null=True)
+    internal_date = fields.BigIntField(null=True)
+
+    has_attachments = fields.BooleanField(default=False)
+    label_ids = fields.TextField(null=True)
+
+    status = fields.CharEnumField(
+        EmailStatus,
+        max_length=30,
+        default=EmailStatus.NAO_LIDO
+    )
+
+    attachments: fields.ReverseRelation["EmailAttachment"]
+    tickets: fields.ManyToManyRelation["Ticket"]
+
+    class Meta:
+        table = "emails"
+
+
+class EmailSyncState(Model):
+    """Singleton (pk=1): marca d'água explícita do sync Gmail → banco."""
+
+    id = fields.IntField(pk=True)
+    watermark_internal_date_ms = fields.BigIntField(null=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    class Meta:
+        table = "email_sync_state"
 
 
 class TicketType(Model):
@@ -77,6 +125,14 @@ class Ticket(Model):
         related_name="tickets",
         null=True,
         on_delete=fields.SET_NULL,
+    )
+
+    emails: fields.ManyToManyRelation[Email] = fields.ManyToManyField(
+        "app.Email",
+        related_name="tickets",
+        through="ticket_emails",
+        forward_key="email_id",
+        backward_key="ticket_id",
     )
 
     has_press_nickname = fields.BooleanField(default=False)
@@ -490,3 +546,26 @@ class Island(Model):
 
     class Meta:
         table = "islands"
+
+
+
+
+class EmailAttachment(Model):
+
+    id = fields.IntField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    email = fields.ForeignKeyField(
+        "app.Email",
+        related_name="attachments",
+        to_field="id",
+        on_delete=fields.CASCADE,
+    )
+    attachment_id = fields.CharField(max_length=1000, null=True)
+    filename = fields.CharField(max_length=500)
+    mime_type = fields.CharField(max_length=100, default="application/pdf")
+    size = fields.IntField(default=0)
+    file_path = fields.CharField(max_length=1000)
+
+    class Meta:
+        table = "email_attachments"

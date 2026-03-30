@@ -144,7 +144,47 @@ async def gcs_delete_objects(
                 f"bucket='{bucket_name}', object='{object_name}', error='{result}'"
             )
 
+async def gcs_download_file_bytes(
+    *,
+    bucket_name: str,
+    object_name: str,
+) -> bytes:
+    def _download():
+        try:
+            storage_client = get_storage_client()
+            bucket = storage_client.bucket(bucket_name)
+            blob = bucket.blob(object_name)
+
+            return blob.download_as_bytes(timeout=60)
+
+        except NotFound:
+            raise HTTPException(
+                status_code=404,
+                detail="Arquivo não encontrado no storage.",
+            )
+        except Forbidden:
+            raise HTTPException(
+                status_code=403,
+                detail="Acesso negado ao arquivo.",
+            )
+        except google_exceptions.GoogleAPIError:
+            raise HTTPException(
+                status_code=500,
+                detail="Falha ao baixar arquivo do GCS.",
+            )
+        except Exception:
+            raise HTTPException(
+                status_code=500,
+                detail="Erro inesperado ao baixar arquivo.",
+            )
+
+    return await asyncio.to_thread(_download)
+
 
 def build_ticket_object_name(ticket_id: str, original_filename: str) -> str:
     safe_name = (original_filename or "file").replace("/", "_").replace("\\", "_")
     return f"tickets/{ticket_id}/{uuid.uuid4()}-{safe_name}"
+
+def build_email_attachment_object_name(email_id: str, original_filename: str) -> str:
+    safe_name = (original_filename or "file").replace("/", "_").replace("\\", "_")
+    return f"emails/{email_id}/attachments/{uuid.uuid4()}-{safe_name}"

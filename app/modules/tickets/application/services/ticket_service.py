@@ -48,6 +48,7 @@ from app.modules.tickets.application.dtos import (
     TicketSearchOut,
 )
 from app.modules.tickets.domain.entities import (
+    Email,
     Ticket,
     TicketAttachment,
     TicketComment,
@@ -642,6 +643,11 @@ async def create_ticket(
     nature_obj = await _get_nature_or_raise(ticket_in.natureza_id)
     operation_obj = await _get_operation_or_raise(ticket_in.operation_id)
     press_nickname, press_link = _resolve_press_fields(ticket_in)
+    email = None
+    if ticket_in.email_id:
+        email = await Email.get_or_none(id=ticket_in.email_id)
+        if not email:
+            raise HTTPException(status_code=404, detail="Email não encontrado.")
 
     ticket_id = str(uuid.uuid4())
     uploaded_files: List[dict] = []
@@ -664,6 +670,9 @@ async def create_ticket(
                 press_link=press_link,
                 connection=connection,
             )
+
+            if email:
+                await ticket.emails.add(email, using_db=connection)
 
             await _create_ticket_related_data(
                 ticket=ticket,

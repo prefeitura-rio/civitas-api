@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS "ticket_types" (
 INSERT INTO ticket_types (id, name, description, is_active)
 VALUES
 (gen_random_uuid(), 'Convencional', NULL, TRUE),
-(gen_random_uuid(), 'Amplo', NULL, TRUE),
+(gen_random_uuid(), 'Levantamento Prévio', NULL, TRUE),
 (gen_random_uuid(), 'Requisição Restrita', NULL, TRUE)
 ON CONFLICT (name) DO NOTHING;
 
@@ -47,8 +47,6 @@ VALUES
 (gen_random_uuid(), 'Outros delitos', NULL, TRUE),
 (gen_random_uuid(), 'Não informado', NULL, TRUE)
 ON CONFLICT (name) DO NOTHING;
-
-
 
         CREATE TABLE IF NOT EXISTS "islands" (
     "id" UUID NOT NULL  PRIMARY KEY,
