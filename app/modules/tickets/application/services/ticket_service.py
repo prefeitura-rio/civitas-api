@@ -81,18 +81,9 @@ from app.modules.tickets.domain.entities import (
 
 MAX_FILE_BYTES = 10 * 1024 * 1024
 
-_TICKET_TYPE_NAMES_INITIAL_RESTRITO = frozenset(
-    n.casefold()
-    for n in (
-        "Requisição Restrita",
-        "Requisição Restríta",
-    )
-)
-
 
 def _initial_status_for_ticket_type(ticket_type: TicketType) -> TicketStatus:
-    name_cf = (ticket_type.name or "").strip().casefold()
-    if name_cf in _TICKET_TYPE_NAMES_INITIAL_RESTRITO:
+    if (ticket_type.name or "").strip() == "Requisição Restrita":
         return TicketStatus.RESTRITO
     return TicketStatus.PENDENTE
 
