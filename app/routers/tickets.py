@@ -9,8 +9,8 @@ from fastapi import APIRouter, Depends, File, Form, Request, Query, UploadFile
 from app.decorators import router_request
 from app.dependencies import is_user
 from app.models import User
-from app.modules.tickets.application.dtos import TicketCreateResultOut, TicketDashboardFilterIn, TicketDashboardOut,TicketOut, TicketRequesterSearchOut, TicketSearchOut
-from app.modules.tickets.application.services.ticket_service import create_ticket, get_ticket_by_id, get_tickets_dashboard, parse_ticket_payload, search_requesters, search_tickets
+from app.modules.tickets.application.dtos import TicketCreateResultOut, TicketDashboardFilterIn, TicketDashboardOut, TicketFocalPointSearchOut, TicketInternalNumberSearchOut, TicketOfficialLetterSearchOut, TicketOut, TicketProcedureNumberSearchOut, TicketRequesterSearchOut, TicketSearchOut
+from app.modules.tickets.application.services.ticket_service import convert_ticket_to_conventional, create_ticket, get_ticket_by_id, get_tickets_dashboard, parse_ticket_payload, search_focal_points, search_internal_numbers, search_official_letters, search_procedure_numbers, search_requesters, search_tickets
 
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
@@ -50,6 +50,19 @@ async def search_tickets_endpoint(
     return await search_tickets(search=search)
 
 
+@router.post("/{ticket_id}/convert-to-conventional", response_model=bool)
+async def convert_ticket_to_conventional_endpoint(
+    ticket_id: UUID,
+    files: Annotated[Optional[List[UploadFile]], File()] = None,
+    user: Annotated[User, Depends(is_user)] = None,
+    request: Request = None,
+):
+    return await convert_ticket_to_conventional(
+        ticket_id=str(ticket_id),
+        files=files or [],
+    )
+
+
 @router_request(
     method="GET",
     router=router,
@@ -62,19 +75,4 @@ async def get_ticket_endpoint(
     request: Request,
 ):
     return await get_ticket_by_id(ticket_id=ticket_id)
-
-
-
-@router_request(
-    method="GET",
-    router=router,
-    path="/requesters/search",
-    response_model=List[TicketRequesterSearchOut],
-)
-async def search_requesters_endpoint(
-    user: Annotated[User, Depends(is_user)],
-    request: Request,
-    search: str = Query(..., min_length=2, description="Texto para buscar requisitante"),
-):
-    return await search_requesters(search=search)
 

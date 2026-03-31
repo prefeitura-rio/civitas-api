@@ -6,7 +6,7 @@ import uuid
 from typing import List, Optional, Tuple
 
 from app.config import GCS_BUCKET_NAME
-from app.modules.tickets.domain.enum import TicketPriority, TicketStatus
+from app.modules.tickets.domain.enum import TicketPriority, TicketStatus, UserRoleEnum
 from app.modules.tickets.infrastructure.gcs_upload import (
     build_ticket_object_name,
     gcs_delete_objects,
@@ -22,7 +22,9 @@ from app.models import Operation, User
 from app.modules.tickets.application.dtos import (
     ServiceAnaliseDeImagemOut,
     ServiceBuscaPorImagemOut,
+    ServiceBuscaPorPlacaPlateOut,
     ServiceBuscaPorPlacaOut,
+    ServiceBuscaPorRadarPlateOut,
     ServiceBuscaPorRadarOut,
     ServiceCercoEletronicoOut,
     ServiceOutrosOut,
@@ -64,8 +66,11 @@ from app.modules.tickets.domain.entities import (
     TicketNature,
     TicketOtherService,
     TicketPlateSearchService,
+    TicketPlateSearchServicePlate,
     TicketRadarSearchService,
+    TicketRadarSearchServicePlate,
     TicketType,
+    TeamMember,
 )
 
 
@@ -212,7 +217,11 @@ async def _get_nature_or_raise(natureza_id: Optional[str]) -> Optional[TicketNat
     return nature_obj
 
 
-async def _get_operation_or_raise(operation_id: Optional[str]) -> Optional[Operation]:
+async def _get_operation_or_raise(
+    operation_id: Optional[str],
+    *,
+    field_label: str = "operation_id",
+) -> Optional[Operation]:
     if not operation_id:
         return None
 
@@ -220,7 +229,7 @@ async def _get_operation_or_raise(operation_id: Optional[str]) -> Optional[Opera
     if not operation_obj:
         raise HTTPException(
             status_code=400,
-            detail="operation_id inválido (Operation não encontrada).",
+            detail=f"{field_label} inválido (Operation não encontrada).",
         )
     return operation_obj
 
@@ -244,6 +253,25 @@ def _resolve_press_fields(ticket_in: TicketCreateIn) -> Tuple[Optional[str], Opt
     )
 
 
+async def _resolve_team_adjunto_user_id(*, team_id: str, connection) -> str:
+    member = (
+        await TeamMember.filter(
+            team_id=team_id,
+            role=UserRoleEnum.ADJUNTO,
+            is_active=True,
+        )
+        .using_db(connection)
+        .order_by("created_at")
+        .first()
+    )
+    if not member:
+        raise HTTPException(
+            status_code=400,
+            detail="A equipe não possui adjunto ativo cadastrado.",
+        )
+    return str(member.user_id)
+
+
 async def _create_ticket_base(
     *,
     ticket_id: str,
@@ -251,14 +279,20 @@ async def _create_ticket_base(
     ticket_type_obj: TicketType,
     nature_obj: Optional[TicketNature],
     operation_obj: Optional[Operation],
+    procedure_operation_obj: Optional[Operation],
     press_nickname: Optional[str],
     press_link: Optional[str],
     connection,
 ) -> Ticket:
+    responsible_id = await _resolve_team_adjunto_user_id(
+        team_id=ticket_in.equipe_id,
+        connection=connection,
+    )
     return await Ticket.create(
         id=ticket_id,
         parent_ticket_id=ticket_in.associar_chamado_id,
         operation=operation_obj,
+        procedure_operation=procedure_operation_obj,
         ticket_type=ticket_type_obj,
         procedure_number=ticket_in.numero_procedimento,
         official_letter_number=ticket_in.numero_oficio,
@@ -277,6 +311,7 @@ async def _create_ticket_base(
         if ticket_in.requisitante.requisitante_email
         else None,
         team_id=ticket_in.equipe_id,
+        responsible_id=responsible_id,
         priority=ticket_in.prioridade.value if ticket_in.prioridade else None,
         using_db=connection,
     )
@@ -332,18 +367,29 @@ async def _create_plate_search_services(
     if not services:
         return
 
-    await TicketPlateSearchService.bulk_create(
-        [
-            TicketPlateSearchService(
-                ticket=ticket,
-                period_start=service.period_start,
-                period_end=service.period_end,
-                plate=service.plate,
+    for service_in in services:
+        service = await TicketPlateSearchService.create(
+            ticket=ticket,
+            period_start=service_in.period_start,
+            period_end=service_in.period_end,
+            using_db=connection,
+        )
+        plate_values = [
+            (p or "").strip()
+            for p in (service_in.plates or [])
+            if (p or "").strip()
+        ]
+        if plate_values:
+            await TicketPlateSearchServicePlate.bulk_create(
+                [
+                    TicketPlateSearchServicePlate(
+                        service=service,
+                        plate=plate[:20],
+                    )
+                    for plate in plate_values
+                ],
+                using_db=connection,
             )
-            for service in services
-        ],
-        using_db=connection,
-    )
 
 
 async def _create_radar_search_services(
@@ -355,19 +401,31 @@ async def _create_radar_search_services(
     if not services:
         return
 
-    await TicketRadarSearchService.bulk_create(
-        [
-            TicketRadarSearchService(
-                ticket=ticket,
-                period_start=service.period_start,
-                period_end=service.period_end,
-                plate=service.plate,
-                radar_address=service.radar_address,
+    for service_in in services:
+        service = await TicketRadarSearchService.create(
+            ticket=ticket,
+            period_start=service_in.period_start,
+            period_end=service_in.period_end,
+            radar_address=service_in.radar_address,
+            orientation=service_in.orientation,
+            using_db=connection,
+        )
+        plate_values = [
+            (p or "").strip()
+            for p in (service_in.plates or [])
+            if (p or "").strip()
+        ]
+        if plate_values:
+            await TicketRadarSearchServicePlate.bulk_create(
+                [
+                    TicketRadarSearchServicePlate(
+                        service=service,
+                        plate=plate[:20],
+                    )
+                    for plate in plate_values
+                ],
+                using_db=connection,
             )
-            for service in services
-        ],
-        using_db=connection,
-    )
 
 
 async def _create_electronic_fence_services(
@@ -429,22 +487,22 @@ async def _create_correlated_plate_services(
     for service_in in services:
         service = await TicketCorrelatedPlatesService.create(
             ticket=ticket,
+            period_start=service_in.period_start,
+            period_end=service_in.period_end,
             interest_interval_minutes=service_in.interest_interval_minutes,
             detection_count=service_in.detection_count,
             detection=service_in.detection.value if service_in.detection else None,
             using_db=connection,
         )
 
-        if service_in.items:
+        if service_in.plates:
             await TicketCorrelatedPlatesServiceItem.bulk_create(
                 [
                     TicketCorrelatedPlatesServiceItem(
                         service=service,
-                        period_start=item.period_start,
-                        period_end=item.period_end,
                         plate=item.plate,
                     )
-                    for item in service_in.items
+                    for item in service_in.plates
                 ],
                 using_db=connection,
             )
@@ -462,22 +520,22 @@ async def _create_joint_plate_services(
     for service_in in services:
         service = await TicketJointPlatesService.create(
             ticket=ticket,
+            period_start=service_in.period_start,
+            period_end=service_in.period_end,
             interest_interval_minutes=service_in.interest_interval_minutes,
             detection_count=service_in.detection_count,
             detection=service_in.detection.value if service_in.detection else None,
             using_db=connection,
         )
 
-        if service_in.items:
+        if service_in.plates:
             await TicketJointPlatesServiceItem.bulk_create(
                 [
                     TicketJointPlatesServiceItem(
                         service=service,
-                        period_start=item.period_start,
-                        period_end=item.period_end,
                         plate=item.plate,
                     )
-                    for item in service_in.items
+                    for item in service_in.plates
                 ],
                 using_db=connection,
             )
@@ -642,6 +700,10 @@ async def create_ticket(
     ticket_type_obj = await _get_ticket_type_or_raise(ticket_in.tipo_chamado_id)
     nature_obj = await _get_nature_or_raise(ticket_in.natureza_id)
     operation_obj = await _get_operation_or_raise(ticket_in.operation_id)
+    procedure_operation_obj = await _get_operation_or_raise(
+        ticket_in.orgao_procedimento_id,
+        field_label="orgao_procedimento_id",
+    )
     press_nickname, press_link = _resolve_press_fields(ticket_in)
     email = None
     if ticket_in.email_id:
@@ -666,6 +728,7 @@ async def create_ticket(
                 ticket_type_obj=ticket_type_obj,
                 nature_obj=nature_obj,
                 operation_obj=operation_obj,
+                procedure_operation_obj=procedure_operation_obj,
                 press_nickname=press_nickname,
                 press_link=press_link,
                 connection=connection,
@@ -702,14 +765,15 @@ async def get_ticket_by_id(*, ticket_id: str) -> TicketOut:
         await Ticket.filter(id=ticket_id)
         .prefetch_related(
             "operation",
+            "procedure_operation",
             "ticket_type",
             "nature",
             "parent_ticket",
             "focal_points",
             "comments__author",
             "attachments",
-            "plate_search_services",
-            "radar_search_services",
+            "plate_search_services__plates",
+            "radar_search_services__plates",
             "electronic_fence_services",
             "image_search_services",
             "correlated_plate_services__items",
@@ -746,6 +810,9 @@ async def get_ticket_by_id(*, ticket_id: str) -> TicketOut:
         associar_chamado_id=str(ticket.parent_ticket_id) if ticket.parent_ticket_id else None,
         tipo_chamado_id=str(ticket.ticket_type_id),
         operation_id=str(ticket.operation_id) if ticket.operation_id else None,
+        orgao_procedimento_id=str(ticket.procedure_operation_id)
+        if ticket.procedure_operation_id
+        else None,
         numero_procedimento=ticket.procedure_number,
         numero_oficio=ticket.official_letter_number,
         data_base=ticket.base_date,
@@ -766,8 +833,8 @@ async def get_ticket_by_id(*, ticket_id: str) -> TicketOut:
             )
             for fp in focal_points
         ],
-        equipe_id=ticket.team_id,
-        prioridade=TicketPriority(ticket.priority),
+        equipe_id=str(ticket.team_id) if ticket.team_id else None,
+        prioridade=TicketPriority(ticket.priority) if ticket.priority else None,
         comentarios=[
             TicketCommentOut(
                 id=str(comment.id),
@@ -793,7 +860,14 @@ async def get_ticket_by_id(*, ticket_id: str) -> TicketOut:
                 created_at=service.created_at,
                 period_start=service.period_start,
                 period_end=service.period_end,
-                plate=service.plate,
+                plates=[
+                    ServiceBuscaPorPlacaPlateOut(
+                        id=str(p.id),
+                        created_at=p.created_at,
+                        plate=p.plate,
+                    )
+                    for p in sorted(service.plates, key=lambda x: x.created_at)
+                ],
             )
             for service in busca_por_placa
         ],
@@ -803,8 +877,16 @@ async def get_ticket_by_id(*, ticket_id: str) -> TicketOut:
                 created_at=service.created_at,
                 period_start=service.period_start,
                 period_end=service.period_end,
-                plate=service.plate,
+                plates=[
+                    ServiceBuscaPorRadarPlateOut(
+                        id=str(p.id),
+                        created_at=p.created_at,
+                        plate=p.plate,
+                    )
+                    for p in sorted(service.plates, key=lambda x: x.created_at)
+                ],
                 radar_address=service.radar_address,
+                orientation=service.orientation,
             )
             for service in busca_por_radar
         ],
@@ -833,15 +915,15 @@ async def get_ticket_by_id(*, ticket_id: str) -> TicketOut:
             ServicePlacasCorrelatasOut(
                 id=str(service.id),
                 created_at=service.created_at,
+                period_start=service.period_start,
+                period_end=service.period_end,
                 interest_interval_minutes=service.interest_interval_minutes,
                 detection_count=service.detection_count,
                 detection=TicketDetection(service.detection) if service.detection else None,
-                items=[
+                plates=[
                     ServicePlacasCorrelatasItemOut(
                         id=str(item.id),
                         created_at=item.created_at,
-                        period_start=item.period_start,
-                        period_end=item.period_end,
                         plate=item.plate,
                     )
                     for item in sorted(service.items, key=lambda x: x.created_at)
@@ -853,15 +935,15 @@ async def get_ticket_by_id(*, ticket_id: str) -> TicketOut:
             ServicePlacasConjuntasOut(
                 id=str(service.id),
                 created_at=service.created_at,
+                period_start=service.period_start,
+                period_end=service.period_end,
                 interest_interval_minutes=service.interest_interval_minutes,
                 detection_count=service.detection_count,
                 detection=TicketDetection(service.detection) if service.detection else None,
-                items=[
+                plates=[
                     ServicePlacasConjuntasItemOut(
                         id=str(item.id),
                         created_at=item.created_at,
-                        period_start=item.period_start,
-                        period_end=item.period_end,
                         plate=item.plate,
                     )
                     for item in sorted(service.items, key=lambda x: x.created_at)
@@ -900,6 +982,74 @@ async def get_ticket_by_id(*, ticket_id: str) -> TicketOut:
     )
 
 
+async def convert_ticket_to_conventional(
+    *,
+    ticket_id: str,
+    files: Optional[List[UploadFile]] = None,
+) -> bool:
+    files = files or []
+
+    ticket = (
+        await Ticket.filter(id=ticket_id)
+        .prefetch_related("ticket_type")
+        .first()
+    )
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket não encontrado.")
+
+    current_name = (ticket.ticket_type.name or "").strip().casefold()
+    if current_name != "levantamento prévio".strip().casefold():
+        raise HTTPException(
+            status_code=500,
+            detail="Tipo de chamado 'Convencional' não encontrado no catálogo.",
+        )
+
+    conventional = await TicketType.get_or_none(name__iexact="Convencional")
+    if not conventional:
+        raise HTTPException(
+            status_code=500,
+            detail="Tipo de chamado 'Convencional' não encontrado no catálogo.",
+        )
+
+    uploaded_files: List[dict] = []
+    if files:
+        uploaded_files = await _prepare_and_upload_files(
+            ticket_id=ticket_id,
+            files=files,
+        )
+
+    try:
+        async with in_transaction() as connection:
+            n = (
+                await Ticket.filter(id=ticket_id)
+                .using_db(connection)
+                .update(ticket_type_id=conventional.id)
+            )
+            if n == 0:
+                raise HTTPException(status_code=404, detail="Ticket não encontrado.")
+
+            ticket_for_att = await Ticket.get(id=ticket_id, using_db=connection)
+            if uploaded_files:
+                await _create_ticket_attachments(
+                    ticket=ticket_for_att,
+                    uploaded_files=uploaded_files,
+                    connection=connection,
+                )
+    except Exception as exc:
+        if uploaded_files:
+            logger.warning(
+                f"Falha após upload para GCS (convert to conventional). "
+                f"ticket_id='{ticket_id}', error='{exc}'"
+            )
+            await gcs_delete_objects(
+                bucket_name=GCS_BUCKET_NAME,
+                object_names=[item["storage_key"] for item in uploaded_files],
+            )
+        raise
+
+    return True
+
+
 async def search_tickets(*, search: str) -> List[TicketSearchOut]:
     termo = (search or "").strip()
 
@@ -908,9 +1058,12 @@ async def search_tickets(*, search: str) -> List[TicketSearchOut]:
 
     tickets = (
         await Ticket.filter(
-            Q(procedure_number__icontains=termo)
-            | Q(official_letter_number__icontains=termo)
-            | Q(requester_name__icontains=termo)
+            (
+                Q(procedure_number__icontains=termo)
+                | Q(official_letter_number__icontains=termo)
+                | Q(requester_name__icontains=termo)
+            )
+            & Q(ticket_type__name__iexact="Levantamento Prévio")
         )
         .order_by("-created_at")
         .limit(20)
@@ -993,9 +1146,6 @@ async def get_tickets_dashboard(
             | Q(responsible__full_name__icontains=termo)
             | Q(internal_number__icontains=termo)
         )
-
-        if termo.isdigit():
-            search_q = search_q | Q(internal_number=int(termo))
 
         query = query.filter(search_q)
 
