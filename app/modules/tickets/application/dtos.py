@@ -97,7 +97,7 @@ class ServiceBuscaPorRadarIn(BaseModel):
     period_start: Optional[datetime] = None
     period_end: Optional[datetime] = None
     plates: List[str] = Field(default_factory=list)
-    radar_address: Optional[str] = Field(default=None, max_length=20)
+    radar_address: Optional[str] = Field(default=None)
     orientation: Optional[str] = Field(default=None, max_length=50_000)
 
     @root_validator
@@ -111,7 +111,7 @@ class ServiceBuscaPorRadarIn(BaseModel):
 
 class ServiceCercoEletronicoIn(BaseModel):
     plate: Optional[str] = Field(default=None, max_length=20)
-    vehicle_observations: Optional[str] = Field(default=None, max_length=20)
+    vehicle_observations: Optional[str] = Field(default=None)
 
 
 class ServiceBuscaPorImagemIn(BaseModel):
@@ -178,7 +178,7 @@ class ServiceBuscaPorRadarOut(BaseModel):
     period_start: Optional[datetime] = None
     period_end: Optional[datetime] = None
     plates: List[ServiceBuscaPorRadarPlateOut] = Field(default_factory=list)
-    radar_address: Optional[str] = Field(default=None, max_length=20)
+    radar_address: Optional[str] = Field(default=None)
     orientation: Optional[str] = Field(default=None, max_length=50_000)
 
 

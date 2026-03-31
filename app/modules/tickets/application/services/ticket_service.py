@@ -986,7 +986,13 @@ async def get_ticket_by_id(*, ticket_id: str) -> TicketOut:
     )
 
 
-async def convert_ticket_to_conventional(*, ticket_id: str) -> bool:
+async def convert_ticket_to_conventional(
+    *,
+    ticket_id: str,
+    files: Optional[List[UploadFile]] = None,
+) -> bool:
+    files = files or []
+
     ticket = (
         await Ticket.filter(id=ticket_id)
         .prefetch_related("ticket_type")
@@ -1009,7 +1015,42 @@ async def convert_ticket_to_conventional(*, ticket_id: str) -> bool:
             detail="Tipo de chamado 'Convencional' não encontrado no catálogo.",
         )
 
-    await Ticket.filter(id=ticket_id).update(ticket_type_id=conventional.id)
+    uploaded_files: List[dict] = []
+    if files:
+        uploaded_files = await _prepare_and_upload_files(
+            ticket_id=ticket_id,
+            files=files,
+        )
+
+    try:
+        async with in_transaction() as connection:
+            n = (
+                await Ticket.filter(id=ticket_id)
+                .using_db(connection)
+                .update(ticket_type_id=conventional.id)
+            )
+            if n == 0:
+                raise HTTPException(status_code=404, detail="Ticket não encontrado.")
+
+            ticket_for_att = await Ticket.get(id=ticket_id, using_db=connection)
+            if uploaded_files:
+                await _create_ticket_attachments(
+                    ticket=ticket_for_att,
+                    uploaded_files=uploaded_files,
+                    connection=connection,
+                )
+    except Exception as exc:
+        if uploaded_files:
+            logger.warning(
+                f"Falha após upload para GCS (convert to conventional). "
+                f"ticket_id='{ticket_id}', error='{exc}'"
+            )
+            await gcs_delete_objects(
+                bucket_name=GCS_BUCKET_NAME,
+                object_names=[item["storage_key"] for item in uploaded_files],
+            )
+        raise
+
     return True
 
 

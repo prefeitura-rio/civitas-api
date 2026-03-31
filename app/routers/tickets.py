@@ -50,18 +50,17 @@ async def search_tickets_endpoint(
     return await search_tickets(search=search)
 
 
-@router_request(
-    method="POST",
-    router=router,
-    path="/{ticket_id}/convert-to-conventional",
-    response_model=bool,
-)
+@router.post("/{ticket_id}/convert-to-conventional", response_model=bool)
 async def convert_ticket_to_conventional_endpoint(
     ticket_id: UUID,
-    user: Annotated[User, Depends(is_user)],
-    request: Request,
+    files: Annotated[Optional[List[UploadFile]], File()] = None,
+    user: Annotated[User, Depends(is_user)] = None,
+    request: Request = None,
 ):
-    return await convert_ticket_to_conventional(ticket_id=str(ticket_id))
+    return await convert_ticket_to_conventional(
+        ticket_id=str(ticket_id),
+        files=files or [],
+    )
 
 
 @router_request(
