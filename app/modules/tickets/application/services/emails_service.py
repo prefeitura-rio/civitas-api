@@ -46,6 +46,12 @@ async def list_emails(
     if not emails:
         return EmailPageOut(items=[], total=total)
 
+    def _snippet_for_list(email: Email) -> str | None:
+        text = email.body_preview or email.snippet
+        if not text:
+            return None
+        return text if len(text) <= 2000 else text[:2000]
+
     items = [
         EmailBase(
             id=str(email.id),
@@ -55,7 +61,7 @@ async def list_emails(
             from_name=email.from_name,
             to_address=email.to_address,
             subject=email.subject,
-            snippet=email.snippet,
+            snippet=_snippet_for_list(email),
             date=email.date,
             internal_date=email.internal_date,
             has_attachments=email.has_attachments,

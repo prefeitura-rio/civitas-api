@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import base64
+import html as html_module
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
@@ -42,6 +44,7 @@ class GmailEmailPayload:
     to_address: Optional[str]
     subject: Optional[str]
     snippet: str
+    body_preview: Optional[str]
     date: Optional[datetime]
     internal_date: int
     has_attachments: bool
@@ -107,6 +110,95 @@ class GmailClient:
         except Exception as e:
             logger.warning(f"Falha ao parsear data '{date_str}': {e}")
             return None
+
+    def _decode_body_data(self, data_b64: str) -> str:
+        if not data_b64:
+            return ""
+        pad = "=" * (-len(data_b64) % 4)
+        raw = base64.urlsafe_b64decode(data_b64 + pad)
+        try:
+            return raw.decode("utf-8")
+        except UnicodeDecodeError:
+            return raw.decode("latin-1", errors="replace")
+
+    def _html_to_text(self, html: str) -> str:
+        if not html:
+            return ""
+        cleaned = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", html)
+        cleaned = re.sub(r"<[^>]+>", " ", cleaned)
+        text = html_module.unescape(cleaned)
+        return re.sub(r"\s+", " ", text).strip()
+
+    def _read_part_body(
+        self,
+        service: Any,
+        message_id: str,
+        part: Dict[str, Any],
+    ) -> Optional[str]:
+        body = part.get("body") or {}
+        data = body.get("data")
+        if data:
+            return self._decode_body_data(data)
+        att_id = body.get("attachmentId")
+        mime = part.get("mimeType", "")
+        if not att_id or mime not in ("text/plain", "text/html"):
+            return None
+        try:
+            att = (
+                service.users()
+                .messages()
+                .attachments()
+                .get(userId="me", messageId=message_id, id=att_id)
+                .execute()
+            )
+            raw = att.get("data", "")
+            return self._decode_body_data(raw) if raw else None
+        except Exception as e:
+            logger.warning(f"Corpo em attachmentId não obtido ({message_id}): {e}")
+            return None
+
+    def _collect_body_parts(
+        self,
+        service: Any,
+        message_id: str,
+        part: Dict[str, Any],
+        plain_chunks: List[str],
+        html_chunks: List[str],
+    ) -> None:
+        mime = part.get("mimeType", "")
+        nested = part.get("parts") or []
+        if mime.startswith("multipart/"):
+            for p in nested:
+                self._collect_body_parts(service, message_id, p, plain_chunks, html_chunks)
+            return
+        text = self._read_part_body(service, message_id, part)
+        if not text:
+            return
+        if mime == "text/plain":
+            plain_chunks.append(text)
+        elif mime == "text/html":
+            html_chunks.append(text)
+
+    def _extract_body_preview(
+        self,
+        service: Any,
+        message_id: str,
+        payload: Dict[str, Any],
+        max_chars: int = 2_000_000,
+    ) -> Optional[str]:
+        """Texto completo do corpo (plain preferido; HTML vira texto). Gmail `snippet` é curto por definição."""
+        plain_chunks: List[str] = []
+        html_chunks: List[str] = []
+        self._collect_body_parts(service, message_id, payload, plain_chunks, html_chunks)
+        body: Optional[str] = None
+        if plain_chunks:
+            body = "\n".join(s.strip() for s in plain_chunks if s.strip()).strip()
+        elif html_chunks:
+            combined = "\n".join(html_chunks)
+            body = self._html_to_text(combined)
+        if body and len(body) > max_chars:
+            body = body[:max_chars]
+        return body or None
 
     def _list_all_inbox_message_ids(
         self,
@@ -193,6 +285,7 @@ class GmailClient:
             has_attachments = self._check_attachments(payload)
             label_ids = msg.get("labelIds", [])
             is_read = "UNREAD" not in label_ids
+            body_preview = self._extract_body_preview(service, msg["id"], payload)
 
             return GmailEmailPayload(
                 message_id=msg["id"],
@@ -202,6 +295,7 @@ class GmailClient:
                 to_address=headers.get("to"),
                 subject=headers.get("subject", "(Sem assunto)"),
                 snippet=msg.get("snippet", ""),
+                body_preview=body_preview,
                 date=date,
                 internal_date=int(msg.get("internalDate", 0)),
                 has_attachments=has_attachments,

@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 from fastapi import HTTPException
+from tortoise.expressions import Q
 from tortoise.transactions import in_transaction
 
 from app.models import User
@@ -50,6 +51,7 @@ async def list_users_with_roles(
     *,
     page: int = 1,
     page_size: int = 10,
+    search: str | None = None,
 ) -> UserRolePageOut:
     if page < 1:
         raise HTTPException(status_code=400, detail="Página inválida.")
@@ -57,7 +59,15 @@ async def list_users_with_roles(
     if page_size < 1 or page_size > 100:
         raise HTTPException(status_code=400, detail="page_size deve estar entre 1 e 100.")
 
-    query = User.all()
+    termo = (search or "").strip()
+    if termo:
+        query = User.filter(
+            Q(username__icontains=termo)
+            | Q(full_name__icontains=termo)
+            | Q(email__icontains=termo)
+        )
+    else:
+        query = User.all()
 
     total = await query.count()
 
