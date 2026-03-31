@@ -17,6 +17,7 @@ from app.modules.tickets.application.services.emails_service import (
     download_email_attachment,
     get_email_by_id,
     list_emails,
+    mark_email_as_aguardando_resposta,
     mark_email_as_spam,
     upload_email_attachment,
 )
@@ -160,6 +161,20 @@ async def mark_email_spam_endpoint(
     request: Request,
 ):
     return await mark_email_as_spam(email_id=email_id)
+
+
+@router_request(
+    method="PATCH",
+    router=router,
+    path="/{email_id}/aguardando-resposta",
+    response_model=EmailOut,
+)
+async def mark_email_aguardando_resposta_endpoint(
+    email_id: UUID,
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+):
+    return await mark_email_as_aguardando_resposta(email_id=email_id)
 
 
 @router_request(

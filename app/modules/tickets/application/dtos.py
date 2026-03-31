@@ -67,17 +67,46 @@ class TicketDetection(str, Enum):
     ambos = "AMBOS"
 
 
+class ServiceBuscaPorPlacaPlateOut(BaseModel):
+    id: str
+    created_at: datetime
+    plate: str
+
+
 class ServiceBuscaPorPlacaIn(BaseModel):
     period_start: Optional[datetime] = None
     period_end: Optional[datetime] = None
-    plate: Optional[str] = Field(default=None, max_length=20)
+    plates: List[str] = Field(default_factory=list)
+
+    @root_validator
+    def validate_plates_max_length(cls, values):
+        plates = values.get("plates") or []
+        for p in plates:
+            if p is not None and len((p or "").strip()) > 20:
+                raise ValueError("cada item em plates deve ter no máximo 20 caracteres")
+        return values
+
+
+class ServiceBuscaPorRadarPlateOut(BaseModel):
+    id: str
+    created_at: datetime
+    plate: str
 
 
 class ServiceBuscaPorRadarIn(BaseModel):
     period_start: Optional[datetime] = None
     period_end: Optional[datetime] = None
-    plate: Optional[str] = Field(default=None, max_length=20)
+    plates: List[str] = Field(default_factory=list)
     radar_address: Optional[str] = Field(default=None, max_length=20)
+    orientation: Optional[str] = Field(default=None, max_length=50_000)
+
+    @root_validator
+    def validate_radar_plates_max_length(cls, values):
+        plates = values.get("plates") or []
+        for p in plates:
+            if p is not None and len((p or "").strip()) > 20:
+                raise ValueError("cada item em plates deve ter no máximo 20 caracteres")
+        return values
 
 
 class ServiceCercoEletronicoIn(BaseModel):
@@ -94,29 +123,29 @@ class ServiceBuscaPorImagemIn(BaseModel):
 
 
 class ServicePlacasCorrelatasItemIn(BaseModel):
-    period_start: Optional[datetime] = None
-    period_end: Optional[datetime] = None
     plate: Optional[str] = Field(default=None, max_length=20)
 
 
 class ServicePlacasCorrelatasIn(BaseModel):
+    period_start: Optional[datetime] = None
+    period_end: Optional[datetime] = None
     interest_interval_minutes: Optional[int] = Field(default=None, ge=0)
     detection_count: Optional[int] = Field(default=None, ge=0)
     detection: Optional[TicketDetection] = None
-    items: List[ServicePlacasCorrelatasItemIn] = Field(default_factory=list)
+    plates: List[ServicePlacasCorrelatasItemIn] = Field(default_factory=list)
 
 
 class ServicePlacasConjuntasItemIn(BaseModel):
-    period_start: Optional[datetime] = None
-    period_end: Optional[datetime] = None
     plate: Optional[str] = Field(default=None, max_length=20)
 
 
 class ServicePlacasConjuntasIn(BaseModel):
+    period_start: Optional[datetime] = None
+    period_end: Optional[datetime] = None
     interest_interval_minutes: Optional[int] = Field(default=None, ge=0)
     detection_count: Optional[int] = Field(default=None, ge=0)
     detection: Optional[TicketDetection] = None
-    items: List[ServicePlacasConjuntasItemIn] = Field(default_factory=list)
+    plates: List[ServicePlacasConjuntasItemIn] = Field(default_factory=list)
 
 
 class ServiceReservaDeImagemIn(BaseModel):
@@ -135,14 +164,22 @@ class ServiceOutrosIn(BaseModel):
     orientation: Optional[str] = Field(default=None, max_length=50_000)
 
 
-class ServiceBuscaPorPlacaOut(ServiceBuscaPorPlacaIn):
+class ServiceBuscaPorPlacaOut(BaseModel):
     id: str
     created_at: datetime
+    period_start: Optional[datetime] = None
+    period_end: Optional[datetime] = None
+    plates: List[ServiceBuscaPorPlacaPlateOut] = Field(default_factory=list)
 
 
-class ServiceBuscaPorRadarOut(ServiceBuscaPorRadarIn):
+class ServiceBuscaPorRadarOut(BaseModel):
     id: str
     created_at: datetime
+    period_start: Optional[datetime] = None
+    period_end: Optional[datetime] = None
+    plates: List[ServiceBuscaPorRadarPlateOut] = Field(default_factory=list)
+    radar_address: Optional[str] = Field(default=None, max_length=20)
+    orientation: Optional[str] = Field(default=None, max_length=50_000)
 
 
 class ServiceCercoEletronicoOut(ServiceCercoEletronicoIn):
@@ -163,10 +200,12 @@ class ServicePlacasCorrelatasItemOut(ServicePlacasCorrelatasItemIn):
 class ServicePlacasCorrelatasOut(BaseModel):
     id: str
     created_at: datetime
+    period_start: Optional[datetime] = None
+    period_end: Optional[datetime] = None
     interest_interval_minutes: Optional[int] = None
     detection_count: Optional[int] = None
     detection: Optional[TicketDetection] = None
-    items: List[ServicePlacasCorrelatasItemOut] = Field(default_factory=list)
+    plates: List[ServicePlacasCorrelatasItemOut] = Field(default_factory=list)
 
 
 class ServicePlacasConjuntasItemOut(ServicePlacasConjuntasItemIn):
@@ -177,10 +216,12 @@ class ServicePlacasConjuntasItemOut(ServicePlacasConjuntasItemIn):
 class ServicePlacasConjuntasOut(BaseModel):
     id: str
     created_at: datetime
+    period_start: Optional[datetime] = None
+    period_end: Optional[datetime] = None
     interest_interval_minutes: Optional[int] = None
     detection_count: Optional[int] = None
     detection: Optional[TicketDetection] = None
-    items: List[ServicePlacasConjuntasItemOut] = Field(default_factory=list)
+    plates: List[ServicePlacasConjuntasItemOut] = Field(default_factory=list)
 
 
 class ServiceReservaDeImagemOut(ServiceReservaDeImagemIn):
@@ -216,6 +257,11 @@ class TicketCreateIn(BaseModel):
     email_id: Optional[str] = None
 
     operation_id: str = Field(description="Demandante (FK para Operation)")
+
+    orgao_procedimento_id: Optional[str] = Field(
+        default=None,
+        description="Órgão do procedimento (FK para Operation, opcional)",
+    )
 
     numero_procedimento: Optional[str] = Field(default=None, max_length=60)
     numero_oficio: Optional[str] = Field(default=None, max_length=60)
@@ -273,6 +319,7 @@ class TicketOut(BaseModel):
     tipo_chamado_id: str
 
     operation_id: Optional[str]
+    orgao_procedimento_id: Optional[str]
 
     numero_procedimento: Optional[str]
     numero_oficio: Optional[str]
@@ -287,7 +334,7 @@ class TicketOut(BaseModel):
     pontos_focais: List[TicketCreateFocalPoint]
 
     equipe_id: Optional[str]
-    prioridade: TicketPriority
+    prioridade: Optional[TicketPriority]
 
     comentarios: List[TicketCommentOut] = Field(default_factory=list)
     anexos: List[TicketAttachmentOut] = Field(default_factory=list)
@@ -308,6 +355,7 @@ class TicketListItemOut(BaseModel):
     criado_em: datetime
     tipo_chamado_id: str
     operation_id: Optional[str]
+    orgao_procedimento_id: Optional[str]
     prioridade: TicketPriority
     natureza_id: Optional[str]
     numero_procedimento: Optional[str]

@@ -112,6 +112,15 @@ async def mark_email_as_spam(*, email_id: UUID) -> EmailOut:
     return await get_email_by_id(email_id)
 
 
+async def mark_email_as_aguardando_resposta(*, email_id: UUID) -> EmailOut:
+    email = await Email.get_or_none(id=email_id)
+    if not email:
+        raise HTTPException(status_code=404, detail="Email não encontrado.")
+    email.status = EmailStatus.AGUARDANDO_RESPOSTA
+    await email.save(update_fields=["status", "updated_at"])
+    return await get_email_by_id(email_id)
+
+
 MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 ALLOWED_CONTENT_TYPES = {

@@ -10,7 +10,7 @@ from app.decorators import router_request
 from app.dependencies import is_user
 from app.models import User
 from app.modules.tickets.application.dtos import TicketCreateResultOut, TicketDashboardFilterIn, TicketDashboardOut, TicketFocalPointSearchOut, TicketInternalNumberSearchOut, TicketOfficialLetterSearchOut, TicketOut, TicketProcedureNumberSearchOut, TicketRequesterSearchOut, TicketSearchOut
-from app.modules.tickets.application.services.ticket_service import create_ticket, get_ticket_by_id, get_tickets_dashboard, parse_ticket_payload, search_focal_points, search_internal_numbers, search_official_letters, search_procedure_numbers, search_requesters, search_tickets
+from app.modules.tickets.application.services.ticket_service import convert_ticket_to_conventional, create_ticket, get_ticket_by_id, get_tickets_dashboard, parse_ticket_payload, search_focal_points, search_internal_numbers, search_official_letters, search_procedure_numbers, search_requesters, search_tickets
 
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
@@ -51,6 +51,20 @@ async def search_tickets_endpoint(
 
 
 @router_request(
+    method="POST",
+    router=router,
+    path="/{ticket_id}/convert-to-conventional",
+    response_model=bool,
+)
+async def convert_ticket_to_conventional_endpoint(
+    ticket_id: UUID,
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+):
+    return await convert_ticket_to_conventional(ticket_id=str(ticket_id))
+
+
+@router_request(
     method="GET",
     router=router,
     path="/{ticket_id}",
@@ -63,73 +77,3 @@ async def get_ticket_endpoint(
 ):
     return await get_ticket_by_id(ticket_id=ticket_id)
 
-
-
-@router_request(
-    method="GET",
-    router=router,
-    path="/official-letters/search",
-    response_model=List[TicketOfficialLetterSearchOut],
-)
-async def search_official_letters_endpoint(
-    user: Annotated[User, Depends(is_user)],
-    request: Request,
-    search: str = Query(..., min_length=2, description="Texto para buscar números de ofício"),
-):
-    return await search_official_letters(search=search)
-
-
-@router_request(
-    method="GET",
-    router=router,
-    path="/internal-numbers/search",
-    response_model=List[TicketInternalNumberSearchOut],
-)
-async def search_internal_numbers_endpoint(
-    user: Annotated[User, Depends(is_user)],
-    request: Request,
-    search: str = Query(..., min_length=2, description="Texto para buscar número interno"),
-):
-    return await search_internal_numbers(search=search)
-
-
-@router_request(
-    method="GET",
-    router=router,
-    path="/procedure-numbers/search",
-    response_model=List[TicketProcedureNumberSearchOut],
-)
-async def search_procedure_numbers_endpoint(
-    user: Annotated[User, Depends(is_user)],
-    request: Request,
-    search: str = Query(..., min_length=2, description="Texto para buscar número de procedimento"),
-):
-    return await search_procedure_numbers(search=search)
-
-
-@router_request(
-    method="GET",
-    router=router,
-    path="/requesters/search",
-    response_model=List[TicketRequesterSearchOut],
-)
-async def search_requesters_endpoint(
-    user: Annotated[User, Depends(is_user)],
-    request: Request,
-    search: str = Query(..., min_length=2, description="Texto para buscar requisitante"),
-):
-    return await search_requesters(search=search)
-
-
-@router_request(
-    method="GET",
-    router=router,
-    path="/focal-points/search",
-    response_model=List[TicketFocalPointSearchOut],
-)
-async def search_focal_points_endpoint(
-    user: Annotated[User, Depends(is_user)],
-    request: Request,
-    search: str = Query(..., min_length=2, description="Texto para buscar ponto focal"),
-):
-    return await search_focal_points(search=search)

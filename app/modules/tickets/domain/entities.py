@@ -109,6 +109,13 @@ class Ticket(Model):
         on_delete=fields.RESTRICT,
     )
 
+    procedure_operation = fields.ForeignKeyField(
+        "app.Operation",
+        related_name="procedure_operation_tickets",
+        null=True,
+        on_delete=fields.RESTRICT,
+    )
+
     ticket_type = fields.ForeignKeyField(
         "app.TicketType",
         related_name="tickets",
@@ -265,11 +272,27 @@ class TicketPlateSearchService(Model):
 
     period_start = fields.DatetimeField(null=True)
     period_end = fields.DatetimeField(null=True)
-    plate = fields.CharField(max_length=20, null=True)
 
     class Meta:
         table = "ticket_plate_search_services"
         indexes = (("ticket_id", "created_at"),)
+
+
+class TicketPlateSearchServicePlate(Model):
+    id = fields.UUIDField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    service = fields.ForeignKeyField(
+        "app.TicketPlateSearchService",
+        related_name="plates",
+        on_delete=fields.CASCADE,
+    )
+
+    plate = fields.CharField(max_length=20)
+
+    class Meta:
+        table = "ticket_plate_search_service_plates"
+        indexes = (("service_id", "created_at"),)
 
 
 class TicketRadarSearchService(Model):
@@ -284,12 +307,29 @@ class TicketRadarSearchService(Model):
 
     period_start = fields.DatetimeField(null=True)
     period_end = fields.DatetimeField(null=True)
-    plate = fields.CharField(max_length=20, null=True)
     radar_address = fields.TextField(null=True)
+    orientation = fields.TextField(null=True)
 
     class Meta:
         table = "ticket_radar_search_services"
         indexes = (("ticket_id", "created_at"),)
+
+
+class TicketRadarSearchServicePlate(Model):
+    id = fields.UUIDField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    service = fields.ForeignKeyField(
+        "app.TicketRadarSearchService",
+        related_name="plates",
+        on_delete=fields.CASCADE,
+    )
+
+    plate = fields.CharField(max_length=20)
+
+    class Meta:
+        table = "ticket_radar_search_service_plates"
+        indexes = (("service_id", "created_at"),)
 
 
 class TicketElectronicFenceService(Model):
@@ -342,6 +382,8 @@ class TicketCorrelatedPlatesService(Model):
         on_delete=fields.CASCADE,
     )
 
+    period_start = fields.DatetimeField(null=True)
+    period_end = fields.DatetimeField(null=True)
     interest_interval_minutes = fields.IntField(null=True)
     detection_count = fields.IntField(null=True)
     detection = fields.CharField(max_length=10, null=True)
@@ -361,8 +403,6 @@ class TicketCorrelatedPlatesServiceItem(Model):
         on_delete=fields.CASCADE,
     )
 
-    period_start = fields.DatetimeField(null=True)
-    period_end = fields.DatetimeField(null=True)
     plate = fields.CharField(max_length=20, null=True)
 
     class Meta:
@@ -380,6 +420,8 @@ class TicketJointPlatesService(Model):
         on_delete=fields.CASCADE,
     )
 
+    period_start = fields.DatetimeField(null=True)
+    period_end = fields.DatetimeField(null=True)
     interest_interval_minutes = fields.IntField(null=True)
     detection_count = fields.IntField(null=True)
     detection = fields.CharField(max_length=10, null=True)
@@ -399,8 +441,6 @@ class TicketJointPlatesServiceItem(Model):
         on_delete=fields.CASCADE,
     )
 
-    period_start = fields.DatetimeField(null=True)
-    period_end = fields.DatetimeField(null=True)
     plate = fields.CharField(max_length=20, null=True)
 
     class Meta:
