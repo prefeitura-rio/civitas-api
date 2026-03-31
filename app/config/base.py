@@ -104,7 +104,7 @@ EMAIL_POLLING_INTERVAL_SECONDS = int(
 )
 # Primeira carga (banco sem emails): janela Gmail newer_than:Xd na INBOX
 EMAIL_SYNC_INITIAL_NEWER_THAN_DAYS = int(
-    getenv_or_action("EMAIL_SYNC_INITIAL_NEWER_THAN_DAYS", default="90")
+    getenv_or_action("EMAIL_SYNC_INITIAL_NEWER_THAN_DAYS", default="5")
 )
 # Tamanho de cada página em users.messages.list (máx. 500 na API Gmail)
 EMAIL_SYNC_LIST_PAGE_SIZE = int(

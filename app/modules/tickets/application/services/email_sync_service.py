@@ -100,7 +100,7 @@ async def _create_email_row(data: GmailEmailPayload) -> Email:
         to_address=data.to_address,
         subject=data.subject,
         snippet=data.snippet,
-        body_preview=None,
+        body_preview=data.body_preview,
         date=data.date,
         internal_date=data.internal_date,
         has_attachments=data.has_attachments,

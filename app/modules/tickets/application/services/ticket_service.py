@@ -6,7 +6,12 @@ import uuid
 from typing import List, Optional, Tuple
 
 from app.config import GCS_BUCKET_NAME
-from app.modules.tickets.domain.enum import TicketPriority, TicketStatus, UserRoleEnum
+from app.modules.tickets.domain.enum import (
+    EmailStatus,
+    TicketPriority,
+    TicketStatus,
+    UserRoleEnum,
+)
 from app.modules.tickets.infrastructure.gcs_upload import (
     build_ticket_object_name,
     gcs_delete_objects,
@@ -75,6 +80,14 @@ from app.modules.tickets.domain.entities import (
 
 
 MAX_FILE_BYTES = 10 * 1024 * 1024
+
+
+def _initial_status_for_ticket_type(ticket_type: TicketType) -> TicketStatus:
+    if (ticket_type.name or "").strip() == "Requisição Restrita":
+        return TicketStatus.RESTRITO
+    return TicketStatus.PENDENTE
+
+
 ALLOWED_CONTENT_TYPES = {
     "application/pdf",
     "application/msword",
@@ -290,6 +303,7 @@ async def _create_ticket_base(
     )
     return await Ticket.create(
         id=ticket_id,
+        status=_initial_status_for_ticket_type(ticket_type_obj),
         parent_ticket_id=ticket_in.associar_chamado_id,
         operation=operation_obj,
         procedure_operation=procedure_operation_obj,
@@ -736,6 +750,8 @@ async def create_ticket(
 
             if email:
                 await ticket.emails.add(email, using_db=connection)
+                email.status = EmailStatus.RESPONDIDO
+                await email.save(using_db=connection)
 
             await _create_ticket_related_data(
                 ticket=ticket,
@@ -1059,9 +1075,8 @@ async def search_tickets(*, search: str) -> List[TicketSearchOut]:
     tickets = (
         await Ticket.filter(
             (
-                Q(procedure_number__icontains=termo)
+                Q(internal_number__icontains=termo)
                 | Q(official_letter_number__icontains=termo)
-                | Q(requester_name__icontains=termo)
             )
             & Q(ticket_type__name__iexact="Levantamento Prévio")
         )
@@ -1082,19 +1097,14 @@ async def search_tickets(*, search: str) -> List[TicketSearchOut]:
 def build_ticket_search_label(ticket: "Ticket") -> str:
     partes: list[str] = []
 
-    if ticket.base_date:
-        partes.append(f"Chamado {ticket.base_date.strftime('%d/%m/%Y')}")
-
-    if ticket.procedure_number:
-        partes.append(f"Proc. {ticket.procedure_number}")
+    if ticket.procedure_operation:
+        partes.append(f"Numero Interno: {ticket.internal_number}")
 
     if ticket.official_letter_number:
-        partes.append(f"Ofício {ticket.official_letter_number}")
+        partes.append(f"Ofício: {ticket.official_letter_number}")
 
-    if ticket.requester_name:
-        partes.append(f"Req. {ticket.requester_name}")
 
-    return " • ".join(partes)
+    return " - ".join(partes)
 
 
 def _build_dashboard_service_labels(ticket: Ticket) -> List[str]:
