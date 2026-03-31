@@ -1,6 +1,5 @@
 # app/routers/tickets.py
 # -*- coding: utf-8 -*-
-from datetime import date
 from typing import Annotated, List, Optional
 from uuid import UUID
 
@@ -9,8 +8,8 @@ from fastapi import APIRouter, Depends, File, Form, Request, Query, UploadFile
 from app.decorators import router_request
 from app.dependencies import is_user
 from app.models import User
-from app.modules.tickets.application.dtos import TicketCreateResultOut, TicketDashboardFilterIn, TicketDashboardOut, TicketFocalPointSearchOut, TicketInternalNumberSearchOut, TicketOfficialLetterSearchOut, TicketOut, TicketProcedureNumberSearchOut, TicketRequesterSearchOut, TicketSearchOut
-from app.modules.tickets.application.services.ticket_service import convert_ticket_to_conventional, create_ticket, get_ticket_by_id, get_tickets_dashboard, parse_ticket_payload, search_focal_points, search_internal_numbers, search_official_letters, search_procedure_numbers, search_requesters, search_tickets
+from app.modules.tickets.application.dtos import TicketCreateResultOut, TicketDashboardFilterIn, TicketDashboardOut, TicketOut, TicketSearchOut
+from app.modules.tickets.application.services.ticket_service import convert_ticket_to_conventional, create_ticket, get_ticket_by_id, get_tickets_dashboard, parse_ticket_payload, search_tickets
 
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
