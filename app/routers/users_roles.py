@@ -40,10 +40,16 @@ async def list_users_with_roles_endpoint(
     request: Request,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
+    search: str | None = Query(
+        default=None,
+        min_length=1,
+        description="Texto para buscar usuários (nome, e-mail ou usuário)",
+    ),
 ):
     return await list_users_with_roles(
         page=page,
         page_size=page_size,
+        search=search,
     )
 
 
