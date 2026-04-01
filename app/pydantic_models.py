@@ -421,13 +421,32 @@ class DataRelayResponse(BaseModel):
     message: str
 
 
+def _normalize_lpr_equipment_ids(v: list | None) -> list[str] | None:
+    """Aceita strings (código LPR no BigQuery) ou UUID legado; normaliza e valida tamanho."""
+    if v is None:
+        return None
+    out: list[str] = []
+    for x in v:
+        s = str(x).strip()
+        if not s:
+            raise ValueError("lpr_equipment_ids cannot contain empty values")
+        if len(s) > 64:
+            raise ValueError("each lpr_equipment_id must be at most 64 characters")
+        out.append(s)
+    return out
+
+
 class MonitoredPlateDemandantLinkIn(BaseModel):
     demandant_id: UUID
     reference_number: str = Field(..., max_length=50)
     valid_until: datetime | None = None
     notes: str | None = None
     additional_info: dict | None = None
-    lpr_equipment_ids: list[UUID] | None = None
+    lpr_equipment_ids: list[str] | None = None
+
+    @validator("lpr_equipment_ids")
+    def validate_lpr_equipment_ids(cls, value):
+        return _normalize_lpr_equipment_ids(value)
 
 
 class MonitoredPlateDemandantLinkPatch(BaseModel):
@@ -438,12 +457,15 @@ class MonitoredPlateDemandantLinkPatch(BaseModel):
     active: bool | None = None
     notes: str | None = None
     additional_info: dict | None = None
-    lpr_equipment_ids: list[UUID] | None = None
+    lpr_equipment_ids: list[str] | None = None
+
+    @validator("lpr_equipment_ids")
+    def validate_lpr_equipment_ids_patch(cls, value):
+        return _normalize_lpr_equipment_ids(value)
 
 
 class MonitoredPlateIn(BaseModel):
     plate: str = Field(...)
-    numero_controle: str = Field(..., max_length=255)
     notes: str | None = None
     notification_channels: list[UUID] | None = None
     demandant_links: list[MonitoredPlateDemandantLinkIn] | None = None
@@ -510,7 +532,7 @@ class DemandantOut(BaseModel):
 
 class MonitoredPlateDemandantRadarOut(BaseModel):
     id: UUID
-    lpr_equipment_id: UUID
+    lpr_equipment_id: str
     active: bool
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -536,6 +558,7 @@ class MonitoredPlateDemandantLinkOut(BaseModel):
     reference_number: str
     valid_until: datetime | None = None
     active: bool
+    validity_warning_sent_at: datetime | None = None
     notes: str | None = None
     additional_info: dict | None = None
     demandant: DemandantOut
@@ -550,7 +573,6 @@ class MonitoredPlateDemandantLinkOut(BaseModel):
 class MonitoredPlateOut(BaseModel):
     id: UUID
     plate: str
-    numero_controle: str
     notes: str | None = None
     notification_channels: list["NotificationChannelOut"] | None = []
     demandant_links: list[MonitoredPlateDemandantLinkOut] = []
@@ -577,6 +599,7 @@ class MonitoredPlateOut(BaseModel):
                     reference_number=link.reference_number,
                     valid_until=link.valid_until,
                     active=link.active,
+                    validity_warning_sent_at=link.validity_warning_sent_at,
                     notes=link.notes,
                     additional_info=link.additional_info,
                     demandant=await DemandantOut.from_demandant(demandant_obj),
@@ -591,7 +614,6 @@ class MonitoredPlateOut(BaseModel):
         return MonitoredPlateOut(
             id=monitored_plate.id,
             plate=monitored_plate.plate,
-            numero_controle=monitored_plate.numero_controle,
             notes=monitored_plate.notes,
             notification_channels=[
                 NotificationChannelOut.from_orm(ch) for ch in channels
@@ -613,7 +635,6 @@ class MonitoredPlateHistory(BaseModel):
 
 class MonitoredPlateUpdate(BaseModel):
     plate: str | None = Field(default=None)
-    numero_controle: str | None = Field(default=None, max_length=255)
     notes: str | None = None
     notification_channels: list[UUID] | None = None
 

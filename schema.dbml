@@ -55,7 +55,6 @@ Table notificationchannel {
 Table monitoredplate {
   id uuid [primary key]
   plate varchar(7) [not null, unique]
-  numero_controle varchar(255) [not null, unique]
   notes text
   created_at timestamp [not null]
   updated_at timestamp [not null]
@@ -69,6 +68,7 @@ Table monitoredplate_demandant {
   reference_number varchar(50) [not null]
   valid_until timestamp [note: 'Validade específica deste demandante para esta placa']
   active bool [not null, default: true]
+  validity_warning_sent_at timestamp [note: 'Aviso 7d Discord; limpo no PATCH se valid_until mudar (nova janela)']
   notes text
   additional_info jsonb
   created_at timestamp [not null]
@@ -85,7 +85,7 @@ Table monitoredplate_notificationchannel {
 Table monitoredplate_demandant_radar {
   id uuid [primary key]
   monitoredplate_demandant_id uuid [not null]
-  lpr_equipment_id uuid [not null]
+  lpr_equipment_id varchar(64) [not null]
   active bool [not null, default: true]
 
   created_at timestamp [not null]

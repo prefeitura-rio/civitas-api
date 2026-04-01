@@ -223,12 +223,9 @@ async def create_monitored_plate(
     # Check if plate is already monitored
     if await MonitoredPlate.filter(plate=plate_data.plate).exists():
         raise HTTPException(status_code=409, detail="Plate already monitored")
-    if await MonitoredPlate.filter(numero_controle=plate_data.numero_controle).exists():
-        raise HTTPException(status_code=409, detail="numero_controle already in use")
     async with in_transaction():
         monitored_plate = await MonitoredPlate.create(
             plate=plate_data.plate,
-            numero_controle=plate_data.numero_controle,
             notes=plate_data.notes,
         )
         if plate_data.notification_channels:
@@ -495,7 +492,7 @@ async def create_monitored_plate_demandant_link(
     request: Request,
 ):
     """
-    Adiciona um víncio placa–demandante (e opcionalmente radares LPR) a uma placa já existente.
+    Adiciona um vínculo placa–demandante (e opcionalmente radares LPR) a uma placa já existente.
     """
     plate = plate.upper()
     monitored_plate = await MonitoredPlate.filter(plate=plate).first()
@@ -543,9 +540,9 @@ async def patch_monitored_plate_demandant_link(
     request: Request,
 ):
     """
-    Atualiza parcialmente um víncio (referência, valid_until, active, notas, additional_info).
+    Atualiza parcialmente um vínculo (referência, valid_until, active, notas, additional_info).
     Se `lpr_equipment_ids` for enviado, a lista **substitui** integralmente os equipamentos
-    associados a esse víncio (remove os que saíram e cria os novos).
+    associados a esse vínculo (remove os que saíram e cria os novos).
     """
     plate = plate.upper()
     monitored_plate = await MonitoredPlate.filter(plate=plate).first()
@@ -582,6 +579,11 @@ async def patch_monitored_plate_demandant_link(
                         plate_demandant=link,
                         lpr_equipment_id=eq_id,
                     )
+        if (
+            "valid_until" in patch_data
+            and patch_data["valid_until"] != link.valid_until
+        ):
+            link.validity_warning_sent_at = None
         for key, value in patch_data.items():
             setattr(link, key, value)
         await link.save()
@@ -601,7 +603,7 @@ async def delete_monitored_plate_demandant_link(
     user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
-    """Remove um víncio placa–demandante (radares associados caem em CASCADE)."""
+    """Remove um vínculo placa–demandante (radares associados caem em CASCADE)."""
     plate = plate.upper()
     monitored_plate = await MonitoredPlate.filter(plate=plate).first()
     if not monitored_plate:

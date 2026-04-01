@@ -72,7 +72,6 @@ class Demandant(Model):
 class MonitoredPlate(Model):
     id = fields.UUIDField(pk=True)
     plate = fields.CharField(max_length=7, unique=True)
-    numero_controle = fields.CharField(max_length=255, unique=True)
     notes = fields.TextField(null=True)
     notification_channels = fields.ManyToManyField(
         "app.NotificationChannel",
@@ -105,6 +104,7 @@ class MonitoredPlateDemandant(Model):
     reference_number = fields.CharField(max_length=50)
     valid_until = fields.DatetimeField(null=True)
     active = fields.BooleanField(default=True)
+    validity_warning_sent_at = fields.DatetimeField(null=True)
     notes = fields.TextField(null=True)
     additional_info = fields.JSONField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
@@ -123,7 +123,7 @@ class MonitoredPlateDemandantRadar(Model):
         related_name="radar_links",
         source_field="monitoredplate_demandant_id",
     )
-    lpr_equipment_id = fields.UUIDField()
+    lpr_equipment_id = fields.CharField(max_length=64)
     active = fields.BooleanField(default=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
