@@ -508,7 +508,7 @@ class Team(Model):
     id = fields.UUIDField(pk=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
-    name = fields.CharField(max_length=120, unique=True)  # ex: FOX 10
+    name = fields.CharField(max_length=120, unique=True) 
     description = fields.TextField(null=True)
     is_active = fields.BooleanField(default=True)
 
@@ -561,7 +561,7 @@ class TeamMember(Model):
 
     island = fields.ForeignKeyField(
         "app.Island",
-        related_name="team_members",
+        related_name="members",
         null=True,
         on_delete=fields.SET_NULL,
     )
@@ -573,19 +573,31 @@ class TeamMember(Model):
         unique_together = (("team_id", "user_id"),)
         indexes = (
             ("team_id", "user_id"),
-            ("team_id", "island"),
+            ("team_id", "island_id"),
         )
 
 class Island(Model):
     id = fields.UUIDField(pk=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
-    name = fields.CharField(max_length=40, unique=True)
-    description = fields.TextField(null=True)
+    team = fields.ForeignKeyField(
+        "app.Team",
+        related_name="islands",
+        on_delete=fields.CASCADE,
+    )
+
+    name = fields.CharField(max_length=40)
     is_active = fields.BooleanField(default=True)
 
     class Meta:
         table = "islands"
+        unique_together = (
+            ("team_id", "name"),
+        )
+        indexes = (
+            ("team_id", "is_active"),
+            ("team_id", "name"),
+        )
 
 
 

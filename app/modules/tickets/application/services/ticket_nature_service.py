@@ -64,7 +64,6 @@ async def list_ticket_natures(
     if is_active is not None:
         query = query.filter(is_active=is_active)
 
-    total = await query.count()
     rows = await query.order_by("name")
 
     items = [
