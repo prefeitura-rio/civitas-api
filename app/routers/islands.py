@@ -8,7 +8,7 @@ from app.decorators import router_request
 from app.dependencies import is_user
 from app.models import User
 from app.modules.tickets.application.dtos import (
-    TicketCatalogCreateIn,
+    IslandCreateIn,
     TicketCatalogUpdateIn,
     IslandOut,
     IslandPageOut,
@@ -18,6 +18,7 @@ from app.modules.tickets.application.services.island_service import (
     delete_island,
     get_island_by_id,
     list_islands,
+    list_islands_by_team,
     update_island,
 )
 
@@ -31,7 +32,7 @@ router = APIRouter(prefix="/islands", tags=["Islands"])
     response_model=IslandOut,
 )
 async def create_island_endpoint(
-    data: TicketCatalogCreateIn,
+    data: IslandCreateIn,
     user: Annotated[User, Depends(is_user)],
     request: Request,
 ):
@@ -51,6 +52,26 @@ async def list_islands_endpoint(
     isActive: Optional[bool] = Query(default=None),
 ):
     return await list_islands(
+        search=search,
+        is_active=isActive,
+    )
+
+
+@router_request(
+    method="GET",
+    router=router,
+    path="/team/{team_id}",
+    response_model=IslandPageOut,
+)
+async def list_islands_by_team_endpoint(
+    team_id: UUID,
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+    search: Optional[str] = Query(default=None),
+    isActive: Optional[bool] = Query(default=None),
+):
+    return await list_islands_by_team(
+        team_id=str(team_id),
         search=search,
         is_active=isActive,
     )

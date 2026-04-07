@@ -5,13 +5,13 @@ from fastapi import HTTPException
 from tortoise.expressions import Q
 
 from app.modules.tickets.application.dtos import (
-    TicketCatalogCreateIn,
+    IslandCreateIn,
     TicketCatalogUpdateIn,
     IslandListItemOut,
     IslandOut,
     IslandPageOut,
 )
-from app.modules.tickets.domain.entities import Island
+from app.modules.tickets.domain.entities import Island, Team
 
 
 def _normalize_name(name: str) -> str:
@@ -23,24 +23,30 @@ def _to_island_out(row: Island) -> IslandOut:
         id=str(row.id),
         created_at=row.created_at,
         name=row.name,
-        description=row.description,
         is_active=row.is_active,
     )
 
 
-async def create_island(*, data: TicketCatalogCreateIn) -> IslandOut:
+async def create_island(*, data: IslandCreateIn) -> IslandOut:
+    team = await Team.get_or_none(id=data.team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Equipe não encontrada.")
+
     normalized_name = _normalize_name(data.name)
 
-    exists = await Island.filter(name__iexact=normalized_name).exists()
+    exists = await Island.filter(
+        team_id=data.team_id,
+        name__iexact=normalized_name,
+    ).exists()
     if exists:
         raise HTTPException(
             status_code=409,
-            detail="Já existe uma ilha com esse nome.",
+            detail="Já existe uma ilha com esse nome nesta equipe.",
         )
 
     row = await Island.create(
+        team_id=data.team_id,
         name=normalized_name,
-        description=data.description,
         is_active=data.is_active,
     )
 
@@ -57,7 +63,42 @@ async def list_islands(
     if search and search.strip():
         termo = search.strip()
         query = query.filter(
-            Q(name__icontains=termo) | Q(description__icontains=termo)
+            Q(name__icontains=termo)
+        )
+
+    if is_active is not None:
+        query = query.filter(is_active=is_active)
+
+    total = await query.count()
+    rows = await query.order_by("name")
+
+    items = [
+        IslandListItemOut(
+            id=str(row.id),
+            created_at=row.created_at,
+            name=row.name,
+            is_active=row.is_active,
+        )
+        for row in rows
+    ]
+
+    return IslandPageOut(
+        items=items,
+        total=total,
+    )
+
+async def list_islands_by_team(
+    *,
+    team_id: str,
+    search: str | None = None,
+    is_active: bool | None = None,
+) -> IslandPageOut:
+    query = Island.filter(team_id=team_id)
+
+    if search and search.strip():
+        termo = search.strip()
+        query = query.filter(
+            Q(name__icontains=termo)
         )
 
     if is_active is not None:
@@ -102,19 +143,18 @@ async def update_island(
     if data.name is not None:
         normalized_name = _normalize_name(data.name)
 
-        exists = await Island.filter(name__iexact=normalized_name).exclude(
-            id=row.id
-        ).exists()
+        exists = await Island.filter(
+            team_id=row.team_id,
+            name__iexact=normalized_name,
+        ).exclude(id=row.id).exists()
         if exists:
             raise HTTPException(
                 status_code=409,
-                detail="Já existe uma ilha com esse nome.",
+                detail="Já existe uma ilha com esse nome nesta equipe.",
             )
 
         row.name = normalized_name
 
-    if data.description is not None:
-        row.description = data.description
 
     if data.is_active is not None:
         row.is_active = data.is_active

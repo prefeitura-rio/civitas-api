@@ -10,13 +10,11 @@ from pydantic import BaseModel, EmailStr, Field, HttpUrl, root_validator
 
 class TicketCatalogCreateIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
-    description: Optional[str] = Field(default=None, max_length=50_000)
     is_active: bool = True
 
 
 class TicketCatalogUpdateIn(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=120)
-    description: Optional[str] = Field(default=None, max_length=50_000)
     is_active: Optional[bool] = None
 
 
@@ -372,6 +370,7 @@ class TicketDashboardItemOut(BaseModel):
     demandante: str
     equipe: str
     responsavel: str
+    data_criacao:str
     prioridade: Optional[str] = None
     dias_atraso: int
     servicos: List[TicketDashboardServiceTagOut]
@@ -492,6 +491,13 @@ class TeamMemberOut(BaseModel):
     role: UserRoleEnum
 
 
+class IslandListItemOut(BaseModel):
+    id: str
+    created_at: datetime
+    name: str
+    is_active: bool
+
+
 class TeamOut(BaseModel):
     id: str
     created_at: datetime
@@ -499,6 +505,7 @@ class TeamOut(BaseModel):
     description: str | None = None
     is_active: bool
     members: list[TeamMemberOut]
+    islands: list[IslandListItemOut]
 
 
 class TeamListOut(BaseModel):
@@ -506,16 +513,29 @@ class TeamListOut(BaseModel):
     total: int
 
 
+class IslandIn(BaseModel):
+    id: Optional[str] = None
+    name: str
+    is_active: bool = True
+
+
+class IslandCreateIn(BaseModel):
+    team_id: str
+    name: str = Field(min_length=1, max_length=40)
+    is_active: bool = True
+
 class TeamCreateIn(BaseModel):
     name: str
     description: str | None = None
     is_active: bool = True
+    islands: Optional[list[IslandIn]] = []
 
 
 class TeamUpdateIn(BaseModel):
     name: str | None = None
     description: str | None = None
     is_active: bool | None = None
+    islands: Optional[list[IslandIn]] | None = None
 
 
 class TeamSimpleOut(BaseModel):
@@ -531,13 +551,6 @@ class IslandOut(BaseModel):
     created_at: datetime
     name: str
     description: Optional[str] = None
-    is_active: bool
-
-
-class IslandListItemOut(BaseModel):
-    id: str
-    created_at: datetime
-    name: str
     is_active: bool
 
 

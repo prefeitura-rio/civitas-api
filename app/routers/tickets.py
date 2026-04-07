@@ -53,12 +53,14 @@ async def search_tickets_endpoint(
 async def convert_ticket_to_conventional_endpoint(
     ticket_id: UUID,
     files: Annotated[Optional[List[UploadFile]], File()] = None,
+    email_id: Optional[UUID] = Query(default=None),
     user: Annotated[User, Depends(is_user)] = None,
     request: Request = None,
 ):
     return await convert_ticket_to_conventional(
         ticket_id=str(ticket_id),
         files=files or [],
+        email_id=str(email_id) if email_id else None,
     )
 
 
