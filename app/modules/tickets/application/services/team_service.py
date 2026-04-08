@@ -3,11 +3,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from tortoise.exceptions import IntegrityError
-
+from tortoise.transactions import in_transaction
 from fastapi import HTTPException
 
 from app.models import User
 from app.modules.tickets.application.dtos import (
+    IslandListItemOut,
     TeamCreateIn,
     TeamIdNameOut,
     TeamListOut,
@@ -62,14 +63,42 @@ async def create_team(*, data: TeamCreateIn) -> TeamSimpleOut:
             detail="Já existe uma equipe com esse nome.",
         )
 
-    team = await Team.create(
-        name=normalized_name,
-        description=data.description,
-        is_active=data.is_active,
-    )
+    islands_data = getattr(data, "islands", []) or []
+
+    normalized_island_names: set[str] = set()
+    for island_data in islands_data:
+        island_name = _normalize_team_name(island_data.name)
+        if not island_name:
+            raise HTTPException(
+                status_code=400,
+                detail="Nome da ilha é obrigatório.",
+            )
+
+        island_name_key = island_name.casefold()
+        if island_name_key in normalized_island_names:
+            raise HTTPException(
+                status_code=409,
+                detail="Existem ilhas duplicadas na requisição.",
+            )
+        normalized_island_names.add(island_name_key)
+
+    async with in_transaction() as conn:
+        team = await Team.create(
+            name=normalized_name,
+            description=data.description,
+            is_active=data.is_active,
+            using_db=conn,
+        )
+
+        for island_data in islands_data:
+            await Island.create(
+                name=_normalize_team_name(island_data.name),
+                is_active=island_data.is_active,
+                team_id=team.id,
+                using_db=conn,
+            )
 
     return _to_team_simple_out(team)
-
 
 async def update_team(
     *,
@@ -92,22 +121,99 @@ async def update_team(
                 detail="Já existe uma equipe com esse nome.",
             )
 
-        team.name = normalized_name
+    islands_data = data.islands if hasattr(data, "islands") else None
 
-    if data.description is not None:
-        team.description = data.description
+    if islands_data is not None:
+        normalized_island_names: set[str] = set()
 
-    if data.is_active is not None:
-        team.is_active = data.is_active
+        for island_data in islands_data:
+            island_name = _normalize_team_name(island_data.name)
+            if not island_name:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Nome da ilha é obrigatório.",
+                )
 
-    await team.save()
+            island_name_key = island_name.casefold()
+            if island_name_key in normalized_island_names:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Existem ilhas duplicadas na requisição.",
+                )
+            normalized_island_names.add(island_name_key)
+
+    async with in_transaction() as conn:
+        team = await Team.get_or_none(id=team_id).using_db(conn)
+        if not team:
+            raise HTTPException(status_code=404, detail="Equipe não encontrada.")
+
+        if data.name is not None:
+            team.name = _normalize_team_name(data.name)
+
+        if data.description is not None:
+            team.description = data.description
+
+        if data.is_active is not None:
+            team.is_active = data.is_active
+
+        await team.save(using_db=conn)
+
+        if islands_data is not None:
+            existing_islands = await Island.filter(team_id=team.id).using_db(conn)
+            existing_islands_map = {str(island.id): island for island in existing_islands}
+
+            payload_ids: set[str] = set()
+
+            for island_data in islands_data:
+                normalized_island_name = _normalize_team_name(island_data.name)
+
+                if island_data.id:
+                    island = existing_islands_map.get(str(island_data.id))
+                    if not island:
+                        raise HTTPException(
+                            status_code=404,
+                            detail="Ilha não encontrada para esta equipe.",
+                        )
+
+                    island.name = normalized_island_name
+                    island.is_active = island_data.is_active
+                    await island.save(using_db=conn)
+
+                    payload_ids.add(str(island.id))
+                else:
+                    new_island = await Island.create(
+                        name=normalized_island_name,
+                        is_active=island_data.is_active,
+                        team_id=team.id,
+                        using_db=conn,
+                    )
+                    payload_ids.add(str(new_island.id))
+
+            for island in existing_islands:
+                if str(island.id) not in payload_ids:
+                    has_members = await TeamMember.filter(
+                        team_id=team.id,
+                        island_id=island.id,
+                    ).using_db(conn).exists()
+
+                    if has_members:
+                        island.is_active = False
+                        await island.save(using_db=conn)
+                    else:
+                        await island.delete(using_db=conn)
+
     return _to_team_simple_out(team)
-
 
 async def delete_team(*, team_id: str) -> None:
     team = await Team.get_or_none(id=team_id)
     if not team:
         raise HTTPException(status_code=404, detail="Equipe não encontrada.")
+
+    if not team.is_active:
+        raise HTTPException(
+            status_code=400,
+            detail="Equipe já está inativa.",
+        )
 
     has_members = await TeamMember.filter(team_id=team.id).exists()
     if has_members:
@@ -116,18 +222,13 @@ async def delete_team(*, team_id: str) -> None:
             detail="Não é possível excluir a equipe porque ela possui membros vinculados.",
         )
 
-    has_tickets = await team.tickets.all().exists()
-    if has_tickets:
-        raise HTTPException(
-            status_code=409,
-            detail="Não é possível excluir a equipe porque ela está vinculada a tickets.",
-        )
 
-    await team.delete()
+    team.is_active = False
+    await team.save()
 
 
 async def list_teams_with_members() -> TeamListOut:
-    teams = await Team.all().order_by("name")
+    teams = await Team.filter(is_active=True).order_by("name")
 
     if not teams:
         return TeamListOut(items=[], total=0)
@@ -145,6 +246,18 @@ async def list_teams_with_members() -> TeamListOut:
         member_out = await _build_team_member_out(member)
         members_by_team[str(member.team_id)].append(member_out)
 
+    raw_islands = await Island.filter(team_id__in=team_ids,is_active=True).order_by("name")
+    islands_by_team: dict[str, list[IslandListItemOut]] = defaultdict(list)
+    for row in raw_islands:
+        islands_by_team[str(row.team_id)].append(
+            IslandListItemOut(
+                id=str(row.id),
+                created_at=row.created_at,
+                name=row.name,
+                is_active=row.is_active,
+            )
+        )
+
     items = [
         TeamOut(
             id=str(team.id),
@@ -153,6 +266,7 @@ async def list_teams_with_members() -> TeamListOut:
             description=team.description,
             is_active=team.is_active,
             members=members_by_team.get(str(team.id), []),
+            islands=islands_by_team.get(str(team.id), []),
         )
         for team in teams
     ]
@@ -174,9 +288,12 @@ async def create_team_member(*, data: TeamMemberCreateIn) -> TeamMemberOut:
 
     island = None
     if data.island_id:
-        island = await Island.get_or_none(id=data.island_id)
+        island = await Island.get_or_none(id=data.island_id, team_id=data.team_id, is_active=True)
         if not island:
-            raise HTTPException(status_code=404, detail="Ilha não encontrada.")
+            raise HTTPException(
+            status_code=404,
+            detail="Ilha não encontrada.",
+            )
 
     if await TeamMember.filter(user_id=data.user_id).exclude(
         team_id=data.team_id
@@ -247,7 +364,7 @@ async def delete_team_member(*, member_id: str) -> None:
     await member.delete()
 
 async def list_teams() -> list[TeamIdNameOut]:
-    teams = await Team.all().only("id", "name").order_by("name")
+    teams = await Team.filter(is_active=True).only("id", "name").order_by("name")
     
     return [
         TeamIdNameOut(

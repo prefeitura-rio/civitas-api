@@ -1001,6 +1001,7 @@ async def get_ticket_by_id(*, ticket_id: str) -> TicketOut:
 async def convert_ticket_to_conventional(
     *,
     ticket_id: str,
+    email_id: Optional[str] = None,
     files: Optional[List[UploadFile]] = None,
 ) -> bool:
     files = files or []
@@ -1012,6 +1013,13 @@ async def convert_ticket_to_conventional(
     )
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não encontrado.")
+    email = None
+    if email_id:
+        email = await Email.get_or_none(id=email_id)
+        if not email:
+            raise HTTPException(status_code=404, detail="Email não encontrado.")
+        email.status = EmailStatus.RESPONDIDO
+        
 
     current_name = (ticket.ticket_type.name or "").strip().casefold()
     if current_name != "levantamento prévio".strip().casefold():
@@ -1051,6 +1059,9 @@ async def convert_ticket_to_conventional(
                     uploaded_files=uploaded_files,
                     connection=connection,
                 )
+            if email:
+                await email.save(using_db=connection, update_fields=["status"])
+            
     except Exception as exc:
         if uploaded_files:
             logger.warning(
@@ -1234,14 +1245,16 @@ async def get_tickets_dashboard(
         status_ticket = TicketStatus(ticket.status)
         priority = TicketPriority(ticket.priority) if ticket.priority else None
 
-        created_at = ticket.created_at
-        current_time = (
-            datetime.now(created_at.tzinfo)
-            if created_at.tzinfo is not None
-            else datetime.now(timezone.utc)
-        )
-
-        aging_days = max((current_time - created_at).days, 0)
+        base_date = ticket.base_date
+    
+        if not base_date:
+            aging_days = 0
+            created_at = ticket.created_at
+        else:
+            created_at = datetime.combine(base_date, time.min, tzinfo=timezone.utc)
+            current_time = datetime.now(timezone.utc)
+            aging_days = max((current_time - created_at).days, 0)
+        
         service_labels = _build_dashboard_service_labels(ticket)
 
         item = TicketDashboardItemOut(
@@ -1254,6 +1267,7 @@ async def get_tickets_dashboard(
             responsavel=ticket.responsible.full_name if ticket.responsible else "",
             prioridade=priority.value if priority else None,
             dias_atraso=aging_days,
+            data_criacao=created_at.strftime("%d/%m/%Y"),
             servicos=[
                 TicketDashboardServiceTagOut(label=label)
                 for label in service_labels
