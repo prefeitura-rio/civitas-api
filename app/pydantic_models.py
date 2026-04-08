@@ -597,6 +597,19 @@ class RadarOut(BaseModel):
     active_in_last_24_hours: Optional[str] = None
     last_detection_time: Optional[datetime] = None
     sentido: Optional[str] = None
+    
+    
+class LprCollectionPointOut(BaseModel):
+    id_ponto_coleta: str
+    origem_equipamento: str
+    latitude: float
+    longitude: float
+    local_ponto_coleta: str
+    bairro: str
+    sentido: str
+    has_data: bool
+    active_in_last_24_hours: bool
+    last_detection_time: Optional[datetime] = None
 
 
 class ReportFilters(BaseModel):
