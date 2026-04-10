@@ -53,6 +53,21 @@ class EmailSyncState(Model):
         table = "email_sync_state"
 
 
+class EmailTemplate(Model):
+    """HTML com placeholders; {{EMAIL_LOGO_CID}} é preenchido no envio (CID fixo em config)."""
+
+    id = fields.UUIDField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
+    title = fields.CharField(max_length=255, unique=True, index=True)
+    body_html = fields.TextField()
+    is_active = fields.BooleanField(default=True)
+
+    class Meta:
+        table = "email_templates"
+
+
 class TicketType(Model):
     id = fields.UUIDField(pk=True)
     created_at = fields.DatetimeField(auto_now_add=True)
@@ -621,3 +636,24 @@ class EmailAttachment(Model):
 
     class Meta:
         table = "email_attachments"
+
+
+class StandardizedResponse(Model):
+    id = fields.UUIDField(pk=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+    category = fields.CharField(max_length=100)
+    title = fields.CharField(max_length=255)
+    when_to_use = fields.TextField(null=True)
+    body = fields.TextField()
+    is_active = fields.BooleanField(default=True)
+
+    class Meta:
+        table = "standardized_responses"
+        ordering = ["category", "title"]
+        indexes = [
+            ("category", "is_active"),
+            ("category", "title"),
+            ("title",),
+            ("is_active",),
+        ]

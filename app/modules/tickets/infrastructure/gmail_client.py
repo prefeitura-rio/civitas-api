@@ -8,8 +8,11 @@ import html as html_module
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from email.utils import parsedate_to_datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -82,6 +85,8 @@ class GmailClient:
             name = header.get("name", "")
             if name in header_map:
                 result[header_map[name]] = header.get("value", "")
+            elif name.lower() == "message-id":
+                result["message_id"] = header.get("value", "")
         return result
 
     def _extract_sender_info(self, from_header: str) -> tuple[Optional[str], Optional[str]]:
@@ -387,6 +392,180 @@ class GmailClient:
         except Exception as e:
             logger.error(f"Erro ao baixar anexos para {message_id}: {e}")
             return []
+
+    def _get_reply_rfc_message_id_and_subject(
+        self,
+        service: Any,
+        gmail_message_id: str,
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Message-ID RFC e assunto da mensagem original (resposta em thread)."""
+        try:
+            msg = (
+                service.users()
+                .messages()
+                .get(
+                    userId="me",
+                    id=gmail_message_id,
+                    format="metadata",
+                    metadataHeaders=["Message-ID", "Subject"],
+                )
+                .execute()
+            )
+            payload = msg.get("payload", {}) or {}
+            headers = self._parse_email_headers(payload.get("headers", []))
+            return headers.get("message_id"), headers.get("subject")
+        except Exception as e:
+            logger.warning(f"Metadados de reply não obtidos ({gmail_message_id}): {e}")
+            return None, None
+
+    def _build_mime_message(
+        self,
+        *,
+        to_addresses: List[str],
+        subject: str,
+        body_text: Optional[str],
+        body_html: Optional[str],
+        in_reply_to_rfc_message_id: Optional[str],
+        references: Optional[str],
+    ) -> MIMEMultipart | MIMEText:
+        to_addresses = [t.strip() for t in to_addresses if t and str(t).strip()]
+        if not to_addresses:
+            raise ValueError("Lista de destinatários vazia.")
+
+        if body_html and (body_text or "").strip():
+            root: MIMEMultipart | MIMEText = MIMEMultipart("alternative")
+            root.attach(MIMEText(body_text or "", "plain", "utf-8"))
+            root.attach(MIMEText(body_html, "html", "utf-8"))
+        elif body_html:
+            root = MIMEText(body_html, "html", "utf-8")
+        else:
+            root = MIMEText(body_text or "", "plain", "utf-8")
+
+        root["To"] = ", ".join(to_addresses)
+        root["Subject"] = subject
+        if in_reply_to_rfc_message_id:
+            root["In-Reply-To"] = in_reply_to_rfc_message_id.strip()
+        if references:
+            root["References"] = references.strip()
+
+        return root
+
+    def _build_mime_message_with_inline_images(
+        self,
+        *,
+        to_addresses: List[str],
+        subject: str,
+        body_text: Optional[str],
+        body_html: str,
+        in_reply_to_rfc_message_id: Optional[str],
+        references: Optional[str],
+        inline_images: List[Tuple[str, str, bytes]],
+    ) -> MIMEMultipart:
+        """
+        multipart/related: HTML + partes inline (Content-ID) para cid: no HTML.
+        `inline_images`: lista de (cid_sem_aspas, mime principal/subtipo, bytes).
+        """
+        to_addresses = [t.strip() for t in to_addresses if t and str(t).strip()]
+        if not to_addresses:
+            raise ValueError("Lista de destinatários vazia.")
+
+        root = MIMEMultipart("related")
+
+        alt = MIMEMultipart("alternative")
+        plain = (body_text or "").strip()
+        alt.attach(MIMEText(plain, "plain", "utf-8"))
+        alt.attach(MIMEText(body_html, "html", "utf-8"))
+        root.attach(alt)
+
+        for cid, mime, raw in inline_images:
+            if "/" not in mime:
+                mime = "application/octet-stream"
+            main, sub = mime.split("/", 1)
+            if main == "image":
+                part = MIMEImage(raw, _subtype=sub)
+            else:
+                raise ValueError(f"Tipo MIME não suportado para inline: {mime}")
+            part.add_header("Content-ID", f"<{cid}>")
+            part.add_header("Content-Disposition", "inline", filename=f"inline.{sub}")
+            root.attach(part)
+
+        root["To"] = ", ".join(to_addresses)
+        root["Subject"] = subject
+        if in_reply_to_rfc_message_id:
+            root["In-Reply-To"] = in_reply_to_rfc_message_id.strip()
+        if references:
+            root["References"] = references.strip()
+
+        return root
+
+    def send_message(
+        self,
+        *,
+        to_addresses: List[str],
+        subject: str,
+        body_text: Optional[str] = None,
+        body_html: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        reply_to_gmail_message_id: Optional[str] = None,
+        inline_cid_images: Optional[List[Tuple[str, str, bytes]]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Envia e-mail via `users.messages.send` (mesma conta OAuth).
+        Com `reply_to_gmail_message_id`, preenche In-Reply-To/References.
+        Com `thread_id`, a mensagem entra na mesma conversa no Gmail.
+        """
+        try:
+            service = self._get_service()
+            in_reply_to: Optional[str] = None
+            references: Optional[str] = None
+
+            if reply_to_gmail_message_id:
+                rfc_mid, _orig_subj = self._get_reply_rfc_message_id_and_subject(
+                    service, reply_to_gmail_message_id
+                )
+                if rfc_mid:
+                    in_reply_to = rfc_mid
+                    references = rfc_mid
+
+            html = (body_html or "").strip()
+            if inline_cid_images and html:
+                mime = self._build_mime_message_with_inline_images(
+                    to_addresses=to_addresses,
+                    subject=subject,
+                    body_text=body_text,
+                    body_html=body_html or "",
+                    in_reply_to_rfc_message_id=in_reply_to,
+                    references=references,
+                    inline_images=inline_cid_images,
+                )
+            else:
+                mime = self._build_mime_message(
+                    to_addresses=to_addresses,
+                    subject=subject,
+                    body_text=body_text,
+                    body_html=body_html,
+                    in_reply_to_rfc_message_id=in_reply_to,
+                    references=references,
+                )
+            raw_b64 = base64.urlsafe_b64encode(mime.as_bytes()).decode("utf-8")
+            send_body: Dict[str, Any] = {"raw": raw_b64}
+            if thread_id:
+                send_body["threadId"] = thread_id
+
+            sent = (
+                service.users().messages().send(userId="me", body=send_body).execute()
+            )
+            logger.info(
+                f"Gmail: mensagem enviada id={sent.get('id')} threadId={sent.get('threadId')}"
+            )
+            return sent
+
+        except HttpError as e:
+            logger.error(f"Erro HTTP Gmail API ao enviar: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Erro ao enviar mensagem Gmail: {e}")
+            raise
 
 
 _gmail_client: GmailClient | None = None

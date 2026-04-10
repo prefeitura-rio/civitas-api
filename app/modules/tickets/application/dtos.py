@@ -4,9 +4,10 @@ from __future__ import annotations
 from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
+from uuid import UUID
 
 from app.modules.tickets.domain.enum import EmailStatus, TicketPriority, TicketStatus, UserRoleEnum
-from pydantic import BaseModel, EmailStr, Field, HttpUrl, root_validator
+from pydantic import BaseModel, EmailStr, Field, HttpUrl, root_validator, validator
 
 class TicketCatalogCreateIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
@@ -563,6 +564,75 @@ class TeamIdNameOut(BaseModel):
     id: str
     name: str
 
+
+REQUIRED_EMAIL_TEMPLATE_PLACEHOLDERS = (
+    "{{EMAIL_TITLE}}",
+    "{{EMAIL_BODY}}",
+    "{{SIGNATURE_NAME}}",
+    "{{SIGNATURE_ROLE}}",
+    "{{SIGNATURE_ORG}}",
+    "{{EMAIL_LOGO_CID}}",
+)
+
+
+def _body_html_must_include_placeholders(body_html: str) -> str:
+    missing = [p for p in REQUIRED_EMAIL_TEMPLATE_PLACEHOLDERS if p not in body_html]
+    if missing:
+        raise ValueError(
+            "body_html deve incluir estes placeholders (ausentes: "
+            + ", ".join(missing)
+            + "). Lista completa: "
+            + ", ".join(REQUIRED_EMAIL_TEMPLATE_PLACEHOLDERS)
+        )
+    return body_html
+
+
+class EmailTemplateCreateIn(BaseModel):
+    """HTML com placeholders obrigatórios; {{EMAIL_LOGO_CID}} é preenchido no envio (CID fixo na API)."""
+
+    title: str = Field(min_length=1, max_length=255)
+    body_html: str = Field(min_length=1)
+    is_active: bool = True
+
+    @validator("body_html")
+    def _placeholders(cls, v: str) -> str:
+        return _body_html_must_include_placeholders(v)
+
+
+class EmailTemplateUpdateIn(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    body_html: Optional[str] = Field(default=None, min_length=1)
+    is_active: Optional[bool] = None
+
+    @validator("body_html")
+    def _placeholders_update(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        return _body_html_must_include_placeholders(v)
+
+
+class EmailTemplateListItemOut(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+    title: str
+    is_active: bool
+
+
+class EmailTemplateOut(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+    title: str
+    body_html: str
+    is_active: bool
+
+
+class EmailTemplatePageOut(BaseModel):
+    items: list[EmailTemplateListItemOut]
+    total: int
+
+
 class EmailBase(BaseModel):
     id: str
     message_id: str
@@ -591,6 +661,38 @@ class EmailSyncStatusOut(BaseModel):
     enabled: bool
     watermark_internal_date_ms: Optional[int] = None
     initial_newer_than_days: int = 90
+
+
+class EmailSendIn(BaseModel):
+    """Envio via Gmail API; use `reply_to_email_id` para responder em thread (In-Reply-To + threadId)."""
+
+    to: List[EmailStr] = Field(..., min_items=1)
+    subject: str = Field(..., min_length=1, max_length=998)
+    body_text: Optional[str] = None
+    body_html: Optional[str] = None
+    thread_id: Optional[str] = None
+    reply_to_email_id: Optional[UUID] = None
+
+    @root_validator
+    def require_body_text_or_html(cls, values):
+        text = (values.get("body_text") or "").strip()
+        html = (values.get("body_html") or "").strip()
+        if not text and not html:
+            raise ValueError("Informe body_text e/ou body_html.")
+        return values
+
+
+class EmailSendOut(BaseModel):
+    gmail_message_id: str
+    thread_id: Optional[str] = None
+
+
+class EmailStandardizedTemplateSendIn(BaseModel):
+    """Usa o primeiro template HTML ativo; envia para `from_address` do e-mail de referência (resposta em thread)."""
+
+    email_id: UUID
+    title: str = Field(..., min_length=1, max_length=255)
+    body: str = Field(..., min_length=1)
 
 
 class EmailAttachmentOut(BaseModel):
@@ -624,3 +726,56 @@ class EmailOut(BaseModel):
     updated_at: datetime
 
     attachments: List[EmailAttachmentOut] = Field(default_factory=list)
+
+
+
+
+class StandardizedResponseCategory(str, Enum):
+    RECEBIMENTO_SOLICITACOES = "RECEBIMENTO_SOLICITACOES"
+    RELATORIOS_PLACAS_RADARES = "RELATORIOS_PLACAS_RADARES"
+    INSERCAO_PLACAS_CERCO = "INSERCAO_PLACAS_CERCO"
+    SOLICITACAO_IMAGENS = "SOLICITACAO_IMAGENS"
+    MODELOS_CONSOLIDADOS = "MODELOS_CONSOLIDADOS"
+    SOLICITACOES_INDEVIDAS = "SOLICITACOES_INDEVIDAS"
+    AGRADECIMENTO = "AGRADECIMENTO"
+    MODELO_OFICIO_DEMANDANTE = "MODELO_OFICIO_DEMANDANTE"
+
+
+class StandardizedResponseCreateIn(BaseModel):
+    category: StandardizedResponseCategory
+    title: str = Field(..., min_length=1, max_length=255)
+    when_to_use: Optional[str] = None
+    body: str = Field(..., min_length=1)
+    is_active: bool = True
+
+
+class StandardizedResponseUpdateIn(BaseModel):
+    category: Optional[StandardizedResponseCategory] = None
+    title: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    when_to_use: Optional[str] = None
+    body: Optional[str] = Field(default=None, min_length=1)
+    is_active: Optional[bool] = None
+
+
+class StandardizedResponseOut(BaseModel):
+    id: str
+    created_at: datetime
+    category: StandardizedResponseCategory
+    title: str
+    when_to_use: Optional[str] = None
+    body: str
+    is_active: bool
+
+
+class StandardizedResponseListItemOut(BaseModel):
+    id: str
+    created_at: datetime
+    category: StandardizedResponseCategory
+    title: str
+    when_to_use: Optional[str] = None
+    is_active: bool
+
+
+class StandardizedResponsePageOut(BaseModel):
+    items: list[StandardizedResponseListItemOut]
+    total: int

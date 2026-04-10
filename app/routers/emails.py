@@ -6,7 +6,14 @@ from app.modules.tickets.application.dtos import (
     EmailAttachmentOut,
     EmailOut,
     EmailPageOut,
+    EmailSendIn,
+    EmailSendOut,
+    EmailStandardizedTemplateSendIn,
     EmailSyncStatusOut,
+)
+from app.modules.tickets.application.services.email_send_service import send_email
+from app.modules.tickets.application.services.email_standardized_send_service import (
+    send_standardized_templated_email,
 )
 from app.modules.tickets.application.services.email_sync_service import (
     get_email_sync_status,
@@ -129,6 +136,38 @@ async def email_sync_status_endpoint(
 ):
     raw = await get_email_sync_status()
     return EmailSyncStatusOut(**raw)
+
+
+@router_request(
+    method="POST",
+    router=router,
+    path="/enviar",
+    response_model=EmailSendOut,
+)
+async def send_email_endpoint(
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+    payload: EmailSendIn,
+):
+    return await send_email(payload)
+
+
+@router_request(
+    method="POST",
+    router=router,
+    path="/enviar/resposta-padronizada",
+    response_model=EmailSendOut,
+)
+async def send_standardized_templated_email_endpoint(
+    user: Annotated[User, Depends(is_user)],
+    request: Request,
+    payload: EmailStandardizedTemplateSendIn,
+):
+    return await send_standardized_templated_email(
+        email_id=payload.email_id,
+        title=payload.title,
+        body=payload.body,
+    )
 
 
 @router_request(

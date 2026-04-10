@@ -22,9 +22,6 @@ from app.modules.tickets.application.dtos import (
 from app.modules.tickets.domain.entities import Island, Team, TeamMember
 
 
-def _normalize_team_name(name: str) -> str:
-    return " ".join(name.strip().split())
-
 
 def _to_team_simple_out(team: Team) -> TeamSimpleOut:
     return TeamSimpleOut(
@@ -54,9 +51,7 @@ async def _build_team_member_out(member: TeamMember) -> TeamMemberOut:
 
 
 async def create_team(*, data: TeamCreateIn) -> TeamSimpleOut:
-    normalized_name = _normalize_team_name(data.name)
-
-    exists = await Team.filter(name__iexact=normalized_name).exists()
+    exists = await Team.filter(name__iexact=data.name).exists()
     if exists:
         raise HTTPException(
             status_code=409,
@@ -65,9 +60,9 @@ async def create_team(*, data: TeamCreateIn) -> TeamSimpleOut:
 
     islands_data = getattr(data, "islands", []) or []
 
-    normalized_island_names: set[str] = set()
+    island_names: set[str] = set()
     for island_data in islands_data:
-        island_name = _normalize_team_name(island_data.name)
+        island_name = island_data.name
         if not island_name:
             raise HTTPException(
                 status_code=400,
@@ -75,16 +70,16 @@ async def create_team(*, data: TeamCreateIn) -> TeamSimpleOut:
             )
 
         island_name_key = island_name.casefold()
-        if island_name_key in normalized_island_names:
+        if island_name_key in island_names:
             raise HTTPException(
                 status_code=409,
                 detail="Existem ilhas duplicadas na requisição.",
             )
-        normalized_island_names.add(island_name_key)
+        island_names.add(island_name_key)
 
     async with in_transaction() as conn:
         team = await Team.create(
-            name=normalized_name,
+            name=data.name,
             description=data.description,
             is_active=data.is_active,
             using_db=conn,
@@ -92,7 +87,7 @@ async def create_team(*, data: TeamCreateIn) -> TeamSimpleOut:
 
         for island_data in islands_data:
             await Island.create(
-                name=_normalize_team_name(island_data.name),
+                name=island_data.name,
                 is_active=island_data.is_active,
                 team_id=team.id,
                 using_db=conn,
@@ -110,9 +105,7 @@ async def update_team(
         raise HTTPException(status_code=404, detail="Equipe não encontrada.")
 
     if data.name is not None:
-        normalized_name = _normalize_team_name(data.name)
-
-        exists = await Team.filter(name__iexact=normalized_name).exclude(
+        exists = await Team.filter(name__iexact=data.name).exclude(
             id=team.id
         ).exists()
         if exists:
@@ -124,10 +117,10 @@ async def update_team(
     islands_data = data.islands if hasattr(data, "islands") else None
 
     if islands_data is not None:
-        normalized_island_names: set[str] = set()
+        island_names: set[str] = set()
 
         for island_data in islands_data:
-            island_name = _normalize_team_name(island_data.name)
+            island_name = island_data.name
             if not island_name:
                 raise HTTPException(
                     status_code=400,
@@ -135,12 +128,12 @@ async def update_team(
                 )
 
             island_name_key = island_name.casefold()
-            if island_name_key in normalized_island_names:
+            if island_name_key in island_names:
                 raise HTTPException(
                     status_code=409,
                     detail="Existem ilhas duplicadas na requisição.",
                 )
-            normalized_island_names.add(island_name_key)
+            island_names.add(island_name_key)
 
     async with in_transaction() as conn:
         team = await Team.get_or_none(id=team_id).using_db(conn)
@@ -148,7 +141,7 @@ async def update_team(
             raise HTTPException(status_code=404, detail="Equipe não encontrada.")
 
         if data.name is not None:
-            team.name = _normalize_team_name(data.name)
+            team.name = data.name
 
         if data.description is not None:
             team.description = data.description
@@ -165,7 +158,7 @@ async def update_team(
             payload_ids: set[str] = set()
 
             for island_data in islands_data:
-                normalized_island_name = _normalize_team_name(island_data.name)
+                island_name = island_data.name
 
                 if island_data.id:
                     island = existing_islands_map.get(str(island_data.id))
@@ -175,14 +168,14 @@ async def update_team(
                             detail="Ilha não encontrada para esta equipe.",
                         )
 
-                    island.name = normalized_island_name
+                    island.name = island_name
                     island.is_active = island_data.is_active
                     await island.save(using_db=conn)
 
                     payload_ids.add(str(island.id))
                 else:
                     new_island = await Island.create(
-                        name=normalized_island_name,
+                        name=island_name,
                         is_active=island_data.is_active,
                         team_id=team.id,
                         using_db=conn,
