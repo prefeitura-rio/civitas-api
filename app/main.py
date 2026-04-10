@@ -28,6 +28,7 @@ from app.routers import (
     cameras_cor,
     cars,
     companies,
+    email_templates,
     emails,
     gcs,
     islands,
@@ -38,6 +39,7 @@ from app.routers import (
     people,
     radars,
     reports,
+    standardized_response_router,
     teams,
     users,
     users_roles,
@@ -123,7 +125,9 @@ app.include_router(tickets_types.router)
 app.include_router(teams.router)
 app.include_router(users_roles.router)
 app.include_router(islands.router)
+app.include_router(email_templates.router)
 app.include_router(emails.router)
+app.include_router(standardized_response_router.router)
 # feature flag to enable GCS endpoints
 # author: Nicolas Evilasio
 # date: 2026-02-12

@@ -14,9 +14,6 @@ from app.modules.tickets.application.dtos import (
 from app.modules.tickets.domain.entities import Island, Team
 
 
-def _normalize_name(name: str) -> str:
-    return " ".join(name.strip().split())
-
 
 def _to_island_out(row: Island) -> IslandOut:
     return IslandOut(
@@ -32,12 +29,11 @@ async def create_island(*, data: IslandCreateIn) -> IslandOut:
     if not team:
         raise HTTPException(status_code=404, detail="Equipe não encontrada.")
 
-    normalized_name = _normalize_name(data.name)
-
     exists = await Island.filter(
         team_id=data.team_id,
-        name__iexact=normalized_name,
+        name__iexact=data.name,
     ).exists()
+
     if exists:
         raise HTTPException(
             status_code=409,
@@ -46,7 +42,7 @@ async def create_island(*, data: IslandCreateIn) -> IslandOut:
 
     row = await Island.create(
         team_id=data.team_id,
-        name=normalized_name,
+        name=data.name,
         is_active=data.is_active,
     )
 
@@ -141,20 +137,18 @@ async def update_island(
         raise HTTPException(status_code=404, detail="Ilha não encontrada.")
 
     if data.name is not None:
-        normalized_name = _normalize_name(data.name)
-
         exists = await Island.filter(
             team_id=row.team_id,
-            name__iexact=normalized_name,
+            name__iexact=data.name,
         ).exclude(id=row.id).exists()
+
         if exists:
             raise HTTPException(
                 status_code=409,
                 detail="Já existe uma ilha com esse nome nesta equipe.",
             )
 
-        row.name = normalized_name
-
+        row.name = data.name
 
     if data.is_active is not None:
         row.is_active = data.is_active
@@ -175,4 +169,5 @@ async def delete_island(*, island_id: str) -> None:
             detail="Não é possível excluir a ilha porque ela está vinculada a membros de equipe.",
         )
 
-    await row.delete()
+    row.is_active = False
+    await row.save()

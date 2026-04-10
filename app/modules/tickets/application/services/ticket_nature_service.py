@@ -120,11 +120,5 @@ async def delete_ticket_nature(*, nature_id: str) -> None:
     if not row:
         raise HTTPException(status_code=404, detail="Natureza não encontrada.")
 
-    has_tickets = await row.tickets.all().exists()
-    if has_tickets:
-        raise HTTPException(
-            status_code=409,
-            detail="Não é possível excluir a natureza porque ela está vinculada a tickets.",
-        )
-
-    await row.delete()
+    row.is_active = False
+    await row.save()

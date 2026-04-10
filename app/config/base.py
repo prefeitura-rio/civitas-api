@@ -113,14 +113,20 @@ EMAIL_SYNC_LIST_PAGE_SIZE = int(
 GMAIL_REFRESH_TOKEN = getenv_or_action("GMAIL_REFRESH_TOKEN", default="", action="ignore")
 GMAIL_CLIENT_ID = getenv_or_action("GMAIL_CLIENT_ID", default="", action="ignore")
 GMAIL_CLIENT_SECRET = getenv_or_action("GMAIL_CLIENT_SECRET", default="", action="ignore")
+
+
 GMAIL_SCOPES = getenv_or_action(
     "GMAIL_SCOPES",
-    default="https://www.googleapis.com/auth/gmail.readonly",
+    default="https://www.googleapis.com/auth/gmail.readonly,https://www.googleapis.com/auth/gmail.send",
     action="ignore",
 )
 
 # Assets directory
 ASSETS_DIR = Path(__file__).parent.parent / "assets"
+
+# Logo inline no e-mail HTML: arquivo fixo e CID fixo (substitui {{EMAIL_LOGO_CID}} no envio).
+EMAIL_TEMPLATE_DEFAULT_INLINE_LOGO = ASSETS_DIR / "logo_email.png"
+EMAIL_INLINE_LOGO_CID = "logo_email"
 
 # Vehicle types mapping
 VEHICLE_TYPES_MAPPING = {
