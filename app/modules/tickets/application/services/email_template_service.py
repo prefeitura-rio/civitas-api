@@ -16,10 +16,6 @@ from app.modules.tickets.application.dtos import (
 from app.modules.tickets.domain.entities import EmailTemplate
 
 
-def _normalize_title(title: str) -> str:
-    return " ".join(title.strip().split())
-
-
 def _to_out(row: EmailTemplate) -> EmailTemplateOut:
     return EmailTemplateOut(
         id=str(row.id),
@@ -42,9 +38,7 @@ def _to_list_item(row: EmailTemplate) -> EmailTemplateListItemOut:
 
 
 async def create_email_template(*, data: EmailTemplateCreateIn) -> EmailTemplateOut:
-    normalized_title = _normalize_title(data.title)
-
-    exists = await EmailTemplate.filter(title__iexact=normalized_title).exists()
+    exists = await EmailTemplate.filter(title__iexact=data.title).exists()
     if exists:
         raise HTTPException(
             status_code=409,
@@ -53,7 +47,7 @@ async def create_email_template(*, data: EmailTemplateCreateIn) -> EmailTemplate
 
     row = await EmailTemplate.create(
         id=uuid.uuid4(),
-        title=normalized_title,
+        title=data.title,
         body_html=data.body_html,
         is_active=data.is_active,
     )
@@ -98,9 +92,8 @@ async def update_email_template(
         raise HTTPException(status_code=404, detail="Template de email não encontrado.")
 
     if data.title is not None:
-        normalized_title = _normalize_title(data.title)
         conflict = (
-            await EmailTemplate.filter(title__iexact=normalized_title)
+            await EmailTemplate.filter(title__iexact=data.title)
             .exclude(id=template_id)
             .exists()
         )
@@ -109,10 +102,11 @@ async def update_email_template(
                 status_code=409,
                 detail="Já existe um template de email com esse título.",
             )
-        row.title = normalized_title
+        row.title = data.title
 
     if data.body_html is not None:
         row.body_html = data.body_html
+
     if data.is_active is not None:
         row.is_active = data.is_active
 
@@ -124,4 +118,5 @@ async def delete_email_template(*, template_id: str) -> None:
     row = await EmailTemplate.get_or_none(id=template_id)
     if not row:
         raise HTTPException(status_code=404, detail="Template de email não encontrado.")
-    await row.delete()
+    row.is_active = False
+    await row.save()

@@ -15,18 +15,30 @@ from loguru import logger
 
 from app import config
 from app.modules.tickets.application.dtos import EmailSendOut
-from app.modules.tickets.application.services.email_send_service import (
-    gmail_send_config_ok,
-    _http_error_detail,
-)
+
 from app.modules.tickets.domain.entities import Email, EmailTemplate
 from app.modules.tickets.domain.enum import EmailStatus
 from app.modules.tickets.infrastructure.gmail_client import get_gmail_client
-from tortoise.transactions import in_transaction
 
 DEFAULT_SIGNATURE_NAME = "Equipe CIVITAS"
 DEFAULT_SIGNATURE_ROLE = "Sistema de Atendimento Institucional"
 DEFAULT_SIGNATURE_ORG = "CIVITAS"
+
+
+def gmail_send_config_ok() -> bool:
+    return bool(
+        config.GMAIL_CLIENT_ID
+        and config.GMAIL_CLIENT_SECRET
+        and config.GMAIL_REFRESH_TOKEN
+    )
+
+
+def _http_error_detail(exc: HttpError) -> str:
+    try:
+        content = exc.content.decode("utf-8", errors="replace") if exc.content else ""
+        return content or str(exc)
+    except Exception:
+        return str(exc)
 
 
 def _plain_to_html_fragment(text: str) -> str:
@@ -101,8 +113,8 @@ async def send_standardized_templated_email(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                "Envio de e-mail indisponível: credenciais Gmail incompletas ou "
-                "GMAIL_SCOPES sem permissão de envio."
+                "Envio de e-mail indisponível: credenciais Gmail incompletas "
+                "(GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN)."
             ),
         )
 
@@ -196,13 +208,8 @@ async def send_standardized_templated_email(
         )
 
     try:
-        async with in_transaction() as connection:
-            db_email = await Email.get(id=email_id, using_db=connection)
-            db_email.status = EmailStatus.RESPONDIDO
-            await db_email.save(
-                using_db=connection,
-                update_fields=["status", "updated_at"],
-            )
+        email.status = EmailStatus.RESPONDIDO
+        await email.save(update_fields=["status", "updated_at"])
     except Exception as e:
         logger.exception(
             f"E-mail enviado (gmail id={mid}), mas falha ao marcar como Respondido: {e}"

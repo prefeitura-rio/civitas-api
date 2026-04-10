@@ -11,7 +11,6 @@ from app.modules.tickets.application.dtos import (
     EmailStandardizedTemplateSendIn,
     EmailSyncStatusOut,
 )
-from app.modules.tickets.application.services.email_send_service import send_email
 from app.modules.tickets.application.services.email_standardized_send_service import (
     send_standardized_templated_email,
 )
@@ -137,19 +136,6 @@ async def email_sync_status_endpoint(
     raw = await get_email_sync_status()
     return EmailSyncStatusOut(**raw)
 
-
-@router_request(
-    method="POST",
-    router=router,
-    path="/enviar",
-    response_model=EmailSendOut,
-)
-async def send_email_endpoint(
-    user: Annotated[User, Depends(is_user)],
-    request: Request,
-    payload: EmailSendIn,
-):
-    return await send_email(payload)
 
 
 @router_request(

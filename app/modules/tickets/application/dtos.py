@@ -664,8 +664,6 @@ class EmailSyncStatusOut(BaseModel):
 
 
 class EmailSendIn(BaseModel):
-    """Envio via Gmail API; use `reply_to_email_id` para responder em thread (In-Reply-To + threadId)."""
-
     to: List[EmailStr] = Field(..., min_items=1)
     subject: str = Field(..., min_length=1, max_length=998)
     body_text: Optional[str] = None
@@ -688,7 +686,6 @@ class EmailSendOut(BaseModel):
 
 
 class EmailStandardizedTemplateSendIn(BaseModel):
-    """Usa o primeiro template HTML ativo; envia para `from_address` do e-mail de referência (resposta em thread)."""
 
     email_id: UUID
     title: str = Field(..., min_length=1, max_length=255)

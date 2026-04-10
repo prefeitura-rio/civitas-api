@@ -54,7 +54,6 @@ class EmailSyncState(Model):
 
 
 class EmailTemplate(Model):
-    """HTML com placeholders; {{EMAIL_LOGO_CID}} é preenchido no envio (CID fixo em config)."""
 
     id = fields.UUIDField(pk=True)
     created_at = fields.DatetimeField(auto_now_add=True)
