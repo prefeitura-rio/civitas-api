@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import sys
 from contextlib import asynccontextmanager
 
@@ -34,6 +33,7 @@ from app.routers import (
     layers,
     notification_channels,
     operations,
+    organizations,
     pdf,
     people,
     radars,
@@ -111,6 +111,7 @@ app.include_router(companies.router)
 app.include_router(layers.router)
 app.include_router(notification_channels.router)
 app.include_router(operations.router)
+app.include_router(organizations.router)
 app.include_router(pdf.router)
 app.include_router(people.router)
 app.include_router(radars.router)

@@ -1,0 +1,160 @@
+
+
+Table aerich {
+  id serial [primary key]
+  version varchar(255) [not null]
+  app varchar(100) [not null]
+  content jsonb [not null]
+}
+
+Table companydata {
+  id uuid [primary key]
+  cnpj varchar(14) [not null, unique]
+  data jsonb [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table persondata {
+  id uuid [primary key]
+  cpf varchar(11) [not null, unique]
+  data jsonb [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table platedata {
+  id uuid [primary key]
+  plate varchar(7) [not null, unique]
+  data jsonb [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+
+Table organization {
+  id uuid [primary key]
+  name varchar(150) [not null]
+  organization_type varchar(255) [not null]
+  acronym varchar(255) [not null]
+  jurisdiction_level varchar(255) [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table notificationchannel {
+  id uuid [primary key]
+  title varchar(100)
+  channel_type varchar(255) [not null] // CharEnumField(NotificationChannelTypeEnum)
+  parameters jsonb [not null]
+  active bool [not null, default: true]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table monitoredplate {
+  id uuid [primary key]
+  plate varchar(7) [not null, unique]
+  numero_controle varchar(255) [not null, unique]
+  notes text
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+
+Table monitoredplate_demandant {
+  id uuid [primary key]
+  monitoredplate_id uuid [not null]
+  demandant_id uuid [not null]
+  reference_number varchar(50) [not null]
+  valid_until timestamp [note: 'Validade específica deste demandante para esta placa']
+  active bool [not null, default: true]
+  notes text
+  additional_info jsonb
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table monitoredplate_notificationchannel {
+  id uuid [primary key]
+  monitoredplate_id uuid [not null]
+  notificationchannel_id uuid [not null]
+}
+
+
+Table monitoredplate_demandant_radar {
+  id uuid [primary key]
+  monitoredplate_demandant_id uuid [not null]
+  lpr_equipment_id uuid [not null]
+  active bool [not null, default: true]
+
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table "user" {
+  id uuid [primary key]
+  username varchar(100) [not null]
+  full_name varchar(255)
+  cpf varchar(11)
+  registration varchar(10)
+  agency varchar(100)
+  sector varchar(255)
+  email varchar(255)
+  is_admin bool [not null, default: false]
+  is_user bool [not null, default: false]
+  is_agent bool [not null, default: false]
+}
+
+Table userhistory {
+  id uuid [primary key]
+  user_id uuid [not null]
+  method varchar(10) [not null]
+  path varchar(100) [not null]
+  query_params jsonb
+  body jsonb
+  status_code int [not null]
+  timestamp timestamp [not null]
+}
+
+Table reporthistory {
+  id uuid [primary key]
+  id_report varchar(100) [not null]
+  user_id uuid [not null]
+  method varchar(10) [not null]
+  path varchar(100) [not null]
+  query_params jsonb
+  body jsonb
+  status_code int [not null]
+  timestamp timestamp [not null]
+}
+
+
+
+Table demandant {
+  id uuid [primary key]
+  organization_id uuid [not null]
+  name varchar(255)
+  email varchar(255)
+  phone_1 varchar(20)
+  phone_2 varchar(20)
+  phone_3 varchar(20)
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+// Relações
+
+Ref: monitoredplate_demandant.monitoredplate_id > monitoredplate.id
+Ref: monitoredplate_demandant.demandant_id > demandant.id
+
+Ref: monitoredplate_notificationchannel.monitoredplate_id > monitoredplate.id
+Ref: monitoredplate_notificationchannel.notificationchannel_id > notificationchannel.id
+
+Ref: userhistory.user_id > "user".id
+Ref: reporthistory.user_id > "user".id
+
+Ref: demandant.organization_id > organization.id
+
+Ref: monitoredplate_demandant_radar.monitoredplate_demandant_id > monitoredplate_demandant.id
+

@@ -3,13 +3,17 @@ from datetime import datetime
 from typing import Dict, List, Literal, Optional
 from uuid import UUID
 from enum import Enum
-from zlib import crc32
 
 from fastapi import Query
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import BaseModel, Field, validator
 
 from app.enums import NotificationChannelTypeEnum
-from app.models import MonitoredPlate
+from app.models import (
+    Demandant,
+    MonitoredPlate,
+    MonitoredPlateDemandant,
+    MonitoredPlateDemandantRadar,
+)
 
 
 class CortexArrendatario(BaseModel):
@@ -417,14 +421,21 @@ class DataRelayResponse(BaseModel):
     message: str
 
 
-class MonitoredPlateIn(BaseModel):
-    plate: str = Field(...)
-    operation_id: UUID
-    active: Optional[bool] = True
-    contact_info: Optional[str] = None
+class MonitoredPlateDemandantLinkIn(BaseModel):
+    demandant_id: UUID
+    reference_number: str = Field(..., max_length=50)
+    valid_until: Optional[datetime] = None
     notes: Optional[str] = None
     additional_info: Optional[dict] = None
+    lpr_equipment_ids: Optional[List[UUID]] = None
+
+
+class MonitoredPlateIn(BaseModel):
+    plate: str = Field(...)
+    numero_controle: str = Field(..., max_length=255)
+    notes: Optional[str] = None
     notification_channels: Optional[List[UUID]] = None
+    demandant_links: Optional[List[MonitoredPlateDemandantLinkIn]] = None
 
     @validator("plate")
     def validate_plate(cls, value: str):
@@ -443,15 +454,95 @@ class MonitoredPlateIn(BaseModel):
         return value
 
 
+class OrganizationOut(BaseModel):
+    id: UUID
+    name: str
+    organization_type: str
+    acronym: str
+    jurisdiction_level: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+
+
+class DemandantOut(BaseModel):
+    id: UUID
+    organization: OrganizationOut
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone_1: Optional[str] = None
+    phone_2: Optional[str] = None
+    phone_3: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+
+    @classmethod
+    async def from_demandant(cls, demandant: Demandant) -> "DemandantOut":
+        org = await demandant.organization
+        return cls(
+            id=demandant.id,
+            organization=OrganizationOut.from_orm(org),
+            name=demandant.name,
+            email=demandant.email,
+            phone_1=demandant.phone_1,
+            phone_2=demandant.phone_2,
+            phone_3=demandant.phone_3,
+            created_at=demandant.created_at,
+            updated_at=demandant.updated_at,
+        )
+
+
+class MonitoredPlateDemandantRadarOut(BaseModel):
+    id: UUID
+    lpr_equipment_id: UUID
+    active: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+
+    @classmethod
+    def from_radar_link(
+        cls, row: MonitoredPlateDemandantRadar
+    ) -> "MonitoredPlateDemandantRadarOut":
+        return cls(
+            id=row.id,
+            lpr_equipment_id=row.lpr_equipment_id,
+            active=row.active,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+
+class MonitoredPlateDemandantLinkOut(BaseModel):
+    id: UUID
+    reference_number: str
+    valid_until: Optional[datetime] = None
+    active: bool
+    notes: Optional[str] = None
+    additional_info: Optional[dict] = None
+    demandant: DemandantOut
+    radars: List[MonitoredPlateDemandantRadarOut] = []
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+
+
 class MonitoredPlateOut(BaseModel):
     id: UUID
     plate: str
-    operation: Optional["OperationOut"] = None
-    active: bool
-    contact_info: Optional[str] = None
+    numero_controle: str
     notes: Optional[str] = None
-    additional_info: Optional[dict] = None
     notification_channels: Optional[List["NotificationChannelOut"]] = []
+    demandant_links: List[MonitoredPlateDemandantLinkOut] = []
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -460,22 +551,41 @@ class MonitoredPlateOut(BaseModel):
 
     @classmethod
     async def from_monitored_plate(cls, monitored_plate: MonitoredPlate):
+        channels = await monitored_plate.notification_channels.all()
+        links_qs = MonitoredPlateDemandant.filter(
+            monitored_plate_id=monitored_plate.id
+        ).prefetch_related("demandant__organization", "radar_links")
+        links = await links_qs
+        demandant_links_out: List[MonitoredPlateDemandantLinkOut] = []
+        for link in links:
+            demandant_obj = await link.demandant
+            radars = await link.radar_links.all()
+            demandant_links_out.append(
+                MonitoredPlateDemandantLinkOut(
+                    id=link.id,
+                    reference_number=link.reference_number,
+                    valid_until=link.valid_until,
+                    active=link.active,
+                    notes=link.notes,
+                    additional_info=link.additional_info,
+                    demandant=await DemandantOut.from_demandant(demandant_obj),
+                    radars=[
+                        MonitoredPlateDemandantRadarOut.from_radar_link(r)
+                        for r in radars
+                    ],
+                    created_at=link.created_at,
+                    updated_at=link.updated_at,
+                )
+            )
         return MonitoredPlateOut(
             id=monitored_plate.id,
             plate=monitored_plate.plate,
-            operation=(
-                OperationOut.from_orm(await monitored_plate.operation)
-                if await monitored_plate.operation
-                else None
-            ),
-            active=monitored_plate.active,
-            contact_info=monitored_plate.contact_info,
+            numero_controle=monitored_plate.numero_controle,
             notes=monitored_plate.notes,
-            additional_info=monitored_plate.additional_info,
             notification_channels=[
-                NotificationChannelOut.from_orm(channel)
-                for channel in await monitored_plate.notification_channels.all()
+                NotificationChannelOut.from_orm(ch) for ch in channels
             ],
+            demandant_links=demandant_links_out,
             created_at=monitored_plate.created_at,
             updated_at=monitored_plate.updated_at,
         )
@@ -483,7 +593,6 @@ class MonitoredPlateOut(BaseModel):
 
 class MonitoredPlateHistory(BaseModel):
     plate: str
-    contact_info: Optional[str] = None
     notes: Optional[str] = None
     created_timestamp: Optional[datetime] = None
     created_by: Optional["UserOut"] = None
@@ -493,11 +602,8 @@ class MonitoredPlateHistory(BaseModel):
 
 class MonitoredPlateUpdate(BaseModel):
     plate: Optional[str] = Field(default=None)
-    operation_id: Optional[UUID] = None
-    active: Optional[bool] = None
-    contact_info: Optional[str] = None
+    numero_controle: Optional[str] = Field(default=None, max_length=255)
     notes: Optional[str] = None
-    additional_info: Optional[dict] = None
     notification_channels: Optional[List[UUID]] = None
 
     @validator("plate")
@@ -505,11 +611,9 @@ class MonitoredPlateUpdate(BaseModel):
         from app.utils import validate_plate as validate_plate_util
 
         if value is not None:
-            # Ensure the plate is upper case
             value = value.upper()
 
-        # Ensure the plate has the correct format
-        if not validate_plate_util(value):
+        if value is not None and not validate_plate_util(value):
             raise ValueError(
                 "plate must have exactly 7 characters: "
                 "first 3 letters, 4th digit, 5th letter or digit, last 2 digits"
@@ -582,6 +686,20 @@ class OperationOut(BaseModel):
 class OperationUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+
+
+class OrganizationIn(BaseModel):
+    name: str
+    organization_type: str
+    acronym: str
+    jurisdiction_level: str
+
+
+class OrganizationUpdate(BaseModel):
+    name: Optional[str] = None
+    organization_type: Optional[str] = None
+    acronym: Optional[str] = None
+    jurisdiction_level: Optional[str] = None
 
 
 class RadarOut(BaseModel):
