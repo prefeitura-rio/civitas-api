@@ -3,7 +3,8 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi_pagination import Page, Params
+from fastapi_pagination import Page
+from app.pydantic_models import LargeParams
 from fastapi_pagination.api import create_page
 from tortoise.exceptions import ValidationError
 
@@ -26,7 +27,7 @@ router = APIRouter(
 async def get_operations(
     user: Annotated[User, Depends(is_user)],
     request: Request,
-    params: Params = Depends(),
+    params: LargeParams = Depends(),
 ):
     """
     Lists all operations in the system.
