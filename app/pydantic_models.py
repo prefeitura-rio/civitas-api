@@ -1,16 +1,19 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional, TypeVar
 from uuid import UUID
 from enum import Enum
 from zlib import crc32
 
 from fastapi import Query
-from fastapi_pagination import Params
+from fastapi_pagination import Page, Params
+from fastapi_pagination.customization import CustomizedPage, UseParams
 from pydantic import BaseModel, Field, root_validator, validator
 
 from app.enums import NotificationChannelTypeEnum
 from app.models import MonitoredPlate
+
+T = TypeVar("T")
 
 
 class CortexArrendatario(BaseModel):
@@ -901,7 +904,13 @@ class GCSDeleteFileIn(BaseModel):
     
     
 class LargeParams(Params):
-    size: int = Query(default=50, ge=1, le=10000)
+    page: int = Query(1, ge=1)
+    size: int = Query(50, ge=1, le=10000)
+
+LargePage = CustomizedPage[
+    Page[T],
+    UseParams(LargeParams),
+]
     
     
 MonitoredPlateOut.update_forward_refs()
