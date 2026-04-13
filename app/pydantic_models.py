@@ -6,6 +6,7 @@ from enum import Enum
 from zlib import crc32
 
 from fastapi import Query
+from fastapi_pagination import Params
 from pydantic import BaseModel, Field, root_validator, validator
 
 from app.enums import NotificationChannelTypeEnum
@@ -897,6 +898,10 @@ class GCSFileExistsIn(BaseModel):
 class GCSDeleteFileIn(BaseModel):
     file_name: str = Field(..., description="The full path to the file in the bucket (can include folders).")
     bucket_name: str = Field(..., description="The name of the bucket.")
+    
+    
+class LargeParams(Params):
+    size: int = Query(default=50, ge=1, le=10000)
     
     
 MonitoredPlateOut.update_forward_refs()
