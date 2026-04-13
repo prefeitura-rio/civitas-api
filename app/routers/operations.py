@@ -3,15 +3,19 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi_pagination import Page
-from app.pydantic_models import LargeParams
 from fastapi_pagination.api import create_page
 from tortoise.exceptions import ValidationError
 
 from app.decorators import router_request
 from app.dependencies import is_user
 from app.models import Operation, User
-from app.pydantic_models import OperationIn, OperationOut, OperationUpdate
+from app.pydantic_models import (
+    LargePage,
+    LargeParams,
+    OperationIn,
+    OperationOut,
+    OperationUpdate,
+)
 
 router = APIRouter(
     prefix="/operations",
@@ -23,7 +27,9 @@ router = APIRouter(
 )
 
 
-@router_request(method="GET", router=router, path="", response_model=Page[OperationOut])
+@router_request(
+    method="GET", router=router, path="", response_model=LargePage[OperationOut]
+)
 async def get_operations(
     user: Annotated[User, Depends(is_user)],
     request: Request,
