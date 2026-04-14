@@ -38,6 +38,7 @@ from app.modules.tickets.application.dtos import (
     ServicePlacasCorrelatasItemOut,
     ServicePlacasCorrelatasOut,
     ServiceReservaDeImagemOut,
+    StandardizedResponseCategory,
     TicketAttachmentOut,
     TicketCommentOut,
     TicketCreateFocalPoint,
@@ -54,8 +55,12 @@ from app.modules.tickets.application.dtos import (
     TicketRequesterSearchOut,
     TicketSearchOut,
 )
+from app.modules.tickets.application.services.email_standardized_send_service import (
+    send_standardized_templated_email,
+)
 from app.modules.tickets.domain.entities import (
     Email,
+    StandardizedResponse,
     Ticket,
     TicketAttachment,
     TicketComment,
@@ -93,6 +98,33 @@ ALLOWED_CONTENT_TYPES = {
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
+
+_ACUSAR_RECEBIMENTO_POP_TITLE = "Acusar Recebimento"
+_INSERIR_NR_REF_PLACEHOLDER = "[INSERIR NR REF]"
+
+
+async def _send_acusar_recebimento_email_after_ticket_created(
+    *,
+    email_id_str: str,
+    internal_number: Optional[int],
+) -> None:
+    ref = str(internal_number).zfill(7)
+
+    pop = await StandardizedResponse.get_or_none(
+        category=StandardizedResponseCategory.CHAMADO_CRIADO.value,
+        title__iexact=_ACUSAR_RECEBIMENTO_POP_TITLE,
+        is_active=True,
+    )
+
+    body = pop.body.replace(_INSERIR_NR_REF_PLACEHOLDER, ref)
+
+    email_uuid = uuid.UUID(email_id_str)
+    await send_standardized_templated_email(
+            email_id=email_uuid,
+            title=pop.title,
+            body=body,
+        )
+
 
 
 def parse_ticket_payload(payload: str) -> TicketCreateIn:
@@ -772,6 +804,12 @@ async def create_ticket(
                 object_names=[item["storage_key"] for item in uploaded_files],
             )
         raise
+
+    if ticket_in.email_id:
+        await _send_acusar_recebimento_email_after_ticket_created(
+            email_id_str=ticket_in.email_id,
+            internal_number=ticket.internal_number,
+        )
 
     return TicketCreateResultOut(id=ticket_id)
 
