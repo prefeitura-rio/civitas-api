@@ -72,7 +72,7 @@ def build_get_car_by_radar_query(
     *,
     min_datetime: pendulum.DateTime,
     max_datetime: pendulum.DateTime,
-    codcet: str,
+    id_ponto_coleta: str,
     plate_hint: str | None = None,
 ) -> Tuple[str, List[bigquery.ScalarQueryParameter]]:
     """
@@ -101,7 +101,7 @@ def build_get_car_by_radar_query(
             AND datahora <= TIMESTAMP(@max_datetime, "America/Sao_Paulo")
     """
 
-    query += "AND codcet = @codcet"
+    query += "AND id_ponto_coleta = @id_ponto_coleta"
     query_params = [
         bigquery.ScalarQueryParameter(
             "min_datetime", "DATETIME", min_datetime.to_datetime_string()
@@ -109,7 +109,7 @@ def build_get_car_by_radar_query(
         bigquery.ScalarQueryParameter(
             "max_datetime", "DATETIME", max_datetime.to_datetime_string()
         ),
-        bigquery.ScalarQueryParameter("codcet", "STRING", codcet),
+        bigquery.ScalarQueryParameter("id_ponto_coleta", "STRING", id_ponto_coleta),
     ]
 
     if plate_hint:
@@ -520,7 +520,7 @@ def build_positions_query(
             DISTINCT
                 DATETIME(datahora, "America/Sao_Paulo") AS datahora,
                 placa,
-                codcet,
+                id_ponto_coleta,
                 camera_latitude AS latitude,
                 camera_longitude AS longitude,
                 COALESCE(localidade, '') AS localidade,
@@ -842,7 +842,7 @@ def get_car_by_radar(
     query, query_params = build_get_car_by_radar_query(
         min_datetime=min_datetime,
         max_datetime=max_datetime,
-        codcet=codcet,
+        id_ponto_coleta=codcet, # todo: trocar nome para id_ponto_coleta
         plate_hint=plate_hint,
     )
     logger.debug(f"Query: {query}")
@@ -1370,68 +1370,21 @@ def get_lpr_collection_points_positions() -> List[LprCollectionPointOut]:
         List[LprCollectionPointOut]: The LPR collection point positions.
     """
     query = """
-        WITH lpr_collection_points AS (
-            SELECT
-                t1.id_ponto_coleta,
-                t1.origem_equipamento,
-                t1.codigo_ponto_coleta,
-                t1.local_ponto_coleta,
-                t1.bairro,
-                t1.sentido,
-                t1.latitude,
-                t1.longitude,
-                t1.status_ativo
-            FROM `rj-civitas-dev.cerco_digital.vw_ponto_coleta` t1
-        ),
-
-        used_lpr_collection_points AS (
-        SELECT
-            codcet AS codigo_equipamento,
-            camera_latitude,
-            camera_longitude,
-            empresa,
-            MAX(DATETIME(datahora, "America/Sao_Paulo")) AS last_detection_time,
-            True AS has_data
-        FROM `rj-civitas.cerco_digital.vw_all_readings`
-        WHERE 
-            codcet IS NOT NULL 
-        GROUP BY codigo_equipamento, camera_latitude, camera_longitude, empresa
-        ),
-
-        -- some radars has different lat/long in readings tables and it causes duplicated values on previous CTE
-        used_lpr_collection_points_deduplicated AS (
-            SELECT 
-                *, 
-                ROW_NUMBER() OVER(PARTITION BY codigo_equipamento ORDER BY last_detection_time DESC) rn 
-            FROM
-                used_lpr_collection_points
-            QUALIFY rn = 1
-        ),
-
-        selected_lpr_colletion_points AS (
-        SELECT
-            t1.id_ponto_coleta,
-            t1.origem_equipamento,
-            COALESCE(t1.latitude, t3.camera_latitude) AS latitude,
-            COALESCE(t1.longitude, t3.camera_longitude) AS longitude,
-            t1.local_ponto_coleta,
-            t1.bairro,
-            t1.sentido,
-            COALESCE(t3.has_data, False) AS has_data,
-            COALESCE(t3.last_detection_time, NULL) AS last_detection_time,
-            CASE
-            WHEN t3.last_detection_time IS NULL THEN NULL
-            WHEN TIMESTAMP(t3.last_detection_time) >= TIMESTAMP_SUB(TIMESTAMP(CURRENT_DATETIME("America/Sao_Paulo")), INTERVAL 24 HOUR) THEN True
-            ELSE False
-            END AS active_in_last_24_hours
-        FROM lpr_collection_points t1
-        JOIN `rj-civitas-dev.cerco_digital.equipamentos` t2 USING (codigo_ponto_coleta) 
-        LEFT JOIN used_lpr_collection_points_deduplicated t3 ON t2.codigo_equipamento = t3.codigo_equipamento
-        )
-
-        SELECT * FROM selected_lpr_colletion_points
-        WHERE has_data
-        ORDER BY last_detection_time
+    SELECT
+        id_ponto_coleta,
+        origem_equipamento,
+        codigo_ponto_coleta,
+        local,
+        bairro,
+        sentido,
+        latitude,
+        longitude,
+        status_ativo,
+        datahora_ultima_leitura,
+        total_leituras,
+        ativo_ultimas_24h
+    FROM
+        `rj-civitas.cerco_digital.vw_ponto_coleta_lpr_agg`
     """
     bq_client = get_bigquery_client()
     df_positions: pd.DataFrame = bq_client.query(query).to_dataframe()

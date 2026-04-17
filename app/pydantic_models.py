@@ -337,7 +337,7 @@ class Token(BaseModel):
 
 class Location(BaseModel):
     datahora: datetime
-    codcet: str
+    id_ponto_coleta: str
     latitude: float
     longitude: float
     bairro: str | None = None
@@ -602,14 +602,16 @@ class RadarOut(BaseModel):
 class LprCollectionPointOut(BaseModel):
     id_ponto_coleta: str
     origem_equipamento: str
-    latitude: float
-    longitude: float
-    local_ponto_coleta: str
+    codigo_ponto_coleta: str
+    local: str
     bairro: str
     sentido: str
-    has_data: bool
-    active_in_last_24_hours: bool
-    last_detection_time: Optional[datetime] = None
+    latitude: float
+    longitude: float
+    status_ativo: str
+    datahora_ultima_leitura: datetime
+    total_leituras: int
+    ativo_ultimas_24h: bool
 
 
 class ReportFilters(BaseModel):
