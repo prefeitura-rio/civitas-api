@@ -8,6 +8,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=${DATABASE_NAME:-postgres}
+    env_file: ../.env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -49,7 +50,26 @@ services:
       redis:
         condition: service_started
     restart: unless-stopped
-    command: ["/bin/bash","-lc","poetry install --with dev && aerich upgrade && poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 80"]
+    # Wait for Docker embedded DNS + TCP: avoids intermittent getaddrinfo / name resolution
+    # failures right after postgres is healthy (depends_on does not guarantee API-side DNS).
+    command:
+      - /bin/bash
+      - -lc
+      - |
+          set -e
+          for i in $$(seq 1 60); do
+            if python -c "import socket; s=socket.create_connection(('postgres', 5432), timeout=2); s.close()" 2>/dev/null; then
+              echo "postgres is reachable"
+              break
+            fi
+            if [ "$$i" -eq 60 ]; then
+              echo "postgres not reachable after 60s (check Docker DNS / networks)" >&2
+              exit 1
+            fi
+            echo "waiting for postgres ($$i/60)..."
+            sleep 1
+          done
+          poetry install --with dev && aerich upgrade && poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 80
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:80/health', timeout=5).status==200 else sys.exit(1)\""]
       interval: 60s

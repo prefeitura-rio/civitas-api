@@ -337,10 +337,11 @@ class Token(BaseModel):
 
 class Location(BaseModel):
     datahora: datetime
-    codcet: str
+    id_ponto_coleta: str
     latitude: float
     longitude: float
-    bairro: str
+    bairro: str | None = None
+    sentido: str | None = None
     localidade: str
     velocidade: float
     seconds_to_next_point: Optional[float] = None
@@ -596,6 +597,21 @@ class RadarOut(BaseModel):
     active_in_last_24_hours: Optional[str] = None
     last_detection_time: Optional[datetime] = None
     sentido: Optional[str] = None
+    
+    
+class LprCollectionPointOut(BaseModel):
+    id_ponto_coleta: str
+    origem_equipamento: str
+    codigo_ponto_coleta: str
+    local: str
+    bairro: str
+    sentido: str
+    latitude: float
+    longitude: float
+    status_ativo: str
+    datahora_ultima_leitura: datetime
+    total_leituras: int
+    ativo_ultimas_24h: bool
 
 
 class ReportFilters(BaseModel):
@@ -804,8 +820,8 @@ class GetCarsByRadarIn:
         codcet: str = Query(
             ...,
             description="CODCET to get cars by",
-            min_length=10,
-            max_length=10,
+            # min_length=10,
+            # max_length=10,
         ),
         start_time: datetime = Query(
             ...,
