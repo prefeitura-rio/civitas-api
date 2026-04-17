@@ -7,6 +7,7 @@ from tortoise.exceptions import ValidationError
 from tortoise.models import Model
 from tortoise.signals import pre_save
 
+
 from app.enums import NotificationChannelTypeEnum
 
 

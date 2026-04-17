@@ -95,8 +95,38 @@ CORTEX_CPF_RATE_LIMIT = getenv_or_action("CORTEX_CPF_RATE_LIMIT", default="2/min
 # Tixxi
 TIXXI_CAMERAS_LIST_URL = getenv_or_action("TIXXI_CAMERAS_LIST_URL")
 
+# Gmail sync (opcional; requer credenciais OAuth quando ENABLE_EMAIL_SYNC=true)
+ENABLE_EMAIL_SYNC = (
+    getenv_or_action("ENABLE_EMAIL_SYNC", default="false").lower() == "true"
+)
+EMAIL_POLLING_INTERVAL_SECONDS = int(
+    getenv_or_action("EMAIL_POLLING_INTERVAL_SECONDS", default="300")
+)
+# Primeira carga (banco sem emails): janela Gmail newer_than:Xd na INBOX
+EMAIL_SYNC_INITIAL_NEWER_THAN_DAYS = int(
+    getenv_or_action("EMAIL_SYNC_INITIAL_NEWER_THAN_DAYS", default="5")
+)
+# Tamanho de cada página em users.messages.list (máx. 500 na API Gmail)
+EMAIL_SYNC_LIST_PAGE_SIZE = int(
+    getenv_or_action("EMAIL_SYNC_LIST_PAGE_SIZE", default="50")
+)
+GMAIL_REFRESH_TOKEN = getenv_or_action("GMAIL_REFRESH_TOKEN", default="", action="ignore")
+GMAIL_CLIENT_ID = getenv_or_action("GMAIL_CLIENT_ID", default="", action="ignore")
+GMAIL_CLIENT_SECRET = getenv_or_action("GMAIL_CLIENT_SECRET", default="", action="ignore")
+
+
+GMAIL_SCOPES = getenv_or_action(
+    "GMAIL_SCOPES",
+    default="https://www.googleapis.com/auth/gmail.readonly,https://www.googleapis.com/auth/gmail.send",
+    action="ignore",
+)
+
 # Assets directory
 ASSETS_DIR = Path(__file__).parent.parent / "assets"
+
+# Logo inline no e-mail HTML: arquivo fixo e CID fixo (substitui {{EMAIL_LOGO_CID}} no envio).
+EMAIL_TEMPLATE_DEFAULT_INLINE_LOGO = ASSETS_DIR / "logo_email.png"
+EMAIL_INLINE_LOGO_CID = "logo_email"
 
 # Vehicle types mapping
 VEHICLE_TYPES_MAPPING = {

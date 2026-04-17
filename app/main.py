@@ -28,7 +28,10 @@ from app.routers import (
     cameras_cor,
     cars,
     companies,
+    email_templates,
+    emails,
     gcs,
+    islands,
     layers,
     notification_channels,
     operations,
@@ -36,12 +39,19 @@ from app.routers import (
     people,
     radars,
     reports,
+    standardized_response_router,
+    teams,
     users,
+    users_roles,
     waze,
+    tickets,
+    tickets_natures,
+    tickets_types,
 )
 from app.utils import (
     register_tortoise,
 )
+from app.cron import email_sync as email_sync_cron
 
 logger.remove()
 logger.add(sys.stdout, level=config.LOG_LEVEL)
@@ -60,11 +70,12 @@ async def lifespan(app: FastAPI):
     async with register_tortoise(
         app, config=TORTOISE_ORM, generate_schemas=False, add_exception_handlers=True
     ):
+        await email_sync_cron.start_email_sync_background()
         yield
 
     # Run things on shutdown
     logger.info("Shutting down...")
-    # Do things here
+    await email_sync_cron.stop_email_sync_background()
     logger.info("Shutdown complete")
 
 
@@ -108,7 +119,15 @@ app.include_router(radars.router)
 app.include_router(reports.router)
 app.include_router(users.router)
 app.include_router(waze.router)
-
+app.include_router(tickets.router)
+app.include_router(tickets_natures.router)
+app.include_router(tickets_types.router)
+app.include_router(teams.router)
+app.include_router(users_roles.router)
+app.include_router(islands.router)
+app.include_router(email_templates.router)
+app.include_router(emails.router)
+app.include_router(standardized_response_router.router)
 # feature flag to enable GCS endpoints
 # author: Nicolas Evilasio
 # date: 2026-02-12

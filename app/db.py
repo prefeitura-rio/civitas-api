@@ -19,6 +19,8 @@ TORTOISE_ORM = {
             "models": [
                 "aerich.models",
                 "app.models",
+                "app.modules.tickets.domain.entities",
+               
             ],
             "default_connection": "default",
         },
